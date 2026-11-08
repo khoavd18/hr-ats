@@ -62,6 +62,10 @@ class ParseSkills(AIOutput):
         return list(dict.fromkeys(normalized))
 
 
+class ParsedCV(ParseBasic, ParseExperience, ParseSkills):
+    """Merged parse output; contact details never enter the LLM schema."""
+
+
 class CriterionJudgment(AIOutput):
     criterion: Text
     kind: Literal["must", "nice"]

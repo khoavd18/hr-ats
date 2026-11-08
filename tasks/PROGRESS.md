@@ -11,10 +11,97 @@
 | T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
 | T08 | done | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
 | T09 | done | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
-| T10–T33 | todo | | |
+| T10 | review | 2026-11-08 | VERIFIED: parse ba phần song song, dedupe email/SĐT/cosine và worker nguyên tử/idempotent; 586 test backend pass/12 skip OCR Windows, Linux offline 134 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T10, CI và merge. |
+| T11–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T10 · 2026-11-08 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md` trên nhánh
+`task/T10-parse-dedupe-pipeline`; T07/T08/T09 đã done và working tree sạch trước
+khi bắt đầu. Giữ review đến khi được duyệt và merge, chưa chuyển done.
+
+- Thêm `ai/parse.py`: render ba prompt T09 cùng version, gọi bằng
+  ThreadPoolExecutor ba thread, gộp `ParsedCV` và trả model/prompt_version.
+  Không đưa session DB vào thread, không nhân thêm retry; một phần lỗi thì
+  không trả parse thiếu phần. `ParseResult` không hiện nội dung trong repr.
+- Thêm `services/dedupe.py`: email lowercase, phone canonical từ redaction
+  cục bộ; xét mọi liên hệ, khớp nhiều người thì failed để kiểm tra thủ công.
+  Advisory transaction lock chung nối tìm + ghi, tránh hai file khác hash cùng
+  người tạo hai Candidate. Bỏ bản ghi đã xoá/đã gộp, giữ thông tin cũ khi field
+  mới null/mảng rỗng, cập nhật dữ liệu mới có giá trị, không tự sinh consent.
+- Worker thật đọc storage → extract → che liên hệ → parse → ghi Candidate/file
+  và metadata → hook T11/T12 → done. Row lock và savepoint giữ thao tác nguyên tử;
+  lỗi từng bước rollback dữ liệu dở rồi lưu failed/lỗi Việt cố định, không ghi
+  exception gốc. Delivery done/failed bỏ qua; crash rollback để redelivery tiếp
+  tục. `running` chỉ flush nên reader có thể thấy pending đến khi commit.
+- Retention tính ngày theo TZ, cộng DATA_RETENTION_MONTHS tháng lịch dương,
+  xử lý cuối tháng/năm nhuận. Tên thiếu giữ null trong parsed_json, Candidate dùng
+  nhãn Chưa xác định. Hook ẩn danh/embedding/application/chấm điểm vẫn rỗng đúng
+  phạm vi T10; không đổi stage hay gửi email. Khi hook T11 có vector, CV không
+  liên hệ được xét tên chuẩn hoá + cosine > 0.95; chỉ ghi UUID gợi ý vào
+  `parsed_json.possible_duplicate_of`, không tự gộp.
+- Sửa quyền phát sinh từ việc gắn Candidate: uploader vẫn đọc đúng file riêng
+  không gắn Job sau parse; không mở file khác cùng người hoặc vượt scope Job.
+  Spec 03/04/07/08, README và câu hỏi #41–#45 mô tả contract/default này.
+  Không thêm dependency, migration/schema DB, dịch vụ hoặc frontend.
+- Bộ test T07 vẫn giữ mọi assertion; fixture upload/quyền cung cấp kết quả extract
+  giả rõ ràng vì có ảnh trắng 10px/PDF ngắn dùng để test storage/queue. Test worker
+  đồng thời dùng PDF giả đầy đủ thay fixture ngắn, storage và DB kết nối độc lập.
+  Các test pipeline T10 mới dùng PDF/DOCX thật từ bộ giả đã commit, không mock
+  extract. Toàn bộ test chặn mạng ngoài, chỉ FakeLLM/DB local/OCR local.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Upload 10 CV mẫu → 10 ứng viên, email/SĐT đúng nhãn | VERIFIED — đạt | `test_upload_ten_labeled_cvs_dedupe_cross_format_and_isolate_corruption`: HTTP upload 10 PDF/DOCX giả → local storage → extract thật → FakeLLM → PostgreSQL; đối chiếu đủ 10 nhãn và phone +84; kiểm metadata/retention/không sinh consent, liên hệ không vào ba request parse hoặc log INFO |
+| CV khác định dạng cùng email không tạo ứng viên mới | VERIFIED — đạt | Cùng test: PDF đầu → DOCX mới cùng email viết hoa, cùng candidate_id và vẫn 10 người, cập nhật chức danh/kỹ năng/kinh nghiệm; thêm test phone-only canonical, giữ field/consent cũ và SHA-256/delivery lặp không parse lại |
+| Một file hỏng chỉ file đó failed | VERIFIED — đạt | PDF hỏng đặt giữa lô 11 file: đúng một failed, 10 done. Bảy test lỗi từng bước, lỗi constraint DB/LLM/OCR, rollback revision và identity conflict không để Candidate dở hoặc ảnh hưởng file tiếp theo |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass; giữ dịch vụ/volume dev có sẵn.
+- Tại backend: `uv sync`: pass, 74 package resolve/73 package kiểm tra;
+  manifest/lockfile không đổi. `uv run alembic upgrade head`: pass, head vẫn
+  `0003_core_data_model`; test DB trống/rollback/schema comparison cũ vẫn pass.
+- `uv run pytest`: lượt cuối **586 passed, 12 skipped, 1 warning** (598 thu thập,
+  tăng 43 test so với T09). 12 skip chỉ là OCR T08 do Windows không có Tesseract;
+  không thêm skip hoặc giảm điều kiện test. Bao gồm test hai upload trùng hash,
+  hai file khác hash cùng liên hệ, hai delivery pending cùng ID chỉ parse một lần,
+  crash/redelivery trên DB tạm đã migrate với commit/kết nối PostgreSQL thật.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 96 file đã format;
+  `uv run mypy app`: pass, 57 source file.
+- `uv run pytest tests/unit/test_parse.py tests/unit/test_cv_retention.py tests/api/test_dedupe.py tests/api/test_cv_pipeline.py tests/api/test_cv_worker.py --cov=app.ai.parse --cov=app.services.dedupe --cov=app.workers.tasks --cov-report=term-missing -q`:
+  **43 passed**, coverage dòng/nhánh **99%** (parse 100%, dedupe 100%, worker 98%).
+  Sau lượt đo bổ sung test identity conflict qua pipeline và siết capture INFO;
+  toàn bộ có trong lượt full suite cuối trên. Không đặt ngưỡng coverage mới.
+- Linux image OCR T08 đã có, không tải dependency, repo chỉ đọc/mạng tắt:
+  `docker run --rm --network none --mount type=bind,source=D:/code/tool/hr-ats,target=/workspace,readonly -w /workspace/backend -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/t10-linux.coverage hr-ats-t08-ocr uv run --no-sync pytest tests/unit/test_parse.py tests/unit/test_cv_retention.py tests/unit/test_extract.py tests/unit/test_redact.py -q -o cache_dir=/tmp/t10-pytest-cache`:
+  **134 passed/0 skipped**, gồm OCR thật trên 10 scan và hai ảnh T08.
+  Cùng image/network/mount: `uv run --no-sync mypy --cache-dir=/tmp/t10-mypy-cache app`
+  pass 57 file trên Linux. Mã app giữ nguyên sau các lượt Linux này.
+- `git diff --check`: pass. Tự review theo secure-code-review: trace byte/CV qua
+  storage/extract → redaction → JSON parse → query parameterized; không log CV,
+  liên hệ, provider/DB exception; không shell/fetch từ input; quyền file sau parse
+  có test hai recruiter không đọc chéo. Không còn finding đã xác nhận trong phạm
+  vi T10. Dependency không đổi; audit vulnerability riêng NOT TESTED (môi trường
+  không có pip-audit). Cảnh báo Starlette/httpx #13 giữ nguyên.
+- Sandbox ban đầu chặn ghi git ref, cache uv và Docker pipe; chạy lại thao tác
+  cần thiết qua quyền công cụ được cấp rồi pass, không sửa fixture để né quyền.
+
+File chính: `backend/app/ai/{parse,schemas}.py`, `backend/app/services/dedupe.py`,
+`backend/app/workers/tasks.py`, `backend/app/core/{config,permissions}.py`,
+`backend/tests/{unit/test_parse,unit/test_cv_retention,api/test_dedupe,api/test_cv_pipeline,api/test_cv_worker}.py`,
+spec 03/04/07/08, open-questions, README và PROGRESS.
+
+ASSUMED: mặc định #41–#45 đã ghi rõ. NOT TESTED: provider/model/key thật, tải lớn,
+CI remote (chưa push), review độc lập. Không đổi frontend nên không chạy lại
+frontend/E2E UI. Chính sách parse dữ liệu thật/provider ở #40 vẫn UNKNOWN trước
+production; toàn bộ nghiệm thu T10 dùng dữ liệu giả. Việc T11/T12 nối hook thuộc
+task tiếp theo, không chặn tiêu chí T10. Chờ Review T10, CI xanh và merge.
 
 ## T09 · 2026-11-08 · review
 

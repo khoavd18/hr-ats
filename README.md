@@ -158,7 +158,7 @@ Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 
 Lệnh chính xác nằm trong `docs/specs/08-testing-quality.md`. Test dùng adapter giả và không gọi mạng bên ngoài.
 
-### Upload và worker T07
+### Upload và worker T07/T10
 
 Tại `backend/`, chạy worker bên cạnh API (cùng `.env`, DB và storage):
 
@@ -172,7 +172,9 @@ uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P so
 
 Mặc định `STORAGE_BACKEND=local` lưu tại `var/storage` ở gốc repo, key ngẫu nhiên. GET trạng thái và download qua API có kiểm quyền/audit; storage không public. S3 dùng boto3 với `S3_BUCKET` có sẵn, endpoint/credential từ biến S3; không cần bật MinIO để dùng/test M1. Các test S3 dùng Stubber offline; runtime S3 được hoãn theo câu hỏi #8.
 
-Worker T07 **chỉ đặt trạng thái `done`**, chưa đọc/parse/chấm CV; pipeline thật thuộc T10. Upload mới trả snapshot `pending`, GET `/api/v1/cv-files/{id}` phản ánh trạng thái hiện tại; download thêm `/download`. SHA-256 trùng trả cùng ID sau kiểm quyền, không đổi Job/uploader và không tạo thêm file/activity. Nếu publish Redis lỗi, record chuyển `failed`; upload lại cùng file để thử xếp hàng lại. Crash đúng khoảng giữa commit và publish có thể để file ở `pending`; chưa có outbox/reconciliation trong T07, cần kiểm tra vận hành trước production. Dev/test không dùng CV thật.
+Worker T10 đọc storage → trích text → che email/SĐT → gọi ba phần parse song song → tạo/cập nhật ứng viên → `done`; lỗi từng file chuyển `failed` với thông báo tiếng Việt. Mỗi kết quả có model/version; email lowercase và SĐT canonical lấy cục bộ. Hai CV khác định dạng cùng email/SĐT gắn cùng ứng viên; thời hạn lưu cộng `DATA_RETENTION_MONTHS` tháng lịch theo `TZ`, không tự sinh bằng chứng đồng ý. Bước ẩn danh/embedding/application/chấm điểm có hook cho T11/T12; nghi trùng theo tên/cosine chỉ có khi hook cung cấp embedding.
+
+Upload mới trả snapshot `pending`, GET `/api/v1/cv-files/{id}` phản ánh trạng thái hiện tại; download thêm `/download`. Worker giữ transaction đến cuối nên trạng thái có thể vẫn `pending` trong khi đang xử lý. SHA-256 trùng trả cùng ID sau kiểm quyền, không đổi Job/uploader và không tạo thêm file/activity. Nếu publish Redis lỗi, record chuyển `failed`; upload lại cùng file để thử xếp hàng lại. Lỗi parse không tự được xếp hàng lại khi upload cùng hash. Crash đúng khoảng giữa commit và publish có thể để file ở `pending`; chưa có outbox/reconciliation, cần kiểm tra vận hành trước production. Dev/test dùng CV giả; điều kiện dữ liệu thật/provider ở câu hỏi #40 chưa được chốt.
 
 `APP_ENV=test` cấu hình eager/memory theo [Celery configuration](https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-always-eager); suite vẫn kiểm worker trên kết nối PostgreSQL riêng và upload đồng thời. T07 không đổi schema; rollback code cần dừng API/worker, giữ DB và storage, không xoá file đã nhận. Chờ review độc lập và CI xanh trước merge.
 
@@ -218,7 +220,7 @@ trả lỗi bắt được `ExtractionError` với thông báo **"Máy chủ ch�
 thiếu ngôn ngữ/lỗi OCR có thông báo tiếng Việt chung, không phản chiếu stderr.
 `OCR_ENABLED=false` vẫn đọc PDF kỹ thuật số/DOCX, nhưng file cần OCR báo chưa bật.
 Text rỗng báo "Không đọc được nội dung CV". T10 chịu trách nhiệm bắt lỗi từng file
-và lưu trạng thái `failed`; T08 chưa thay worker placeholder T07.
+và lưu trạng thái `failed`; các hàm extract/redact T08 không tự ghi DB.
 
 ASSUMED (giới hạn xử lý T08): tối đa 100 trang PDF, 25 triệu pixel/trang OCR hoặc
 ảnh đầu vào, timeout 60 giây/lần OCR. Tái sử dụng kiểm tra file 10 MiB và an toàn
@@ -273,7 +275,7 @@ mã/thông báo cố định, script exit 1. Không tự chọn model hay đổi
 
 NOT TESTED: kết nối provider/model thật. Nhà cung cấp/model được duyệt và giá tiền
 vẫn UNKNOWN trong [LLM contract](docs/ml/llm-contract.md); người vận hành chủ động
-thử dữ liệu giả với key riêng. T09 chưa nối pipeline CV; cần chốt chính sách parse
+thử dữ liệu giả với key riêng. Pipeline T10 dùng adapter này; cần chốt chính sách parse
 dữ liệu thật theo câu hỏi #40 trước production. Contract render/schema và cách
 lưu client.model/prompt.prompt_version cho T10/T12: [spec 04](docs/specs/04-ai-pipeline.md).
 

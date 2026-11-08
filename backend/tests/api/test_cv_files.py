@@ -8,6 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 from sqlalchemy import func, select
 
+from app.ai.extract import ExtractResult
 from app.api.cv_files import storage_dependency
 from app.core.errors import AppError
 from app.core.security import hash_password
@@ -21,7 +22,7 @@ from app.models import (
     Job,
     JobMember,
 )
-from app.models.enums import ActivityType, HiringUnitKind, ProcessingStatus
+from app.models.enums import ActivityType, ExtractionMethod, HiringUnitKind, ProcessingStatus
 from app.models.users import User, UserRole
 from app.services import cv_files as cv_service
 from app.services.cv_files import QUEUE_ERROR
@@ -44,6 +45,19 @@ def cv_runtime(app, db_session, tmp_path, monkeypatch):
         yield db_session
 
     monkeypatch.setattr(tasks, "worker_session", worker_session)
+    monkeypatch.setattr(tasks, "build_storage", lambda settings: storage)
+    # T07 tests upload/access/queue behaviour, including a blank 10px image.
+    # Supply an explicit extraction outcome here; T10's pipeline suite exercises
+    # real extraction and rejects corrupt/empty documents independently.
+    monkeypatch.setattr(
+        tasks,
+        "extract_text",
+        lambda data, mime: ExtractResult(
+            text="Họ tên: Ứng viên mô phỏng\nKỹ năng: Python",
+            method=ExtractionMethod.pdf_text,
+            page_count=1,
+        ),
+    )
     return storage
 
 
