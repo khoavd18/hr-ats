@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0010",
+  "file_name": "cv_0010.docx",
+  "layout": "avatar",
+  "language": "vi",
+  "career": "marketing",
+  "region": "central",
+  "gender": "Nữ",
+  "full_name": "Võ Thanh Thảo",
+  "email": "cv_0010@example.com",
+  "phone": "0900 000 009",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 10, Đường Mô Phỏng, Khu central",
+  "current_title": "Chuyên viên marketing",
+  "years_experience": 2,
+  "skills": [
+    "content marketing",
+    "seo"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Chuyên viên marketing",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Truyền thông",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "medium"
+  }
+}

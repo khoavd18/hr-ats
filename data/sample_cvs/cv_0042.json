@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0042",
+  "file_name": "cv_0042.pdf",
+  "layout": "scan",
+  "language": "vi",
+  "career": "hr",
+  "region": "south",
+  "gender": "Nữ",
+  "full_name": "Lê Mỹ Duyên",
+  "email": "cv_0042@example.com",
+  "phone": "0900 000 041",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 42, Đường Mô Phỏng, Khu south",
+  "current_title": "Chuyên viên nhân sự",
+  "years_experience": 1,
+  "skills": [
+    "recruitment"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Chuyên viên nhân sự",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Điều phối lịch phỏng vấn, hỗ trợ hội nhập và tổng hợp báo cáo nhân sự."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Cử nhân",
+      "major": "Quản trị nhân lực",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

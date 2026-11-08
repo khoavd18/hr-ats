@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0033",
+  "file_name": "cv_0033.docx",
+  "layout": "table",
+  "language": "vi",
+  "career": "frontend",
+  "region": "central",
+  "gender": "Nam",
+  "full_name": "Võ Nhật Huy",
+  "email": "cv_0033@example.com",
+  "phone": "0900 000 032",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 33, Đường Mô Phỏng, Khu central",
+  "current_title": "Lập trình viên frontend",
+  "years_experience": 6,
+  "skills": [
+    "javascript",
+    "react",
+    "typescript",
+    "css",
+    "accessibility"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Đồi Lam",
+      "title": "Lập trình viên frontend",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    },
+    {
+      "company": "Công ty Giả lập Mầm Bạc",
+      "title": "Lập trình viên frontend",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Kỹ thuật phần mềm",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "high",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

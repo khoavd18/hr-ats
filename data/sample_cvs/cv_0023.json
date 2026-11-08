@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0023",
+  "file_name": "cv_0023.docx",
+  "layout": "english",
+  "language": "en",
+  "career": "frontend",
+  "region": "south",
+  "gender": "Nam",
+  "full_name": "Trương Minh Khang",
+  "email": "cv_0023@example.com",
+  "phone": "0900 000 022",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 23, Đường Mô Phỏng, Khu south",
+  "current_title": "Frontend developer",
+  "years_experience": 1,
+  "skills": [
+    "javascript"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "Frontend developer",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Developed inventory interfaces, validated forms and supported mobile screens."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Bachelor",
+      "major": "Software engineering",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

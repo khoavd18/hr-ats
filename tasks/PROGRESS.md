@@ -7,10 +7,46 @@
 | T03 | done | 2026-11-08 | VERIFIED: khung frontend Next.js 15, sáu trang tiếng Việt, API client và bộ component; 39 test pass, lint/typecheck/build sạch, smoke Chromium 1280px đạt. Chờ review và merge. |
 | T04 | done | 2026-11-08 | VERIFIED: auth cookie JWT/CSRF, Argon2id, khoá đăng nhập, CLI admin và quản lý người dùng; 152 test backend, 47 test frontend, 2 E2E pass. Chờ Review T04 và merge. |
 | T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
-| T06–T33 | todo | | |
+| T06 | review | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
+| T07–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T06 · 2026-11-08 · review
+
+VERIFIED: triển khai đúng phạm vi T06 theo `tasks/_implement.md` trên nhánh `task/T06-synthetic-vietnamese-cvs`; T01 đã `done`, working tree sạch trước khi bắt đầu. Hoàn thành triển khai, giữ trạng thái `review` đến khi được duyệt và merge vào main.
+
+- Bộ sinh `eval/generate_synthetic_cvs.py` chạy offline qua uv, có `--count`, `--seed`, `--out`. Nguồn giả gồm tên nam/nữ trong ba nhóm vùng miền, trường/công ty ghi rõ Mô phỏng/Giả lập, sáu nhóm nghề backend/frontend/kế toán/kinh doanh/marketing/nhân sự. Email chỉ `@example.com`, SĐT mẫu `09xx 000 xxx`; không lấy dữ liệu người thật, gọi provider hay ghi trường CV/liên hệ vào log.
+- Sinh sẵn **60 CV** (35 PDF, 25 DOCX), mỗi bố cục 10 CV: một cột, hai cột, bảng, khối màu đại diện giả, tiếng Anh, PDF scan chỉ có ảnh với xoay nhẹ/nhiễu có seed. Tổng `data/sample_cvs/` **9.762.667 byte**, dưới 30 MB. Tên/trường/liên hệ/kỹ năng/kinh nghiệm/học vấn trong tài liệu số được test đối chiếu với nhãn.
+- Contract fixture version 1 trong `eval/schemas.py`: 60 file `<id>.json` đủ dữ liệu parse, năm Job trong `jobs.json` và **300** nhãn `expected_level`; ma trận ở jobs và từng CV khớp nhau. Nhãn gồm 270 low, 15 medium, 15 high. Giữ schema parse production/quy tắc scoring ở các task sau; các kịch bản nhãn giả chưa phải nhãn chuyên gia HR.
+- Metadata/ngày tham chiếu/random cố định, ZIP DOCX chuẩn hoá timestamp/thứ tự entry. Commit Noto Sans chính thức kèm OFL; PDF nhúng toàn bộ font và khối ảnh DOCX dùng BMP để giữ byte giữa Windows/Linux. Thư mục output có dữ liệu không khớp bị từ chối, không tự xoá file cũ. CLI lỗi schema dùng thông báo chung để không phản chiếu input.
+- Thêm đúng ba dependency theo T06: python-docx, PyMuPDF, Pillow (lxml phụ thuộc của python-docx), cập nhật uv.lock; pytest import được package eval ở gốc repo. CI lint cả eval ngoài backend. Hướng dẫn tại eval/README.md và README; cập nhật contract fixture/spec kiểm thử ở spec 04/08 và mặc định #27–#29. Không đổi DB/API/UI/KPI hoặc skill thư viện.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Cùng seed cho kết quả giống hệt | VERIFIED — đạt | `test_same_seed_reproduces_every_committed_byte` so SHA-256 **121 file** sau sinh lại với fixture; seed 17 sinh hai thư mục khớp byte cả DOCX/scan, đổi seed 18 đổi kết quả. 22 test dữ liệu trên Linux cũng pass với chính fixture Windows và cùng uv.lock. CLI qua uv sinh bộ riêng ở var/ được so SHA-256: 121 file, 0 lệch |
+| Mọi email @example.com; không có công ty thật nổi tiếng | VERIFIED — đạt | Test validate cả 60 nhãn, email/phone duy nhất, phone đúng mẫu; tất cả employer thuộc danh sách cố định sáu tên `Công ty Giả lập ...`. Test đọc lại nội dung 50 CV số xác nhận các trường liên hệ/công ty trong tài liệu khớp nhãn |
+| Mỗi CV có nhãn tương ứng, nhãn hợp lệ theo schema | VERIFIED — đạt | `test_committed_cvs_have_valid_matching_labels_and_complete_job_matrix`: đủ 60 cặp CV/JSON, đúng năm Job và 300 nhãn hợp lệ/khớp; test schema từ chối giá trị sai, file ID sai, trường thừa, matrix thiếu hoặc Job trùng. `uv run pytest`: **248 passed**, gồm **23** test T06 |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass; giữ nguyên dịch vụ/volume dev có sẵn.
+- `uv sync`: pass, 69 package resolve/68 package kiểm tra, manifest/lockfile đồng bộ.
+- `uv run alembic upgrade head`: pass trên DB local, giữ head `0003_core_data_model`; T06 không có migration mới. Suite kiểm chứng migration DB trống/rollback và schema cũ vẫn pass.
+- `uv run python ../eval/generate_synthetic_cvs.py --count 60 --seed 20261108 --out ../var/t06-cli-samples`: pass tại backend; đối chiếu SHA-256 với data/sample_cvs: **121 file, 0 khác biệt**. Bộ commit được sinh bằng cùng script/count/seed vào data/sample_cvs.
+- `uv run pytest`: lượt cuối **248 passed, 1 warning**, không skip; PostgreSQL/Redis localhost thật cho test cũ, T06 dùng file giả cục bộ và chặn mạng ngoài. Warning upstream Starlette/httpx được giữ nguyên.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 61 file đã format. `uv run ruff check ../eval`, `uv run ruff format --check ../eval`: pass, 4 file đã format. `uv run mypy app`: pass, 37 file.
+- Linux: `docker run --rm` dùng image `ghcr.io/astral-sh/uv:python3.12-bookworm-slim` (digest `sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58`), repo mount chỉ đọc, venv/cache trong /tmp; `uv sync --frozen` chuẩn bị dependency, sau đó `uv run --offline pytest tests/unit/test_synthetic_cvs.py -q`: **22 passed, 1 warning**, gồm so byte mọi fixture với Windows. Lượt này trước khi thêm test lỗi CLI cuối; thay đổi lỗi CLI không đổi byte CV/JSON.
+- Lượt đầu 20/22 test pass: test đọc text phát hiện font CJK thiếu glyph tiếng Việt và scan bị thiếu nét; sửa bằng Noto Sans có giấy phép, không giảm test. Đối chiếu Linux đầu phát hiện 30 file khác byte do tag font subset và nén PNG của Pillow; sửa nhúng font đầy đủ/BMP, sau đó toàn bộ 22 test dữ liệu Linux pass. Một lần chuẩn bị Linux lỗi rename cache trên mount Windows; chuyển cache vào /tmp thành công. Test hồi quy lỗi CLI ban đầu tái hiện input bị phản chiếu; thêm xử lý ValidationError chung, lượt cuối 248 test pass.
+- `git diff --check`: sạch. Kiểm UTF-8 không BOM/LF/newline cuối cho 65 file code/test/doc/JSON trọng tâm: pass. Kiểm bổ sung nguồn employer/email trên 60 nhãn: pass. Quan sát bản render PDF hai cột/bảng/scan sau sửa font: đọc được tiếng Việt, scan có nghiêng/nhiễu.
+- Tự review diff: đúng scope T06, toàn bộ CV/liên hệ/employer là dữ liệu sinh giả, font kèm license, không secret/dữ liệu thật/provider hay thay đổi test cũ để giảm tiêu chí; thông báo CLI không phản chiếu CV. Không còn finding đã xác nhận chưa xử lý.
+
+File chính: `eval/generate_synthetic_cvs.py`, `eval/schemas.py`, `eval/README.md`, `eval/assets/{NotoSans-Regular.ttf,OFL.txt}`, `data/sample_cvs/*`, `backend/tests/unit/test_synthetic_cvs.py`, `backend/{pyproject.toml,uv.lock}`, `.github/workflows/ci.yml`, README, spec 04/08, open-questions và PROGRESS.
+
+ASSUMED: mặc định nhỏ #27–#29 đã ghi rõ; không có blocker. NOT TESTED: CI remote (chưa push), review độc lập, OCR thật (T08), bộ đánh giá AI production (T31), nhãn chuyên gia, hình thức DOCX giữa các trình đọc và khả năng giữ byte sau nâng dependency/nền tảng khác. Frontend/E2E không bị ảnh hưởng nên không chạy lại. Chờ `Review T06`, CI xanh và merge; chưa chuyển task sang `done`.
 
 ## T05 · 2026-11-08 · review
 

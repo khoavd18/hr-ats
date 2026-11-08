@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0047",
+  "file_name": "cv_0047.docx",
+  "layout": "english",
+  "language": "en",
+  "career": "hr",
+  "region": "south",
+  "gender": "Nam",
+  "full_name": "Trương Minh Khang",
+  "email": "cv_0047@example.com",
+  "phone": "0900 000 046",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 47, Đường Mô Phỏng, Khu south",
+  "current_title": "HR specialist",
+  "years_experience": 2,
+  "skills": [
+    "recruitment",
+    "onboarding"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "HR specialist",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Coordinated interviews, supported onboarding and prepared HR reports."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Bachelor",
+      "major": "Human resource management",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

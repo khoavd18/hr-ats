@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0024",
+  "file_name": "cv_0024.pdf",
+  "layout": "scan",
+  "language": "vi",
+  "career": "accounting",
+  "region": "south",
+  "gender": "Nữ",
+  "full_name": "Trương Kim Ngân",
+  "email": "cv_0024@example.com",
+  "phone": "0900 000 023",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 24, Đường Mô Phỏng, Khu south",
+  "current_title": "Nhân viên kế toán",
+  "years_experience": 1,
+  "skills": [
+    "bookkeeping"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Đồi Lam",
+      "title": "Nhân viên kế toán",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Đối chiếu công nợ, nhập chứng từ và lập báo cáo thu chi hằng tháng."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Cử nhân",
+      "major": "Kế toán",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

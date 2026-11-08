@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0018",
+  "file_name": "cv_0018.pdf",
+  "layout": "scan",
+  "language": "vi",
+  "career": "frontend",
+  "region": "south",
+  "gender": "Nữ",
+  "full_name": "Lê Mỹ Duyên",
+  "email": "cv_0018@example.com",
+  "phone": "0900 000 017",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 18, Đường Mô Phỏng, Khu south",
+  "current_title": "Lập trình viên frontend",
+  "years_experience": 6,
+  "skills": [
+    "javascript",
+    "react",
+    "typescript",
+    "css",
+    "accessibility"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "Lập trình viên frontend",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    },
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Lập trình viên frontend",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Cử nhân",
+      "major": "Kỹ thuật phần mềm",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "high",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

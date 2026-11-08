@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0014",
+  "file_name": "cv_0014.pdf",
+  "layout": "two_column",
+  "language": "vi",
+  "career": "sales",
+  "region": "north",
+  "gender": "Nữ",
+  "full_name": "Nguyễn Thu Hà",
+  "email": "cv_0014@example.com",
+  "phone": "0900 000 013",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 14, Đường Mô Phỏng, Khu north",
+  "current_title": "Nhân viên kinh doanh",
+  "years_experience": 6,
+  "skills": [
+    "b2b sales",
+    "crm",
+    "negotiation",
+    "forecasting",
+    "account management"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mầm Bạc",
+      "title": "Nhân viên kinh doanh",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Tư vấn khách hàng doanh nghiệp, cập nhật cơ hội và theo dõi hợp đồng."
+    },
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "Nhân viên kinh doanh",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Tư vấn khách hàng doanh nghiệp, cập nhật cơ hội và theo dõi hợp đồng."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Quản trị kinh doanh",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "high",
+    "job_marketing": "low"
+  }
+}

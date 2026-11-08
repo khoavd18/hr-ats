@@ -1,0 +1,500 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "seed": 20261108,
+  "reference_date": "2026-01-01",
+  "jobs": [
+    {
+      "id": "job_backend",
+      "title": "Lập trình viên backend",
+      "description": "Vị trí tại đơn vị giả lập. Xây dựng API quản lý đơn hàng; viết kiểm thử và tối ưu truy vấn dữ liệu.",
+      "must_have": [
+        "python",
+        "sql",
+        "Ít nhất 3 năm kinh nghiệm liên quan"
+      ],
+      "nice_to_have": [
+        "fastapi",
+        "docker"
+      ]
+    },
+    {
+      "id": "job_frontend",
+      "title": "Lập trình viên frontend",
+      "description": "Vị trí tại đơn vị giả lập. Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại.",
+      "must_have": [
+        "javascript",
+        "react",
+        "Ít nhất 3 năm kinh nghiệm liên quan"
+      ],
+      "nice_to_have": [
+        "typescript",
+        "css"
+      ]
+    },
+    {
+      "id": "job_accounting",
+      "title": "Nhân viên kế toán",
+      "description": "Vị trí tại đơn vị giả lập. Đối chiếu công nợ, nhập chứng từ và lập báo cáo thu chi hằng tháng.",
+      "must_have": [
+        "bookkeeping",
+        "excel",
+        "Ít nhất 3 năm kinh nghiệm liên quan"
+      ],
+      "nice_to_have": [
+        "tax reporting",
+        "reconciliation"
+      ]
+    },
+    {
+      "id": "job_sales",
+      "title": "Nhân viên kinh doanh",
+      "description": "Vị trí tại đơn vị giả lập. Tư vấn khách hàng doanh nghiệp, cập nhật cơ hội và theo dõi hợp đồng.",
+      "must_have": [
+        "b2b sales",
+        "crm",
+        "Ít nhất 3 năm kinh nghiệm liên quan"
+      ],
+      "nice_to_have": [
+        "negotiation",
+        "forecasting"
+      ]
+    },
+    {
+      "id": "job_marketing",
+      "title": "Chuyên viên marketing",
+      "description": "Vị trí tại đơn vị giả lập. Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm.",
+      "must_have": [
+        "content marketing",
+        "seo",
+        "Ít nhất 3 năm kinh nghiệm liên quan"
+      ],
+      "nice_to_have": [
+        "analytics",
+        "copywriting"
+      ]
+    }
+  ],
+  "expected_level": {
+    "cv_0001": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0002": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0003": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0004": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0005": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0006": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0007": {
+      "job_backend": "low",
+      "job_frontend": "medium",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0008": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "medium",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0009": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "medium",
+      "job_marketing": "low"
+    },
+    "cv_0010": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "medium"
+    },
+    "cv_0011": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0012": {
+      "job_backend": "medium",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0013": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "high",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0014": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "high",
+      "job_marketing": "low"
+    },
+    "cv_0015": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "high"
+    },
+    "cv_0016": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0017": {
+      "job_backend": "high",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0018": {
+      "job_backend": "low",
+      "job_frontend": "high",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0019": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0020": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0021": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0022": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0023": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0024": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0025": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "medium"
+    },
+    "cv_0026": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0027": {
+      "job_backend": "medium",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0028": {
+      "job_backend": "low",
+      "job_frontend": "medium",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0029": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "medium",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0030": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "medium",
+      "job_marketing": "low"
+    },
+    "cv_0031": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0032": {
+      "job_backend": "high",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0033": {
+      "job_backend": "low",
+      "job_frontend": "high",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0034": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "high",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0035": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "high",
+      "job_marketing": "low"
+    },
+    "cv_0036": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "high"
+    },
+    "cv_0037": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0038": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0039": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0040": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0041": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0042": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0043": {
+      "job_backend": "low",
+      "job_frontend": "medium",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0044": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "medium",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0045": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "medium",
+      "job_marketing": "low"
+    },
+    "cv_0046": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "medium"
+    },
+    "cv_0047": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0048": {
+      "job_backend": "medium",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0049": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "high",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0050": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "high",
+      "job_marketing": "low"
+    },
+    "cv_0051": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "high"
+    },
+    "cv_0052": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0053": {
+      "job_backend": "high",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0054": {
+      "job_backend": "low",
+      "job_frontend": "high",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0055": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0056": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0057": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0058": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0059": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    },
+    "cv_0060": {
+      "job_backend": "low",
+      "job_frontend": "low",
+      "job_accounting": "low",
+      "job_sales": "low",
+      "job_marketing": "low"
+    }
+  }
+}

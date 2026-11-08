@@ -161,3 +161,5 @@ Lệnh chính xác nằm trong `docs/specs/08-testing-quality.md`. Test dùng ad
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.
+
+T06 có sẵn 60 CV giả DOCX/PDF cùng nhãn parse và năm Job mẫu, gồm sáu nhóm nghề, sáu bố cục và PDF scan có nhiễu. Sinh lại tại `backend/` bằng `uv run python ../eval/generate_synthetic_cvs.py --count 60 --seed 20261108 --out ../data/sample_cvs`. Không cần API key hoặc mạng khi sinh; dùng dependency trong lockfile và font OFL đã commit. Hướng dẫn schema, kịch bản nhãn và kiểm tra tái lập ở [eval/README.md](eval/README.md).

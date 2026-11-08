@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0011",
+  "file_name": "cv_0011.docx",
+  "layout": "english",
+  "language": "en",
+  "career": "hr",
+  "region": "south",
+  "gender": "Nam",
+  "full_name": "Lê Thành Đạt",
+  "email": "cv_0011@example.com",
+  "phone": "0900 000 010",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 11, Đường Mô Phỏng, Khu south",
+  "current_title": "HR specialist",
+  "years_experience": 2,
+  "skills": [
+    "recruitment",
+    "onboarding"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "HR specialist",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Coordinated interviews, supported onboarding and prepared HR reports."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Bachelor",
+      "major": "Human resource management",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

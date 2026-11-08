@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0017",
+  "file_name": "cv_0017.pdf",
+  "layout": "english",
+  "language": "en",
+  "career": "backend",
+  "region": "south",
+  "gender": "Nam",
+  "full_name": "Trương Minh Khang",
+  "email": "cv_0017@example.com",
+  "phone": "0900 000 016",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 17, Đường Mô Phỏng, Khu south",
+  "current_title": "Backend developer",
+  "years_experience": 6,
+  "skills": [
+    "python",
+    "sql",
+    "fastapi",
+    "docker",
+    "redis"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Backend developer",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Built order management APIs, wrote tests and improved database queries."
+    },
+    {
+      "company": "Công ty Giả lập Đồi Lam",
+      "title": "Backend developer",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Built order management APIs, wrote tests and improved database queries."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Bachelor",
+      "major": "Information technology",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "high",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

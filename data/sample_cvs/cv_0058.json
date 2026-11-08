@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0058",
+  "file_name": "cv_0058.docx",
+  "layout": "avatar",
+  "language": "vi",
+  "career": "backend",
+  "region": "central",
+  "gender": "Nữ",
+  "full_name": "Hoàng Thị Huế",
+  "email": "cv_0058@example.com",
+  "phone": "0900 000 057",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 58, Đường Mô Phỏng, Khu central",
+  "current_title": "Lập trình viên backend",
+  "years_experience": 1,
+  "skills": [
+    "python"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Lập trình viên backend",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Xây dựng API quản lý đơn hàng; viết kiểm thử và tối ưu truy vấn dữ liệu."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Công nghệ thông tin",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

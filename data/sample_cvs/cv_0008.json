@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0008",
+  "file_name": "cv_0008.docx",
+  "layout": "two_column",
+  "language": "vi",
+  "career": "accounting",
+  "region": "north",
+  "gender": "Nữ",
+  "full_name": "Trần Ngọc Mai",
+  "email": "cv_0008@example.com",
+  "phone": "0900 000 007",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 8, Đường Mô Phỏng, Khu north",
+  "current_title": "Nhân viên kế toán",
+  "years_experience": 2,
+  "skills": [
+    "bookkeeping",
+    "excel"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "Nhân viên kế toán",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Đối chiếu công nợ, nhập chứng từ và lập báo cáo thu chi hằng tháng."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Kế toán",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "medium",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

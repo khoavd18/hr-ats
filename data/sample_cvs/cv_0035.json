@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0035",
+  "file_name": "cv_0035.docx",
+  "layout": "english",
+  "language": "en",
+  "career": "sales",
+  "region": "south",
+  "gender": "Nam",
+  "full_name": "Huỳnh Quốc Bảo",
+  "email": "cv_0035@example.com",
+  "phone": "0900 000 034",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 35, Đường Mô Phỏng, Khu south",
+  "current_title": "Sales executive",
+  "years_experience": 6,
+  "skills": [
+    "b2b sales",
+    "crm",
+    "negotiation",
+    "forecasting",
+    "account management"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Sales executive",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Advised business customers, updated sales opportunities and tracked contracts."
+    },
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "Sales executive",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Advised business customers, updated sales opportunities and tracked contracts."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Bachelor",
+      "major": "Business administration",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "high",
+    "job_marketing": "low"
+  }
+}

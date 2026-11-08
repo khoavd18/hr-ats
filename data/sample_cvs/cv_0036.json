@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0036",
+  "file_name": "cv_0036.pdf",
+  "layout": "scan",
+  "language": "vi",
+  "career": "marketing",
+  "region": "south",
+  "gender": "Nữ",
+  "full_name": "Lê Mỹ Duyên",
+  "email": "cv_0036@example.com",
+  "phone": "0900 000 035",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 36, Đường Mô Phỏng, Khu south",
+  "current_title": "Chuyên viên marketing",
+  "years_experience": 6,
+  "skills": [
+    "content marketing",
+    "seo",
+    "analytics",
+    "copywriting",
+    "campaign planning"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mầm Bạc",
+      "title": "Chuyên viên marketing",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    },
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Chuyên viên marketing",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Cử nhân",
+      "major": "Truyền thông",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "high"
+  }
+}
