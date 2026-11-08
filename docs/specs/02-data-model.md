@@ -1,6 +1,15 @@
 # 02 · Mô hình dữ liệu
 
-Mọi bảng có `id uuid pk`, `created_at timestamptz default now()`, `updated_at timestamptz`. Bảng có dữ liệu ứng viên có thêm `deleted_at timestamptz null` (soft delete). Tên bảng/cột tiếng Anh, snake_case.
+Mọi bảng có `id uuid pk` (UUID v4 do ứng dụng cấp), `created_at timestamptz default now()`, `updated_at timestamptz default now()` (SQLAlchemy cập nhật khi sửa bản ghi). Bảng có dữ liệu ứng viên có thêm `deleted_at timestamptz null` (soft delete). Tên bảng/cột tiếng Anh, snake_case.
+
+### Chi tiết triển khai T05
+- T05 tạo đúng 10 bảng lõi bên dưới và tái sử dụng `users` từ T04; các bảng interview/offer/placement/task/email/data_requests do task sau tạo. Enum Python có đủ giá trị trong spec; migration chỉ tạo enum PostgreSQL được bảng lõi sử dụng.
+- `deleted_at` có trên `candidates`, `cv_files`, `applications`, `stage_events`, `ai_feedback`, `activities`. `audit_log` chỉ chứa định danh và metadata truy cập, không có nội dung CV hay soft delete. FK mặc định RESTRICT/NO ACTION, không cascade xoá cứng.
+- Bắt buộc các định danh/FK nghiệp vụ (trừ các FK ghi rõ null), tên/tiêu đề, mô tả Job, loại đơn vị, nguồn ứng viên và `retention_until`. Thông tin liên hệ, nội dung parse, AI chưa xử lý và mô tả tuỳ chọn được null. `consent_at` luôn null nếu bên gọi chưa cung cấp bằng chứng. Tính thời hạn lưu thuộc service tiếp nhận/T29; model không tự suy diễn đồng ý.
+- Giá trị mặc định: Job `draft`, `headcount=1`, CV/application AI `pending`, application `new` và `stage_entered_at=now()`, nguồn ứng viên `upload`, các mảng JSON `[]`, activity payload `{}`, đơn vị tuyển đang hoạt động. Không có hành động AI tự đổi stage.
+- CHECK: email ứng viên lowercase; kinh nghiệm/lương/kích thước file không âm; headcount/page_count dương nếu có; salary_min ≤ salary_max khi có cả hai; ai_score 0–100 nếu có; feedback verdict `agree`/`disagree`. UNIQUE feedback `(application_id, user_id)` để upsert; UNIQUE job member `(job_id, user_id)`; SHA-256 unique kể cả file đã soft delete.
+- Index FK phục vụ tra quyền và lịch sử; unique application có điều kiện cũng phục vụ tra cứu theo candidate_id. Chưa áp dụng migration dữ liệu hay thay đổi bảng `users`.
+- Schema đọc tại `app/schemas/core.py` không xuất embedding/search_tsv, đường dẫn storage, text CV, parsed_json hoặc lỗi parse thô. Đây là schema nội bộ cho các task API tiếp theo, chưa mở endpoint mới; kho CV chung phải dùng schema tóm tắt riêng và kiểm quyền trước khi đọc chi tiết/tải file.
 
 ## Enum
 | Enum | Giá trị |
@@ -48,8 +57,10 @@ Chi tiết kỹ thuật T04: `failed_login_attempts int default 0` (không âm),
 `job_id`, `user_id`, unique(job_id, user_id).
 
 ### candidates
-`full_name`, `email (lowercase, index)`, `phone (chuẩn hoá E.164 nếu được, index)`, `location`, `current_title`, `years_experience numeric null`, `skills jsonb`, `languages jsonb`, `education jsonb`, `experiences jsonb`, `source candidate_source`, `consent_at timestamptz null`, `consent_note`, `retention_until date`, `anonymized_text text`, `embedding vector(EMBEDDING_DIM) null`, `search_tsv tsvector` (generated, cấu hình `simple` + bỏ dấu bằng `unaccent`), `merged_into_id fk candidates null`, `deleted_at`.
+`full_name`, `email (lowercase, index)`, `phone (chuẩn hoá E.164 nếu được, index)`, `location`, `current_title`, `years_experience numeric null`, `skills jsonb` (mảng chuỗi), `languages jsonb`, `education jsonb`, `experiences jsonb`, `source candidate_source`, `consent_at timestamptz null`, `consent_note`, `retention_until date`, `anonymized_text text`, `embedding vector(EMBEDDING_DIM) null`, `search_tsv tsvector` (trigger, cấu hình `simple` + bỏ dấu bằng `unaccent`), `merged_into_id fk candidates null`, `deleted_at`.
 Index: GIN trên `search_tsv`, HNSW/IVFFlat trên `embedding` (cosine).
+
+T05 dùng trigger BEFORE INSERT OR UPDATE (kể cả sửa trực tiếp search_tsv), ghép full_name/current_title/các phần tử skills rồi `to_tsvector('simple', public.unaccent(...))`; không gắn IMMUTABLE giả cho `unaccent`. Truy vấn chuẩn: `search_tsv @@ plainto_tsquery('simple', unaccent(:query))`, lọc `deleted_at IS NULL`. Index vector là HNSW `vector_cosine_ops`; truy vấn sắp xếp bằng khoảng cách cosine `<=>` và LIMIT. Cả Job và ứng viên lấy dimension từ `EMBEDDING_DIM` khi tạo schema; đổi cấu hình sau đó phải có migration mới và tạo lại embedding, không tự đổi schema.
 
 ### cv_files
 `candidate_id fk null` (null khi chưa parse xong), `storage_key`, `original_filename`, `mime_type`, `size_bytes`, `sha256 (unique)`, `extracted_text text`, `extraction_method`, `page_count`, `parsed_json jsonb`, `status processing_status`, `error text`, `parse_model`, `parse_prompt_version`, `uploaded_by fk users null`, `job_id fk null` (Job được chọn lúc upload, nếu có), `deleted_at`.
@@ -75,6 +86,8 @@ Index: GIN trên `search_tsv`, HNSW/IVFFlat trên `embedding` (cosine).
 
 ### activities
 `actor_id null` (null = hệ thống), `type activity_type`, `job_id null`, `application_id null`, `candidate_id null`, `payload jsonb` (không chứa nội dung CV), `occurred_at`.
+
+`services/activity.py:log_activity(session, ...)` thêm và flush bản ghi, không commit; caller phải kiểm quyền trước và commit/rollback chung với thao tác nghiệp vụ. Payload là metadata JSON; helper từ chối khoá nhạy cảm/CV/parsed_json và giá trị bị bộ lọc PII nhận diện, không đưa input vào thông báo lỗi hay log. Caller không được đưa nội dung CV vào trường tự do. Note nghiệp vụ phải tuân thủ cùng giới hạn dữ liệu cá nhân. `occurred_at` mặc định now, cho phép caller truyền thời điểm sự kiện; actor null dành cho hệ thống.
 
 ### tasks
 `title`, `description`, `assignee_id`, `created_by`, `job_id null`, `application_id null`, `due_at null`, `status task_status`, `completed_at`.

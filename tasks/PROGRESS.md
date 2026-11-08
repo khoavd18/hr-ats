@@ -6,10 +6,47 @@
 | T02 | done | 2026-11-08 | Review lần 2: APPROVE WITH NITS, 76 test pass trên Postgres/Redis thật (tasks/reviews/T02.md). Nhắc việc N1→T05, N2→T14, N3→T26. |
 | T03 | done | 2026-11-08 | VERIFIED: khung frontend Next.js 15, sáu trang tiếng Việt, API client và bộ component; 39 test pass, lint/typecheck/build sạch, smoke Chromium 1280px đạt. Chờ review và merge. |
 | T04 | done | 2026-11-08 | VERIFIED: auth cookie JWT/CSRF, Argon2id, khoá đăng nhập, CLI admin và quản lý người dùng; 152 test backend, 47 test frontend, 2 E2E pass. Chờ Review T04 và merge. |
-| T05–T33 | todo | | |
+| T05 | review | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
+| T06–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T05 · 2026-11-08 · review
+
+VERIFIED: thực hiện đúng T05 theo `tasks/_implement.md` trên nhánh `task/T05-core-data-model`; T04 đã `done`, working tree sạch trước khi bắt đầu. Hoàn thành triển khai, giữ trạng thái `review` cho đến khi được duyệt và merge vào main.
+
+- Enum/model và revision mới `0003_core_data_model` cho đúng 10 bảng: hiring_units, jobs, job_members, candidates, cv_files, applications, stage_events, activities, ai_feedback, audit_log. Tái sử dụng users T04; không sửa migration đã merge, không thêm dependency/service hay endpoint. UUID v4, timestamp UTC, JSONB, FK không cascade xoá cứng, soft delete các bảng dữ liệu ứng viên và ràng buộc/index theo spec 02.
+- Cả jobs/candidates dùng vector(EMBEDDING_DIM), cấu hình dimension phải dương. Trigger cập nhật search_tsv bằng simple + public.unaccent từ tên/chức danh/kỹ năng, kể cả khi sửa trực tiếp search_tsv; GIN full-text, HNSW vector_cosine_ops. Không khai báo IMMUTABLE giả cho unaccent. Unique application chỉ áp dụng khi deleted_at IS NULL; feedback và membership có unique key phục vụ upsert/chống trùng.
+- Schema đọc cho 10 bảng, không xuất storage_key, text/parsed_json CV, embedding/search_tsv hay lỗi parse thô. Schema audit IP dùng kiểu địa chỉ IP tương thích đối tượng PostgreSQL trả về; serialize JSON thành chuỗi.
+- authorize() nhận Job/Candidate/Application và session, truy vấn ownership/membership theo ID từ DB. Recruiter chỉ truy cập ứng viên qua application chưa xoá ở Job được phép; application.owner_id không tự cấp quyền Job. Thu hồi membership có hiệu lực ở lần kiểm tiếp; không autoflush owner chưa lưu khi kiểm quyền. Giữ ma trận admin/lead, kho CV chung và ResourceScope nội bộ T04.
+- log_activity() add/flush trong transaction của caller, không tự commit; actor null cho hệ thống. Sao chép payload, từ chối khoá CV/PII và JSON không hợp lệ, không phản chiếu input. Caller phải kiểm quyền và không sao chép CV vào trường tự do.
+- Hoàn thành nhắc việc review T02 N1: logging che full_name/name/candidate_name/address/phone_number/date_of_birth, gồm hậu tố, hoa/thường, gạch ngang, mapping lồng nhau/JSON/extra/key=value; vẫn giữ metadata chẩn đoán.
+- Cập nhật spec 02/07/08, câu hỏi #22–#26 và README: null/default/soft delete, contract helper/schema, quyền theo DB, rollout/rollback và trình tự đổi dimension. Không sửa UI/KPI hay các task sau.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| alembic upgrade head và downgrade base chạy được | VERIFIED — đạt | Test migration upgrade → downgrade base → upgrade trên DB trống, kiểm không sót bảng/enum/function và giữ extension; CLI thật `uv run alembic upgrade head`, `uv run alembic downgrade base`, `uv run alembic upgrade head` cũng pass trên DB tạm riêng; dimension=8 cho cả hai vector được kiểm riêng |
+| Tạo bản ghi mỗi bảng; unique application; full-text không dấu; vector top-k; recruiter không có quyền Job bị từ chối | VERIFIED — đạt | `uv run pytest`: **225 passed**, gồm 60 test mới trong test_core_data.py: đủ 10 bảng/schema đọc; duplicate active bị từ chối, soft delete cho phép tạo lại và restore trùng bị chặn; nguyen khớp Nguyễn, update xoá token cũ; cosine top-2 đúng thứ tự; EXPLAIN dùng được GIN/HNSW; 36 ô role/relation/action trên DB và test quyền ứng viên/thu hồi/soft delete |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, ba dịch vụ local sẵn có đang chạy; không xoá volume/dữ liệu dev.
+- `uv sync`: pass, 65 package resolve/64 package kiểm tra; không thay đổi manifest/lockfile.
+- `uv run alembic upgrade head`: pass trên DB dev, head `0003_core_data_model`.
+- `uv run pytest`: **225 passed, 1 warning**, không skip; PostgreSQL/Redis thật trên localhost, fixture transaction rollback, provider AI giả, chặn mạng ngoài. Test schema so sánh model với migration vẫn pass.
+- Lượt test theo phần đầu tiên: 151 pass, hai lỗi ở schema đọc IP và test truyền extra.name (khóa dự trữ của Python logging). Đã sửa schema IP và kiểm name ở các log shape Python cho phép; toàn bộ suite trên đã pass sau sửa, không giảm tiêu chí/skip test.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 60 file đúng định dạng. `uv run mypy app`: pass, 37 file.
+- `.\.venv\Scripts\python.exe -u ../var/t05_verify_migrations.py` tại backend: pass; artifact local gọi đúng ba CLI upgrade/downgrade/upgrade trên DB mới `hr_ats_test_t05_cli_<uuid>` từ template0, kiểm head/schema sau từng bước và dọn đúng DB vừa tạo. Các lượt helper đầu gặp kết nối chưa có timeout đã được dừng đúng process và dọn đúng DB tạm sau khi xác minh; lượt cuối đặt connect_timeout cho mọi kết nối và exit 0. Không chạy downgrade trên hr_ats/hr_ats_test. Artifact ở var/ được gitignore.
+- `git diff --check`: sạch. Tự review theo secure-code-review: SQL có tham số, quyền resource truy vấn DB, không cascade xoá dữ liệu, không raw CV/storage/PII trong log/schema công khai mới, không có dữ liệu/secret thật hoặc dependency mới. Không còn finding đã xác nhận chưa xử lý trong phạm vi T05.
+
+File chính: `backend/app/models/{enums,mixins,jobs,candidates,applications,activity}.py`, `backend/migrations/versions/0003_core_data_model.py`, `backend/app/schemas/core.py`, `backend/app/core/{permissions,logging,config}.py`, `backend/app/services/activity.py`, `backend/tests/api/{test_core_data,test_database}.py`, `backend/tests/unit/test_logging.py`, README, spec 02/07/08, open-questions và PROGRESS.
+
+ASSUMED: các mặc định nhỏ #22–#26 đã ghi rõ, không có blocker. Không tự tính consent/retention, không triển khai pipeline/endpoint của task sau.
+
+NOT TESTED: CI remote (chưa push), review độc lập, benchmark dữ liệu production và migration thay đổi dimension trên dữ liệu thật. Frontend/E2E không bị ảnh hưởng bởi T05 (không thay endpoint/UI), không chạy lại. Cảnh báo upstream Starlette/httpx giữ nguyên như T02/T04, không tắt. Chờ `Review T05`, CI xanh và merge; chưa chuyển trạng thái `done`.
 
 ## T04 · 2026-11-08 · review
 
