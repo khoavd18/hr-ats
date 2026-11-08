@@ -176,6 +176,68 @@ Worker T07 **chỉ đặt trạng thái `done`**, chưa đọc/parse/chấm CV; 
 
 `APP_ENV=test` cấu hình eager/memory theo [Celery configuration](https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-always-eager); suite vẫn kiểm worker trên kết nối PostgreSQL riêng và upload đồng thời. T07 không đổi schema; rollback code cần dừng API/worker, giữ DB và storage, không xoá file đã nhận. Chờ review độc lập và CI xanh trước merge.
 
+### Trích CV và OCR T08
+
+T08 cung cấp `app.ai.extract.extract_text(data, mime)` và
+`app.ai.redact.redact_contacts(text)` cho pipeline T10. PDF kỹ thuật số đọc theo
+cột, DOCX đọc cả bảng lồng nhau; ảnh JPG/PNG và trang PDF dưới 50 ký tự dùng OCR
+local. PDF render 300 DPI; ảnh OCR chuyển grayscale, lọc median 3×3 giảm nhiễu scan
+theo [hướng dẫn chất lượng Tesseract](https://tesseract-ocr.github.io/tessdoc/ImproveQuality.html).
+Kết quả chuẩn hoá Unicode NFC, giữ xuống dòng; che
+liên hệ thành `[EMAIL]`/`[PHONE]`, trả riêng email gốc và SĐT đã chuẩn hoá (`+84`
+cho số Việt Nam). Không ghi các giá trị này vào log. DOCX trả `page_count=None`
+vì python-docx không phân trang; PDF trả số trang thật, ảnh trả 1.
+
+Tesseract là dependency **hệ thống**, `uv sync` không cài Tesseract. Cài trên máy
+chạy worker, sau đó khởi động lại terminal/worker:
+
+- **Windows:** dùng [installer UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki)
+  được [tài liệu Tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html)
+  dẫn tới; chọn thêm ngôn ngữ Vietnamese (`vie`) và English (`eng`). Thêm thư mục
+  cài đặt (thường `C:\Program Files\Tesseract-OCR`) vào `PATH` của worker.
+- **Docker/Debian/Ubuntu:** cài trong image worker bằng đoạn sau (Dockerfile
+  triển khai đầy đủ thuộc T32):
+
+```dockerfile
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-vie \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+Kiểm tra tại cùng môi trường chạy worker:
+
+```sh
+tesseract --version
+tesseract --list-langs
+```
+
+Danh sách phải có `vie` và `eng` khi dùng mặc định `TESSERACT_LANGS=vie+eng`,
+`OCR_ENABLED=true`. Nếu dữ liệu ngôn ngữ ở nơi khác, đặt `TESSDATA_PREFIX` trỏ
+tới thư mục tessdata chứa các file `*.traineddata` của bản cài đó. Thiếu executable
+trả lỗi bắt được `ExtractionError` với thông báo **"Máy chủ chưa cài OCR"**;
+thiếu ngôn ngữ/lỗi OCR có thông báo tiếng Việt chung, không phản chiếu stderr.
+`OCR_ENABLED=false` vẫn đọc PDF kỹ thuật số/DOCX, nhưng file cần OCR báo chưa bật.
+Text rỗng báo "Không đọc được nội dung CV". T10 chịu trách nhiệm bắt lỗi từng file
+và lưu trạng thái `failed`; T08 chưa thay worker placeholder T07.
+
+ASSUMED (giới hạn xử lý T08): tối đa 100 trang PDF, 25 triệu pixel/trang OCR hoặc
+ảnh đầu vào, timeout 60 giây/lần OCR. Tái sử dụng kiểm tra file 10 MiB và an toàn
+DOCX T07. PDF mã hoá hoặc file hỏng báo lỗi từng file; xem câu hỏi #34–#36. Truyền
+ảnh/text qua stdin/stdout của Tesseract, không ghi file CV tạm lên đĩa.
+
+Kiểm thử tại `backend/`:
+
+```sh
+uv run pytest tests/unit/test_extract.py tests/unit/test_redact.py -q
+```
+
+Test so nội dung với nhãn của 50 CV kỹ thuật số, thứ tự hai cột và kỹ năng trong
+bảng. Test OCR thật trên 10 PDF scan và hai định dạng ảnh tự `skip` **chỉ khi
+không có executable Tesseract** theo T08; máy đã cài nhưng thiếu `vie`/`eng` phải
+sửa cài đặt để test pass. CI cài cả hai ngôn ngữ trước pytest. Các test còn lại
+mock tại ranh giới subprocess, kiểm tra thiếu OCR/timeout/lỗi, 300 DPI và che
+nhiều dạng liên hệ; không gọi provider hoặc mạng ngoài khi test.
+
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.

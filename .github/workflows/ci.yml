@@ -43,6 +43,12 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
+      - name: Install local OCR and Vietnamese language data
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-vie
+          tesseract --list-langs
+
       - name: Install dependencies
         run: uv sync --frozen
 

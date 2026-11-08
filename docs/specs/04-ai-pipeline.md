@@ -26,9 +26,34 @@ Mỗi bước bọc try/except, ghi `status/error` lên bản ghi, không làm h
 - Chuẩn hoá Unicode NFC (quan trọng với tiếng Việt), gộp khoảng trắng, giữ xuống dòng.
 - Text rỗng sau khi trích → `failed` với lỗi tiếng Việt "Không đọc được nội dung CV".
 
+T08: `extract_text(data: bytes, mime: str) -> ExtractResult` trả `text`, `method`
+(`ExtractionMethod.pdf_text | docx | ocr`, cùng enum DB), `page_count` (số trang PDF,
+1 cho ảnh, `None` cho DOCX vì không có layout engine). Hàm không ghi DB hay đổi
+trạng thái worker; caller T10 bắt `ExtractionError` (kế thừa `AppError`, thông báo
+an toàn) để đặt `failed`. Thiếu executable khi cần OCR báo "Máy chủ chưa cài OCR";
+OCR tắt báo "Máy chủ chưa bật OCR". Lỗi/timeout/ngôn ngữ không phản chiếu stderr.
+OCR dùng CLI Tesseract local qua stdin/stdout, `TESSERACT_LANGS` mặc định `vie+eng`.
+Ảnh OCR chuyển grayscale và lọc median 3×3 để giảm nhiễu scan; không đoán/sửa ký tự
+email từ nhãn hoặc hậu xử lý text OCR.
+DOCX giữ thứ tự paragraph/bảng, đọc cả bảng lồng, header/footer và bỏ ô merge trùng.
+ASSUMED (#34–#35): tái dùng validation T07; từ chối PDF mã hoá hoặc trên 100 trang,
+ảnh/trang render trên 25 triệu pixel, timeout OCR 60 giây/lần. Sắp cột theo hình
+học với gutter ít nhất 12 point; giữ heading/footer bắc qua cột và tách block/line
+bị MuPDF gộp giữa cột. Đây là heuristic, chưa bảo đảm mọi bố cục CV thực tế.
+
 ## 2. Che trước khi gửi (`ai/redact.py`)
 - Tìm email (regex) và số điện thoại Việt Nam/quốc tế (regex cho `0xxxxxxxxx`, `+84`, có dấu cách/chấm/gạch), lưu giá trị gốc vào biến cục bộ, thay trong text bằng `[EMAIL]`, `[PHONE]`.
 - Giá trị gốc được ghi thẳng vào `candidates.email/phone`, không bao giờ gửi cho LLM.
+
+T08: `redact_contacts(text) -> tuple[str, list[str], list[str]]` trả text đã che,
+email nguyên dạng và SĐT chuẩn hoá theo thứ tự xuất hiện, bỏ trùng trong danh sách
+nhưng che mọi lần xuất hiện. Giá trị gốc chỉ ở biến cục bộ; caller T10 ghi liên hệ
+vào Candidate (SĐT Việt Nam lưu `+84…`). ASSUMED (#36): nhận số Việt Nam bắt đầu 0,
+`+84`/`0084` (gồm trunk 0), dấu cách/chấm/gạch/ngoặc; quốc tế bắt đầu `+`/`00`
+giữ mã quốc gia, bỏ dấu phân tách. Không suy đoán quốc gia cho số trần không có 0
+đầu/mã quốc gia, không coi ngày/tháng hay phiên bản kỹ năng là liên hệ. Email dùng
+regex địa chỉ thông dụng với domain có dấu chấm; chưa xử lý địa chỉ quốc tế hoá
+(EAI) hoặc email bị OCR tách chữ. Không thay tên/tuổi/địa chỉ ở bước này.
 
 ## 3. Parse CV (`ai/parse.py`, prompt `prompts/parse_cv/v1.md`)
 Gửi text đã che ở bước 2. Tách thành 3 lời gọi song song (theo paper Layout-Aware, xem `docs/research/papers.md`):
