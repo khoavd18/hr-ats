@@ -12,3 +12,6 @@ Mốc: M1 · Phụ thuộc: T04 · Spec: `02-data-model.md`
 ## Tiêu chí nghiệm thu
 - `alembic upgrade head` và `downgrade base` chạy được.
 - Test: tạo bản ghi mỗi bảng; unique application; tìm full-text không dấu ("nguyen" khớp "Nguyễn"); truy vấn vector top-k chạy; bảng quyền recruiter với Job không phải của mình bị từ chối.
+
+## Ghi chú từ review T02
+- Bổ sung vào `backend/app/core/logging.py` các khoá nhạy cảm cho dữ liệu ứng viên: `full_name`, `name`, `candidate_name`, `address`, `phone_number`, `date_of_birth` (khớp chính xác và hậu tố), kèm test; cập nhật spec 07.
