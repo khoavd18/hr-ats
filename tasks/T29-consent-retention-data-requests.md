@@ -9,3 +9,6 @@ Mốc: M5 · Phụ thuộc: T18 · Spec: `07` (Dữ liệu cá nhân), `03` (Qu�
 
 ## Tiêu chí nghiệm thu
 - Test: sau purge, file không còn trong Storage và mọi trường cá nhân là null; báo cáo KPI vẫn tính đúng số lượng cũ.
+
+## Ghi chú từ review T05
+- `audit_log.actor_id` đang `NOT NULL`, trong khi job tự động `enforce_retention` không có người thực hiện. Cho phép `actor_id` null (hệ thống) bằng migration mới, hoặc ghi rõ actor hệ thống, trước khi ghi audit `candidate.purge` từ job nền.

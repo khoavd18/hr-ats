@@ -6,7 +6,7 @@
 | T02 | done | 2026-11-08 | Review lần 2: APPROVE WITH NITS, 76 test pass trên Postgres/Redis thật (tasks/reviews/T02.md). Nhắc việc N1→T05, N2→T14, N3→T26. |
 | T03 | done | 2026-11-08 | VERIFIED: khung frontend Next.js 15, sáu trang tiếng Việt, API client và bộ component; 39 test pass, lint/typecheck/build sạch, smoke Chromium 1280px đạt. Chờ review và merge. |
 | T04 | done | 2026-11-08 | VERIFIED: auth cookie JWT/CSRF, Argon2id, khoá đăng nhập, CLI admin và quản lý người dùng; 152 test backend, 47 test frontend, 2 E2E pass. Chờ Review T04 và merge. |
-| T05 | review | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
+| T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
 | T06–T33 | todo | | |
 
 ## Nhật ký
