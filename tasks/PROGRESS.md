@@ -14,7 +14,7 @@
 | T10 | done | 2026-11-08 | VERIFIED: parse ba phần song song, dedupe email/SĐT/cosine và worker nguyên tử/idempotent; 586 test backend pass/12 skip OCR Windows, Linux offline 134 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T10, CI và merge. |
 | T11 | done | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
 | T12 | done | 2026-11-08 | VERIFIED: chấm tiêu chí/bằng chứng, điểm tất định, worker và ba API có quyền/CSRF; 774 test backend pass/12 skip OCR Windows, Linux offline 242 pass/0 skip. Bộ mẫu 250/250 cặp đã chấm, 50/60 CV khớp cả 5 Job (83,3%); Ruff/mypy/migration sạch. Chờ Review T12, CI và merge. |
-| T13 | review | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
+| T13 | done | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
 | T14–T33 | todo | | |
 
 ## Nhật ký
