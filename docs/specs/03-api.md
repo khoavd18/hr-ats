@@ -40,6 +40,59 @@ Các mặc định kỹ thuật trên được ghi ở câu hỏi #18–#20; kh�
 - `GET /jobs/{id}/suggestions?limit=50` → ứng viên trong kho CV gần với Job (vector), chưa có application
 - `GET /jobs/{id}/export.xlsx` → xuất bảng xếp hạng (ghi audit)
 
+### Contract Đơn vị tuyển và Job T13
+
+- Mọi endpoint cần đăng nhập; POST/PATCH/PUT kiểm CSRF và Origin như T04.
+  Phản hồi thành công có `Cache-Control: no-store`. Không có DELETE cho đơn vị
+  hoặc Job: ngừng hoạt động bằng `is_active=false`, kết thúc tuyển bằng `closed`.
+- `GET /hiring-units?page=1&page_size=20` (tối đa 100), admin/lead →
+  `{items: [HiringUnitRead], total}`, gồm cả ngừng hoạt động, thứ tự created_at/id.
+  POST → 201, PATCH → 200; input gồm name, kind, contact_name/contact_email/notes
+  nullable và is_active. Tên trim 1–200 ký tự, email hợp lệ tối đa 254, notes tối
+  đa 10000. PATCH không nhận null cho name/kind/is_active. Không tồn tại → 404.
+  Recruiter gọi các endpoint quản lý đơn vị → 403.
+- `GET /jobs/options` dành cho cả ba vai trò → `{hiring_units: [{id,name}],
+  users: [{id,name}]}`: chỉ đơn vị/người dùng đang hoạt động, thứ tự name/id.
+  Không trả email, liên hệ hay quyền quản trị; đây là danh sách chọn cho form,
+  không mở quyền GET `/users` hay `/hiring-units` cho recruiter.
+- `GET /jobs?page=1&page_size=20&status=&owner_id=&q=` → `{items: [JobResponse],
+  total}`, page_size tối đa 100; thứ tự created_at giảm dần rồi id. Recruiter
+  chỉ lấy Job là owner/member ngay trong truy vấn, kể cả total/bộ lọc. Admin/lead
+  lấy toàn bộ. q tối đa 200 ký tự, trim, tìm chuỗi trong title không phân biệt
+  hoa thường; `%`/`_` là ký tự thường, chưa bỏ dấu. Bỏ tham số lọc nếu không chọn.
+- POST `/jobs` → 201; GET/PATCH `/jobs/{id}` → 200 `JobResponse`: các trường
+  JobRead, thêm hiring_unit_name, owner_name, member_ids và needs_rescore. Không
+  trả vector. Không tồn tại → 404, Job ngoài quyền → 403. Mọi user đang hoạt động
+  được tạo Job; recruiter tạo với owner là chính mình, sửa Job họ là owner/member
+  và quản lý thành viên; chỉ admin/lead được gán/chuyển owner sang người khác.
+  Quyền lấy từ DB, không lấy từ owner_id/member_ids đang gửi lên.
+- Input tạo có hiring_unit_id, title, owner_id bắt buộc; description mặc định
+  chuỗi rỗng, must_have/nice_to_have/member_ids mặc định [], headcount=1,
+  status=draft. Các trường location/employment_type/salary_min/salary_max/deadline
+  tuỳ chọn và nullable. PATCH chỉ thay trường được gửi; không nhận null cho
+  trường bắt buộc/mảng/status. Field thừa (kể cả embedding/opened_at/closed_at)
+  bị từ chối. Tiêu đề trim 1–200 ký tự, mô tả tối đa 50000, địa điểm 200,
+  hình thức 100; mỗi danh sách yêu cầu tối đa 100 dòng, mỗi dòng trim 1–500 ký tự.
+  Lương nguyên 0–2147483647, min ≤ max khi đủ hai đầu; headcount nguyên dương
+  tối đa 2147483647. Job `open` cần ít nhất một must_have. PATCH validate bản ghi
+  sau khi ghép dữ liệu cũ; input sai → 422 `VALIDATION_ERROR`.
+- FK mới chỉ chọn đơn vị/user đang hoạt động; không hợp lệ → 422
+  `INVALID_HIRING_UNIT` / `INVALID_JOB_USER`. Giữ tham chiếu cũ đã ngừng hoạt động
+  khi sửa thông tin khác. Member tối đa 100 ID, trùng ID được gộp; POST/PATCH hỗ trợ
+  member_ids để lưu form nguyên tử. PUT `/jobs/{id}/members` nhận `{user_ids}`
+  thay toàn bộ thành viên và trả JobResponse. [] thu hồi toàn bộ membership;
+  owner vẫn có quyền. Thành viên tự rời Job nhận thành công rồi mất quyền lần sau.
+- Mỗi lần chuyển sang `open` đặt opened_at hiện tại và xoá closed_at; sang
+  `closed` đặt closed_at. Gửi lại cùng trạng thái giữ mốc; draft/on_hold giữ mốc cũ.
+  Tạo/sửa gọi `embed_job` T11 trước commit; Job/vector/members cùng transaction,
+  lỗi tạo vector rollback và trả 503 `EMBEDDING_UNAVAILABLE`, không lỗi provider thô.
+- Sửa must_have/nice_to_have khác giá trị trước và có Application chưa xoá →
+  `needs_rescore=true`, còn lại false. Không tự chấm lại hoặc đổi stage. UI hỏi
+  người dùng, chỉ khi xác nhận mới POST `/jobs/{id}/rescore` theo contract T12.
+  Cột số ứng viên theo mức AI và chi tiết bảng xếp hạng thuộc T14.
+
+ASSUMED: chi tiết chưa chốt được ghi ở câu hỏi #52–#54; không đổi schema DB/KPI.
+
 ## CV & ứng viên
 - `POST /cv-files` multipart, nhiều file (PDF, DOCX, JPG, PNG; tối đa 10 MB/file, 50 file/lần), tuỳ chọn `job_id` → trả kết quả từng file theo contract T07 dưới đây
 - `GET /cv-files/{id}` (trạng thái xử lý) · `GET /cv-files/{id}/download` (ghi audit)

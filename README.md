@@ -353,6 +353,22 @@ thử dữ liệu giả với key riêng. Pipeline T10 dùng adapter này; cần
 dữ liệu thật theo câu hỏi #40 trước production. Contract render/schema và cách
 lưu client.model/prompt.prompt_version cho T10/T12: [spec 04](docs/specs/04-ai-pipeline.md).
 
+### Đơn vị tuyển và việc tuyển dụng (T13)
+
+Admin/lead mở **Cài đặt → Đơn vị tuyển** để thêm khách hàng hoặc phòng ban.
+Tại **Việc tuyển dụng**, chọn **Tạo việc tuyển dụng**, nhập tên, đơn vị tuyển,
+người phụ trách và hai danh sách yêu cầu (mỗi dòng một tiêu chí). Mở tuyển cần
+ít nhất một yêu cầu bắt buộc; có thể lưu bản nháp trước. Recruiter tạo việc do
+mình phụ trách và xem/sửa việc là owner hoặc thành viên; admin/lead phân công
+người phụ trách khác. Danh sách có tìm kiếm, lọc trạng thái/người phụ trách và
+phân trang. Ngừng dùng đơn vị bằng **Ngừng hoạt động**, kết thúc Job bằng **Đã đóng**.
+
+Khi sửa yêu cầu của việc đã có hồ sơ, hệ thống hỏi **Chấm lại tất cả ứng viên?**
+sau khi lưu. Chỉ xác nhận mới xếp hàng chấm lại qua Celery T12; huỷ giữ kết quả
+hiện tại. Tạo vector dùng provider T11 đã cấu hình, mặc định fake trong dev/test.
+Xem contract và giới hạn input tại [spec 03](docs/specs/03-api.md).
+Chi tiết Job, tải CV và bảng xếp hạng được triển khai ở T14.
+
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.

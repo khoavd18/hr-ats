@@ -102,6 +102,16 @@ kiểm riêng T08/Linux/CI. Không sửa dữ liệu nhãn hay công thức đ�
 không gọi provider/mạng ngoài và không thay điều kiện skip OCR.
 
 ## CI
+T13 thêm `tests/api/test_jobs.py` vào `uv run pytest`: CRUD theo endpoint spec,
+scope Job owner/member, admin/lead, thu hồi membership, filter/tổng/phân trang,
+CSRF/auth/input, validate PATCH theo dữ liệu đã ghép, tham chiếu ngừng hoạt động,
+mốc mở/đóng, vector FakeEmbedder, transaction rollback và needs_rescore không tự
+publish. Vitest kiểm lỗi tiêu đề tiếng Việt/focus, lương/yêu cầu bắt buộc, lưu form
+nguyên tử kèm member_ids, hỏi chấm lại/xác nhận/huỷ/retry, lỗi tải/lưu và quyền
+quản lý đơn vị. Các bộ test cũ và kiểm chuỗi i18n tiếp tục chạy; không gọi mạng
+ngoài hoặc đổi schema/dependency. Có thể dùng browser fixture T04 để kiểm tra
+đơn vị tuyển → tạo/sửa Job với API thật trước seed nghiệp vụ T18.
+
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.
 

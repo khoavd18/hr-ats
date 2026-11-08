@@ -1,10 +1,28 @@
 "use client";
 
-import { PlaceholderPage } from "@/components/placeholder-page";
 import { useAuth } from "@/components/auth-provider";
 import { UsersSettings } from "@/components/users-settings";
+import { HiringUnitsSettings } from "@/components/hiring-units-settings";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { t } from "@/i18n/vi";
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  return user?.role === "admin" ? <UsersSettings /> : <PlaceholderPage page="settings" />;
+  if (!user || user.role === "recruiter") return null;
+  return (
+    <Tabs defaultValue={user.role === "admin" ? "users" : "units"} className="space-y-6">
+      <TabsList aria-label={t("nav.settings")}>
+        {user.role === "admin" && <TabsTrigger value="users">{t("users.title")}</TabsTrigger>}
+        <TabsTrigger value="units">{t("units.title")}</TabsTrigger>
+      </TabsList>
+      {user.role === "admin" && (
+        <TabsContent value="users">
+          <UsersSettings />
+        </TabsContent>
+      )}
+      <TabsContent value="units">
+        <HiringUnitsSettings />
+      </TabsContent>
+    </Tabs>
+  );
 }

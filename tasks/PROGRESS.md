@@ -14,10 +14,93 @@
 | T10 | done | 2026-11-08 | VERIFIED: parse ba phần song song, dedupe email/SĐT/cosine và worker nguyên tử/idempotent; 586 test backend pass/12 skip OCR Windows, Linux offline 134 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T10, CI và merge. |
 | T11 | done | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
 | T12 | done | 2026-11-08 | VERIFIED: chấm tiêu chí/bằng chứng, điểm tất định, worker và ba API có quyền/CSRF; 774 test backend pass/12 skip OCR Windows, Linux offline 242 pass/0 skip. Bộ mẫu 250/250 cặp đã chấm, 50/60 CV khớp cả 5 Job (83,3%); Ruff/mypy/migration sạch. Chờ Review T12, CI và merge. |
-| T13–T33 | todo | | |
+| T13 | review | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
+| T14–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T13 · 2026-11-08 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md` trên nhánh
+`task/T13-hiring-units-jobs`; T05 đã done và working tree sạch trước khi bắt đầu.
+Giữ review đến khi được duyệt và merge vào main.
+
+- Thêm schema/service/router đơn vị tuyển và Job; list phân trang/tìm/lọc ngay
+  trong SQL theo quyền owner/member từ DB, có tổng số đúng scope. Admin/lead quản
+  lý đơn vị; recruiter chỉ nhận id/name qua `/jobs/options`, không có liên hệ
+  hay quyền quản trị user. Chỉ admin/lead đổi owner Job; recruiter tạo cho mình.
+- POST/PATCH lưu Job/vector/members nguyên tử, row lock khi sửa; PUT thay thành
+  viên, bỏ trùng và kiểm active user. Giữ tham chiếu inactive cũ để vẫn sửa được
+  Job; tham chiếu mới phải active. Không thêm migration/dependency/dịch vụ.
+- Kiểm input theo cột DB, field thừa/null, lương và yêu cầu mở tuyển trên bản ghi
+  đã ghép PATCH. Nối `embed_job` T11; lỗi rollback/503 an toàn. Cập nhật mốc mở/
+  đóng khi chuyển trạng thái. Đổi yêu cầu có Application chưa xoá trả
+  needs_rescore; không tự publish, đổi stage hoặc gửi email.
+- Thay trang rỗng bằng bảng Job 6 cột, tìm/lọc/phân trang, form `/jobs/new` và
+  `/jobs/[id]/edit`: hai ô yêu cầu mỗi dòng một tiêu chí, đơn vị/owner/members và
+  thông tin tuyển dụng. Thiếu tiêu đề báo lỗi tiếng Việt và focus trường. Hộp
+  chấm lại sau lưu dùng API T12 khi xác nhận; huỷ giữ điểm, queue lỗi cho thử lại.
+- Cài đặt thêm tab Đơn vị tuyển cho admin/lead, form thêm/sửa và xác nhận ngừng
+  hoạt động/kích hoạt; giữ tab Người dùng mặc định của admin theo T04. Mọi chuỗi
+  UI mới nằm trong vi.ts; có tải/rỗng/lỗi/thử lại. Cột số ứng viên AI/chi tiết Job
+  giữ ở T14. Cập nhật README, spec 03/05/07/08 và câu hỏi #52–#54.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| API: recruiter chỉ thấy Job của mình; tiêu đề bắt buộc, min ≤ max, ít nhất một must_have khi open | VERIFIED — đạt | `tests/api/test_jobs.py`: 45 test; owner/member/outsider, admin/lead, thu hồi membership, lọc/total/phân trang; title rỗng/whitespace/null/quá dài, lương âm/đảo/partial PATCH, draft→open thiếu yêu cầu và xoá yêu cầu cuối khi đang open |
+| Vitest: thiếu tiêu đề báo lỗi tiếng Việt | VERIFIED — đạt | `job-form.test.tsx`: thiếu/rỗng/whitespace title, role=alert, focus title, không gửi request; thêm test lương/open, lưu member_ids nguyên tử, xác nhận/huỷ/retry rescore và lỗi tải/lưu. Toàn bộ frontend 59 pass |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ các dịch vụ/volume dev.
+- Tại backend: `uv sync`: pass, 125 package resolve/73 package mặc định; không
+  đổi manifest/lock. Dùng `UV_CACHE_DIR=D:/code/tool/hr-ats/var/uv-cache` vì cache
+  mặc định ngoài sandbox. `uv run alembic upgrade head`: pass, head giữ
+  `0003_core_data_model`; suite migration DB trống/rollback/schema comparison pass.
+- `uv run pytest`: **819 passed, 12 skipped, 1 warning**, tổng 831 test, 159,10s.
+  Skip chỉ OCR T08 do Windows thiếu Tesseract, không thêm skip/giảm tiêu chí.
+  Warning upstream Starlette/httpx giữ nguyên. FakeLLM/FakeEmbedder, PostgreSQL/
+  Redis local thật, test chặn mạng ngoài. Lượt riêng T13 **45 passed**; lượt
+  đầu sandbox có warning ghi cache, lượt full có quyền local không còn warning đó.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 116 file format
+  đúng. `uv run mypy app`: pass, 69 source file. `git diff --check`: pass.
+- Tại frontend: `npm ci`: pass, 536 package, audit **0 vulnerabilities**;
+  deprecation ESLint/whatwg-encoding có sẵn, không đổi dependency. `npm test`:
+  **59 passed**, 8 file, không skip, mock HTTP và không mạng ngoài. `npm run lint`,
+  `npm run typecheck`: pass. Lượt đầu typecheck bắt `exact` không thuộc option
+  Testing Library; bỏ option dư (name string đã exact mặc định), giữ assertion.
+- `NEXT_TELEMETRY_DISABLED=1 npm run build` (PowerShell đặt env trước): pass,
+  gồm `/jobs`, `/jobs/new`, `/jobs/[id]/edit`, `/settings`.
+- `uv run python -m tests.auth_browser_server` + `npm run dev`, sau đó
+  `npx playwright test`: **2 passed**, giữ nguyên E2E auth T04 với DB tạm riêng.
+  `node ../var/t13-browser-smoke.mjs`: pass đơn vị→tạo/sửa/lọc Job, validation
+  tiếng Việt/focus, recruiter member và thu hồi membership qua API thật, 6 cột,
+  không tràn 1280px, không request ngoài localhost/pageerror. Đã xem ảnh local
+  `var/t13-job-form.png`, `var/t13-jobs.png`. Lượt smoke đầu cần chờ navigation
+  hoàn tất trước khi kiểm disabled owner; sửa script local rồi pass.
+- Dừng web/API sau kiểm chứng; Ctrl+C từ runner Windows dừng process trước
+  finally của fixture, đã dọn đúng DB mới bằng UUID Job riêng + prefix tạm + kiểm
+  không có connection. Xác nhận không còn DB T04 tạm hay listener 3000/8000;
+  giữ `hr_ats`, `hr_ats_test` và volume dev. Script/ảnh chỉ là artifact gitignore.
+- Tự review theo secure-code-review: trace mọi endpoint → quyền DB/CSRF → ORM
+  parameterized → schema công khai; search escape wildcard, không HTML thô,
+  không PII/secret/provider exception vào log. Mutation không dùng body để cấp
+  quyền trước kiểm; queue rescore chỉ sau HR xác nhận. npm audit 0; pip-audit
+  NOT TESTED (không cài, không đổi dependency backend trong T13).
+
+File chính: `backend/app/{api,schemas,services}/jobs.py`, permissions/main,
+`backend/tests/api/test_jobs.py`, `frontend/src/components/{job-form,jobs-list,
+hiring-units-settings,query-feedback}.tsx`, test form/units, routes jobs/settings,
+job-types/api/i18n, README và các spec liên quan.
+
+ASSUMED: #52–#54 ghi rõ quyền tạo/sửa, endpoint options, giới hạn input, mốc mở
+lại, lưu members nguyên tử và mặc định tham chiếu inactive. Không có blocker.
+NOT TESTED: provider/model thật, dữ liệu thật, tải production, CI remote
+(chưa push), review độc lập; OCR thật giữ kiểm chứng T08/Linux/CI cũ, không sửa
+extractor trong T13. Chờ Review T13, CI xanh và merge; chưa chuyển done.
 
 ## T12 · 2026-11-08 · review
 
