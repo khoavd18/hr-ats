@@ -8,7 +8,7 @@
 | T04 | done | 2026-11-08 | VERIFIED: auth cookie JWT/CSRF, Argon2id, khoá đăng nhập, CLI admin và quản lý người dùng; 152 test backend, 47 test frontend, 2 E2E pass. Chờ Review T04 và merge. |
 | T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
-| T07 | review | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
+| T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
 | T08–T33 | todo | | |
 
 ## Nhật ký
