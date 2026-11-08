@@ -10,10 +10,96 @@
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
 | T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
 | T08 | done | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
-| T09–T33 | todo | | |
+| T09 | review | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
+| T10–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T09 · 2026-11-08 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md` trên nhánh
+`task/T09-llm-adapters-prompts`; T02 đã done, working tree sạch trước khi bắt đầu.
+Hoàn thành triển khai, giữ review đến khi được duyệt và merge vào main.
+
+- Thêm Protocol LLMClient.complete_json và factory từ Settings; FakeLLM,
+  AnthropicLLM, OpenAILLM, OllamaLLM dùng HTTPX/Jinja2/Pydantic đã có trong stack.
+  Không thêm SDK, dependency, dịch vụ, schema DB, API, UI hoặc logic T10/T12.
+  Model thật phải cấu hình tường minh, cloud cần key; fake dùng fake-v1.
+- Request JSON schema theo từng provider, timeout 60 giây mỗi pha, tối đa 4096
+  token đầu ra. Retry mạng/429/5xx hai lần với backoff 1/2 giây; không theo redirect,
+  lỗi 4xx/refusal/truncated/envelope fail an toàn. JSON/schema sai gọi lại đúng một
+  lần, chỉ gửi mã lỗi Pydantic, không echo rejected output/loc/message/input/context.
+  Tối đa sáu request khi kết hợp hai cơ chế; AppError tiếng Việt cố định.
+- Log chỉ provider/model cấu hình, token/duration/outcome/lượt thử, không prompt,
+  CV, output, credential hoặc lỗi thô. Token thiếu là null, không giả số liệu.
+  Client đóng sau request; key SecretStr; endpoint cloud cố định, Ollama chỉ origin
+  từ cấu hình máy chủ, không URL trong CV hay credential/path/query/fragment.
+- Schema strict/extra forbid cho ba parse và score; scalar thiếu null, list [],
+  tháng YYYY-MM hợp lệ, số năm hữu hạn không âm, kỹ năng chuẩn hoá/bỏ trùng;
+  enum tiêu chí/cờ đóng, 2–3 lý do, evidence tối đa 20 từ. Kiểm evidence theo nguồn,
+  tiêu chí đầy đủ và tính điểm thuộc T12; không nhận quyết định tuyển từ LLM.
+- Loader frontmatter scalar/version/task/description, Jinja2 sandbox/StrictUndefined,
+  giới hạn path trong prompts. Bốn prompt tiếng Việt v1: basic/experience/skills
+  và score; user JSON qua tojson, CV/Job là dữ liệu không đáng tin cậy, không render
+  lại nội dung thành template. Fake trích dòng có nhãn, score bằng cụm từ trong
+  CV với ranh giới từ, case/accent-insensitive; không tìm trong JD hoặc suy luận
+  kinh nghiệm/học vấn. CLI smoke dùng dữ liệu giả cố định, chỉ in metadata.
+- README hướng dẫn smoke fake/cloud/local; spec 04/08 và câu hỏi #37–#40 mô tả
+  contract/default/ràng buộc. Nhà cung cấp/model được duyệt vẫn UNKNOWN; không gửi
+  CV thật. Chênh lệch chính sách che tên trước parse giữa llm-contract/spec 04 đã
+  ghi #40, cần chốt trước production, không chặn các tiêu chí offline T09.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Factory chọn đúng adapter; fake hợp schema; schema sai retry rồi lỗi; log không có input | VERIFIED — đạt | 136 test mới trong test_llm.py/test_prompts.py/test_ai_schemas.py: đủ bốn factory/environment; parse/score với prompt thật tất định; HTTPX MockTransport ba provider kiểm hợp đồng, sửa một lần thành công/thất bại, backoff và trần sáu request; sentinel input/output/key không có trong log hay lỗi, kể cả chưa gắn PiiFilter |
+| Có script `uv run python -m app.scripts.llm_smoke --provider anthropic` để tự thử key thật | VERIFIED — đạt | Module CLI và README; lệnh --provider fake thực tế exit 0/status ok cho bốn tác vụ. Test --provider anthropic qua HTTP mock đủ bốn tác vụ; thiếu key exit 1 với mã lỗi cố định, không nối mạng |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ dịch vụ/volume dev có sẵn.
+- `uv sync`: pass, 74 package resolve/73 package kiểm tra, manifest/lockfile không đổi.
+- `uv run alembic upgrade head`: pass, head giữ 0003_core_data_model; test migration
+  DB trống/rollback/schema comparison của bộ cũ vẫn pass.
+- `uv run pytest`: lượt cuối **543 passed, 12 skipped, 1 warning** (555 thu thập),
+  gồm **136 test T09**. 12 skip chỉ là OCR T08 vì Windows không có Tesseract, theo
+  ngoại lệ task đó; không thêm skip hoặc sửa test cũ. PostgreSQL/Redis local thật,
+  provider fake hoặc HTTP mock, fixture chung chặn mạng ngoài.
+- `uv run pytest tests/unit/test_ai_schemas.py tests/unit/test_prompts.py tests/unit/test_llm.py --cov=app.ai.llm --cov=app.ai.prompts --cov=app.ai.schemas --cov=app.scripts.llm_smoke --cov-report=term-missing -q`:
+  **136 passed**, coverage dòng/nhánh tổng **93%** (llm 92%, prompts 97%, schemas
+  96%, smoke 86%); không đặt ngưỡng coverage mới.
+- Linux dùng image OCR T08 đã có, không tải image/dependency:
+  `docker run --rm --network none --mount type=bind,source=D:/code/tool/hr-ats,target=/workspace,readonly -w /workspace/backend -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/t09.coverage hr-ats-t08-ocr uv run --no-sync pytest tests/unit/test_ai_schemas.py tests/unit/test_prompts.py tests/unit/test_llm.py tests/unit/test_extract.py tests/unit/test_redact.py -q -o cache_dir=/tmp/t09-pytest-cache`:
+  **257 passed/0 skipped**, gồm toàn bộ T09 và OCR T08 thật, repo chỉ đọc/mạng tắt.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 90 file đã format;
+  `uv run mypy app`: pass, 55 file. Hai lệnh Ruff cho `../eval` cũng pass (4 file).
+- `uv run python -m app.scripts.llm_smoke --provider fake`: exit 0, status ok,
+  model fake-v1, prompt v1 và đủ bốn tác vụ, không CV/output.
+- Lượt trung gian phát hiện missing Jinja variable qua tojson ném TypeError;
+  sửa thành PromptError an toàn. Tự review phát hiện regex fake ăn dòng tiếp khi
+  nhãn trống: test tái hiện fail trước sửa, đổi sang khoảng trắng ngang/cùng dòng,
+  giữ test hồi quy; lượt full suite cuối trên đã pass sau sửa.
+- Sandbox ban đầu chặn cache uv/temp pytest và Docker pipe. Thử cache trong var
+  vẫn bị ACL temp, sau đó chạy lệnh chuẩn với quyền công cụ được cấp: pass; không
+  bỏ test hoặc sửa fixture để tránh lỗi quyền. Artifact thử cache/temp thuộc var
+  được gitignore; không có CV thật/secret trong thay đổi.
+- Tự review theo secure-code-review: trace prompt/CV → JSON request → validation,
+  lỗi/provider output không vào log/repair message; Jinja input không thực thi;
+  endpoint không lấy từ CV, redirect tắt; không DB/email/stage/side effect. Không
+  còn finding đã xác nhận trong phạm vi T09; không thêm dependency nên không có
+  license mới. Quét dependency vulnerability riêng NOT TESTED (không có pip-audit).
+
+File chính: `backend/app/ai/{llm,prompts,schemas}.py`,
+`backend/app/scripts/llm_smoke.py`, `backend/tests/unit/test_{llm,prompts,ai_schemas}.py`,
+`prompts/{parse_cv_basic,parse_cv_experience,parse_cv_skills,score_cv}/v1.md`,
+README, spec 04/08, open-questions và PROGRESS.
+
+ASSUMED: các mặc định #37–#40 đã ghi rõ. NOT TESTED: provider/model/key thật,
+chất lượng LLM production/bias/eval T31, CI remote (chưa push), review độc lập.
+Không đổi frontend nên không chạy lại frontend/E2E. Cảnh báo upstream
+Starlette/httpx #13 giữ nguyên. Chờ Review T09, CI xanh và merge; chưa chuyển done.
 
 ## T08 · 2026-11-08 · review · Fix round 1
 

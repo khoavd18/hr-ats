@@ -44,6 +44,15 @@ CI cài `tesseract-ocr` và `tesseract-ocr-vie` (kèm `eng`) trước pytest đ�
 các test này. Tất cả OCR chạy local; test thiếu OCR/timeout/lỗi mock subprocess,
 không gọi mạng ngoài. Không thêm dependency Python, schema DB hoặc UI ở T08.
 
+T09 thêm `tests/unit/test_ai_schemas.py`, `test_prompts.py`, `test_llm.py` trong
+`uv run pytest`: factory/environment, FakeLLM với prompt thật, schema/ngày/enum/
+lý do/bằng chứng, version/Jinja2/JSON phân định dữ liệu không đáng tin cậy. HTTPX
+MockTransport kiểm contract ba provider, auth/timeout/token, sửa JSON một lần,
+retry/backoff mạng/429/5xx có giới hạn, 4xx/redirect/envelope/refusal/truncated và
+log không có input/output/key giả kể cả chưa có filter. CLI smoke test bằng fake
+và Anthropic HTTP mock; provider thật chỉ chạy thủ công theo README. Không gọi
+mạng ngoài/key thật; không đổi schema DB/API/UI.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.
