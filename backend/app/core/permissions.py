@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models.applications import Application
-from app.models.candidates import Candidate
+from app.models.candidates import Candidate, CvFile
 from app.models.jobs import Job, JobMember
 from app.models.users import User, UserRole
 
@@ -53,10 +53,30 @@ def _has_job_access(
         return session.scalar(select(query.exists())) is True
 
 
+def _has_cv_access(session: Session, user: User, resource: CvFile) -> bool:
+    # Read persisted scope so unflushed changes cannot grant access.
+    with session.no_autoflush:
+        scope = session.execute(
+            select(CvFile.job_id, CvFile.candidate_id, CvFile.uploaded_by).where(
+                CvFile.id == resource.id, CvFile.deleted_at.is_(None)
+            )
+        ).one_or_none()
+        if scope is None:
+            return False
+        job_id, candidate_id, uploaded_by = scope
+        if job_id is not None and _has_job_access(session, user, Job(id=job_id), "jobs.view"):
+            return True
+        if candidate_id is not None and _has_job_access(
+            session, user, Candidate(id=candidate_id), "job_candidates.view"
+        ):
+            return True
+        return job_id is None and candidate_id is None and uploaded_by == user.id
+
+
 def authorize(
     user: User,
     action: str,
-    resource: ResourceScope | Job | Candidate | Application | None = None,
+    resource: ResourceScope | Job | Candidate | Application | CvFile | None = None,
     *,
     session: Session | None = None,
 ) -> None:
@@ -82,7 +102,16 @@ def authorize(
                     )
                 )
             )
-        elif action == "cv_bank.search":
+        elif action == "cv_files.view":
+            allowed = (
+                isinstance(resource, CvFile)
+                and session is not None
+                and (
+                    user.role in {UserRole.admin, UserRole.lead}
+                    or (user.role == UserRole.recruiter and _has_cv_access(session, user, resource))
+                )
+            )
+        elif action in {"cv_bank.search", "cv_files.upload"}:
             allowed = user.role in set(UserRole)
         elif action == "reports.view":
             allowed = user.role in {UserRole.admin, UserRole.lead} or (

@@ -152,11 +152,29 @@ Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 |---|---|
 | Backend: cài gói, migration, chạy API, pytest, ruff, mypy | Có tại T02 |
 | Frontend: cài gói (`npm ci`), chạy dev, test, lint, typecheck, build | Có tại T03 |
-| Worker Celery | Có sau T02/T03, tại T07; Windows thêm `-P solo` |
+| Worker Celery | Có tại T07; lệnh bên dưới, Windows thêm `-P solo` |
 | Seed dev và E2E có dữ liệu | Có sau T02/T03, tại T18 |
 | Đánh giá AI | Có sau T02/T03, tại T31 |
 
 Lệnh chính xác nằm trong `docs/specs/08-testing-quality.md`. Test dùng adapter giả và không gọi mạng bên ngoài.
+
+### Upload và worker T07
+
+Tại `backend/`, chạy worker bên cạnh API (cùng `.env`, DB và storage):
+
+```sh
+uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info
+# Windows
+uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P solo
+```
+
+`POST /api/v1/cv-files` nhận multipart field `files` lặp lại, tuỳ chọn UUID `job_id`, cookie đăng nhập và `X-CSRF-Token`. Giới hạn 50 file/lần, 10 MiB/file, nhận magic bytes PDF/DOCX/JPEG/PNG; từ chối macro. Kết quả HTTP 200 có `items` theo vị trí đầu vào, mỗi item có `index`, `cv_file`, `duplicate`, `error`; một file sai không huỷ file đúng. Xem contract đầy đủ và quyền ở spec 03/07, OpenAPI tại `/docs`.
+
+Mặc định `STORAGE_BACKEND=local` lưu tại `var/storage` ở gốc repo, key ngẫu nhiên. GET trạng thái và download qua API có kiểm quyền/audit; storage không public. S3 dùng boto3 với `S3_BUCKET` có sẵn, endpoint/credential từ biến S3; không cần bật MinIO để dùng/test M1. Các test S3 dùng Stubber offline; runtime S3 được hoãn theo câu hỏi #8.
+
+Worker T07 **chỉ đặt trạng thái `done`**, chưa đọc/parse/chấm CV; pipeline thật thuộc T10. Upload mới trả snapshot `pending`, GET `/api/v1/cv-files/{id}` phản ánh trạng thái hiện tại; download thêm `/download`. SHA-256 trùng trả cùng ID sau kiểm quyền, không đổi Job/uploader và không tạo thêm file/activity. Nếu publish Redis lỗi, record chuyển `failed`; upload lại cùng file để thử xếp hàng lại. Crash đúng khoảng giữa commit và publish có thể để file ở `pending`; chưa có outbox/reconciliation trong T07, cần kiểm tra vận hành trước production. Dev/test không dùng CV thật.
+
+`APP_ENV=test` cấu hình eager/memory theo [Celery configuration](https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-always-eager); suite vẫn kiểm worker trên kết nối PostgreSQL riêng và upload đồng thời. T07 không đổi schema; rollback code cần dừng API/worker, giữ DB và storage, không xoá file đã nhận. Chờ review độc lập và CI xanh trước merge.
 
 ### Dữ liệu trong repo
 

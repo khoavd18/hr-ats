@@ -41,13 +41,25 @@ Các mặc định kỹ thuật trên được ghi ở câu hỏi #18–#20; kh�
 - `GET /jobs/{id}/export.xlsx` → xuất bảng xếp hạng (ghi audit)
 
 ## CV & ứng viên
-- `POST /cv-files` multipart, nhiều file (PDF, DOCX, JPG, PNG; tối đa 10 MB/file, 50 file/lần), tuỳ chọn `job_id` → trả danh sách `cv_file` với `status=pending`
+- `POST /cv-files` multipart, nhiều file (PDF, DOCX, JPG, PNG; tối đa 10 MB/file, 50 file/lần), tuỳ chọn `job_id` → trả kết quả từng file theo contract T07 dưới đây
 - `GET /cv-files/{id}` (trạng thái xử lý) · `GET /cv-files/{id}/download` (ghi audit)
 - `GET /candidates?q=&skills=&min_years=&location=&source=` → tìm kiếm kho CV (full-text) · `GET /candidates/search/semantic?q=` → tìm theo nghĩa
 - `GET /candidates/{id}` (ghi audit) · `PATCH /candidates/{id}` (sửa thông tin parse sai)
 - `POST /candidates/{id}/merge` {into_id} → gộp trùng
 - `POST /candidates/{id}/consent` {consent_at, note}
 - `DELETE /candidates/{id}` → soft delete
+
+### Contract upload và truy cập file T07
+
+- `POST /cv-files`: tên field lặp `files`, tối đa một field chuỗi UUID `job_id`; cần đăng nhập và CSRF. Batch hợp lệ trả **200** `{items: [{index, cv_file, duplicate, error}]}` theo thứ tự đầu vào, `index` bắt đầu từ 0. Thành công có `cv_file` theo schema `CvFileRead`, `error=null`; file lỗi có `cv_file=null`, `error={code,message}` tiếng Việt và `duplicate=false`. Lỗi một file không huỷ các file hợp lệ khác. Batch rỗng/sai field/sai UUID/quá 50 file → 422; Job không tồn tại → 404, không có quyền → 403 trước khi lưu file nào.
+- Giới hạn 10 MB = 10 × 1024 × 1024 byte, tính trên nội dung. Nhận diện MIME từ magic bytes, không tin tên đuôi/Content-Type do client cung cấp. DOCX phải là ZIP có content type Word chuẩn và `word/document.xml`; từ chối `.docm`, VBA và content type macro, ZIP mã hoá, đường dẫn bất thường, quá 2000 entry hoặc tổng giải nén quá 50 MiB. Không giải nén ra đĩa. Mã lỗi file: `INVALID_FILE_TYPE`, `FILE_TOO_LARGE`, `MACRO_NOT_ALLOWED`; thông báo không chứa tên hay nội dung file lỗi.
+- File mới tạo `cv_files(pending)`, `uploaded_by` lấy từ phiên, `job_id` đã kiểm quyền, chưa tạo Candidate/Application (T10). Ghi một activity `cv_uploaded` có payload chỉ `{cv_file_id}`. Commit DB trước khi gửi task `process_cv_file` vào queue `ai`. Phản hồi file mới là snapshot `pending` dù eager/worker có thể hoàn tất ngay; GET trạng thái trả giá trị hiện tại. Task T07 chỉ đổi `pending` → `done`, không parse/chấm điểm.
+- SHA-256 trùng trả cùng bản ghi với `duplicate=true` và trạng thái hiện tại; không ghi thêm file/activity/task, không đổi Job hoặc uploader của bản ghi cũ. Kiểm quyền cả bản ghi cũ; không có quyền → lỗi từng file `FORBIDDEN` không lộ metadata/ID. Bản ghi/file ứng viên đã soft delete → `NOT_FOUND`, không phục hồi ngầm. Tạo application cho Job khác vẫn thuộc T10/các API nghiệp vụ sau.
+- Publish hàng đợi lỗi: giữ file/record đã commit, đặt `status=failed`, lưu lỗi tiếng Việt cố định trong DB (không xuất exception). Upload lại cùng file được phép xếp hàng lại đúng lỗi publish này, giữ nguyên ID và activity. Lỗi storage khi upload → lỗi từng file `STORAGE_UNAVAILABLE`; lỗi storage khi download → HTTP 503 cùng code. DB lỗi sau khi lưu object thì rollback và xoá object vừa tạo.
+- `GET /cv-files/{id}` → 200 `CvFileRead`, ghi audit `action=view`, `entity=cv_file`. `GET /cv-files/{id}/download` → byte gốc, MIME đã xác minh, `Content-Disposition: attachment` với tên `cv-{id}.{đuôi}`, `X-Content-Type-Options: nosniff`; ghi audit `action=download` sau khi đọc storage thành công, trước khi trả byte. Cả hai dùng `Cache-Control: no-store`. Audit chỉ có định danh actor/file, thời điểm, IP kết nối nếu hợp lệ; không tin `X-Forwarded-For`.
+- Admin/lead đọc mọi file chưa xoá; recruiter cần quyền owner/member ở Job upload hoặc ít nhất một application chưa xoá của ứng viên trong Job được phép. Khi chưa có cả Job lẫn Candidate, chỉ uploader (ngoài admin/lead) đọc được. Thu hồi membership có hiệu lực ngay lần truy cập tiếp theo, uploader không vượt quyền Job. Không tồn tại/đã xoá → 404; tồn tại nhưng không có quyền → 403. Không xuất `storage_key`, raw text, parsed JSON hoặc lỗi provider.
+
+ASSUMED: các chi tiết chưa chốt trước T07 được ghi tại câu hỏi #30–#33. Không đổi schema DB/KPI.
 
 ## Hồ sơ ứng tuyển & pipeline
 - `POST /applications` {candidate_id, job_id} → thêm ứng viên trong kho vào Job (tự xếp hàng chấm AI)
