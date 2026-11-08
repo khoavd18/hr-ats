@@ -14,8 +14,12 @@ Ví dụ:
   - Task blocked, kiểm tra lỗi, CI đỏ, hoặc hết số vòng sửa: dừng ngay.
   Bỏ qua các điểm dừng mốc bằng -IgnoreMilestones (không bỏ qua được task nhạy cảm).
 
-Màn hình chỉ hiện các dòng trạng thái; toàn bộ output của Codex/Claude nằm trong file log
-(var/auto-task/). Muốn xem trực tiếp khi chạy, thêm -ShowAgentOutput.
+Hiển thị (-Output):
+  compact (mặc định): mỗi bước một dòng: Codex nói gì, chạy lệnh nào, sửa file nào, lệnh nào lỗi,
+                      và các phát hiện của review. Bỏ qua nội dung file, diff, output dài.
+  full:               in toàn bộ output của Codex/Claude (rất dài).
+  quiet:              chỉ các dòng trạng thái của script.
+Toàn bộ output luôn được ghi vào file log trong var/auto-task/.
 
 Yêu cầu: codex và claude CLI đã đăng nhập; Docker đang chạy; repo sạch.
 Khuyên dùng GitHub CLI để đợi CI:  winget install GitHub.cli ; gh auth login
@@ -29,8 +33,10 @@ param(
   [switch]$NoMerge,
   [switch]$SkipImplement,
   [switch]$IgnoreMilestones,
-  [switch]$ShowAgentOutput
+  [ValidateSet('compact', 'full', 'quiet')][string]$Output = 'compact',
+  [switch]$ShowAgentOutput  # giữ cho tương thích: tương đương -Output full
 )
+if ($ShowAgentOutput) { $Output = 'full' }
 # 'Continue': git/gh ghi tiến trình ra stderr; Windows PowerShell 5.1 coi đó là lỗi nếu đặt 'Stop'.
 # Mọi lỗi thật được kiểm tra bằng `$LASTEXITCODE và dừng bằng throw.
 $ErrorActionPreference = 'Continue'
@@ -78,14 +84,68 @@ function Say($msg, $color = 'Cyan') {
   Write-Host $line -ForegroundColor $color
   Add-Content -Path $log -Value $line -Encoding utf8
 }
-# Ghi output của lệnh ngoài vào log (dạng chữ thường, không có "RemoteException"),
-# chỉ in ra màn hình khi có -ShowAgentOutput.
+# ---------- Hiển thị output của agent ----------
+# Mọi dòng đều vào log. Màn hình tuỳ -Output; chế độ compact đọc cấu trúc output của
+# `codex exec` (các mốc: codex / exec / apply patch / exited N / web search / tokens used).
+$script:fmt = @{ State = ''; Count = 0 }
+function Get-Short([string]$text, [int]$max = 110) {
+  $t = ($text -replace '\s+', ' ').Trim()
+  if ($t.Length -gt $max) { $t = $t.Substring(0, $max - 1) + '…' }
+  return $t
+}
+function Show([string]$text, $color = 'Gray') { Write-Host "    $text" -ForegroundColor $color }
+function Format-Command([string]$line) {
+  $c = $line -replace '^"[^"]*powershell(\.exe)?"\s+-Command\s+', ''
+  $c = $c -replace '\s+in\s+[A-Za-z]:\\\S*\s*$', ''
+  $c = $c.Trim().Trim("'").Trim('"')
+  return Get-Short $c 100
+}
+function Format-CodexLine([string]$text) {
+  $t = $text.Trim()
+  switch -Regex ($t) {
+    '^codex$' { $script:fmt.State = 'msg'; $script:fmt.Count = 0; return }
+    '^exec$' { $script:fmt.State = 'exec'; return }
+    '^apply patch$' { $script:fmt.State = 'patch'; return }
+    '^(user|thinking)$' { $script:fmt.State = 'skip'; return }
+    '^tokens used' { $script:fmt.State = 'tokens'; return }
+    '^web search:\s*(.+)$' { Show "? tìm: $(Get-Short $Matches[1] 100)" 'DarkGray'; return }
+    '^web search:\s*$' { return }
+    '^exited (\d+) in' { Show "! lệnh lỗi (exit $($Matches[1])), Codex sẽ tự xử lý" 'Yellow'; $script:fmt.State = 'out'; return }
+    '^succeeded in' { $script:fmt.State = 'out'; return }
+  }
+  switch ($script:fmt.State) {
+    'msg' {
+      if ($t -eq '') { if ($script:fmt.Count -gt 0) { $script:fmt.State = 'out' }; return }
+      if ($script:fmt.Count -lt 4) { Show "* $(Get-Short $t 150)" 'White' }
+      elseif ($script:fmt.Count -eq 4) { Show '  …' 'DarkGray' }
+      $script:fmt.Count++
+    }
+    'exec' { if ($t) { Show "> $(Format-Command $t)" 'DarkCyan'; $script:fmt.State = 'out' } }
+    'patch' {
+      if ($t -match '^[A-Za-z]:\\') { Show "~ sửa: $((($t -replace [regex]::Escape("$root\"), '') -replace '\\', '/'))" 'Green' }
+      elseif ($t -match '^diff ') { $script:fmt.State = 'out' }
+    }
+    'tokens' { if ($t) { Show "tokens: $t" 'DarkGray'; $script:fmt.State = 'out' } }
+  }
+}
+function Format-ClaudeLine([string]$text) {
+  $t = $text.Trim()
+  if ($t -match '\[(BLOCKER|MAJOR|MINOR)\]') {
+    $color = @{ BLOCKER = 'Red'; MAJOR = 'Yellow'; MINOR = 'DarkGray' }[$Matches[1]]
+    Show "- $(Get-Short ($t -replace '^[-*]\s*', '') 150)" $color
+  }
+}
 function Write-ToolOutput {
-  param([Parameter(ValueFromPipeline = $true)]$Line)
+  param([Parameter(ValueFromPipeline = $true)]$Line, [ValidateSet('codex', 'claude', 'plain')][string]$Kind = 'plain')
+  begin { $script:fmt.State = ''; $script:fmt.Count = 0 }
   process {
     $text = "$Line"
     Add-Content -Path $log -Value $text -Encoding utf8
-    if ($ShowAgentOutput) { Write-Host $text -ForegroundColor DarkGray }
+    if ($Output -eq 'full') { Write-Host $text -ForegroundColor DarkGray }
+    elseif ($Output -eq 'compact') {
+      if ($Kind -eq 'codex') { Format-CodexLine $text }
+      elseif ($Kind -eq 'claude') { Format-ClaudeLine $text }
+    }
   }
 }
 function Invoke-Git { git @args 2>&1 | ForEach-Object { Add-Content -Path $log -Value "$_" -Encoding utf8 }; if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') lỗi. Xem $log" } }
@@ -103,7 +163,7 @@ function Sync-Main {
 function Invoke-Codex([string]$prompt) {
   Say "Codex: $prompt"
   # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
-  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Write-ToolOutput
+  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Write-ToolOutput -Kind codex
   if ($LASTEXITCODE -ne 0) { throw "Codex lỗi (exit $LASTEXITCODE). Xem $log" }
   Say "  Codex xong (chi tiết trong log)." 'DarkGray'
 }
@@ -111,7 +171,7 @@ function Invoke-Codex([string]$prompt) {
 function Invoke-ClaudeReview([string]$task) {
   Say "Claude Code: Review $task"
   claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
-    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Write-ToolOutput
+    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Write-ToolOutput -Kind claude
   if ($LASTEXITCODE -ne 0) { throw "Claude Code lỗi (exit $LASTEXITCODE). Xem $log" }
   $changed = git status --porcelain | Where-Object { $_ -notmatch "tasks/reviews/$task\.md" }
   if ($changed) { throw "Reviewer đã sửa file ngoài báo cáo, dừng lại để bạn kiểm tra:`n$changed" }
