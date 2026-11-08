@@ -9,11 +9,30 @@
 | T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
 | T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
-| T08 | review | 2026-11-08 | VERIFIED: trích PDF theo cột, DOCX gồm bảng, OCR local 300 DPI/giảm nhiễu, che liên hệ và chuẩn hoá +84. 121 test T08 pass với Tesseract thật offline; backend Windows 407 pass/12 OCR skip do thiếu executable; Ruff/mypy sạch. Chờ Review T08, CI và merge. |
+| T08 | review | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. Mypy Linux/Windows pass 51 file; 121 test T08 pass với OCR thật offline, backend Windows 407 pass/12 OCR skip; Ruff sạch. Chờ CI bản sửa và merge. |
 | T09–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T08 · 2026-11-08 · review · Fix round 1
+
+VERIFIED: đọc `tasks/reviews/T08.md` (APPROVE), thực hiện `tasks/_fix.md` trên nhánh
+T08. `gh run view 42471694355 --log-failed` phát hiện attempt 1 lỗi HTTP 504 khi tải
+uv; chạy lại job bằng `gh run rerun 42471694355 --failed` qua setup nhưng attempt 2
+lộ lỗi mypy Linux: `subprocess.CREATE_NO_WINDOW` không có trên nền tảng đó.
+
+Sửa `backend/app/ai/extract.py` dùng nhánh `if sys.platform == "win32"` được mypy
+nhận diện, giữ cửa sổ OCR ẩn trên Windows và `creationflags=0` trên Linux. Tái hiện
+lỗi bằng mypy Linux offline trước sửa; sau sửa mypy Linux/Windows đều pass 51 file.
+Không bỏ kiểm tra type hay thay test. `uv sync --frozen`, migration và Ruff cho
+backend/eval pass; backend Windows **407 passed/12 skipped** (không có Tesseract), chạy
+lại test T08 sau sửa **109 passed/12 skipped**. Container offline có Tesseract thật
+chạy **121 passed/0 skipped** sau sửa. Cảnh báo Starlette/httpx #13 giữ nguyên.
+
+Chi tiết CI-1/CI-2 và quyết định từng finding F1/F2, lệnh kiểm chứng, ngoại lệ cache
+Windows: `tasks/reviews/T08.md`, mục Fix round 1. Giữ trạng thái `review` vì chưa
+merge; kiểm tra CI của bản sửa sau push trước khi kết thúc.
 
 ## T08 · 2026-11-08 · review
 

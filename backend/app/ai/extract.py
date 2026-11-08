@@ -1,9 +1,9 @@
 """Extract CVs locally. Never log document bytes, extracted text or OCR stderr."""
 
-import os
 import re
 import shutil
 import subprocess
+import sys
 import unicodedata
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -114,6 +114,9 @@ def _ocr(png: bytes) -> str:
         prepared = image.convert("L").filter(ImageFilter.MedianFilter(3))
         output = BytesIO()
         prepared.save(output, format="PNG", dpi=(OCR_DPI, OCR_DPI))
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NO_WINDOW
     try:
         # Pipe both directions: no CV files on disk and no CV text in argv/logs.
         result = subprocess.run(
@@ -122,7 +125,7 @@ def _ocr(png: bytes) -> str:
             capture_output=True,
             timeout=OCR_TIMEOUT_SECONDS,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            creationflags=creationflags,
         )
     except FileNotFoundError:
         raise ExtractionError("OCR_NOT_INSTALLED", "Máy chủ chưa cài OCR") from None
