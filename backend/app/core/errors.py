@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException
 
+from app.core.logging import safe_traceback
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,7 +60,10 @@ async def handle_http_error(request: Request, exc: Exception) -> JSONResponse:
 
 
 async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-    logger.error("Unhandled application error", extra={"exception_type": type(exc).__name__})
+    logger.error(
+        "Unhandled application error",
+        extra={"exception_type": type(exc).__name__, "stack": safe_traceback(exc.__traceback__)},
+    )
     response = error_response("INTERNAL_ERROR", "Đã có lỗi xảy ra. Vui lòng thử lại sau.", 500)
     # The server-error handler runs outside CORSMiddleware; keep its response readable by the UI.
     origin = request.headers.get("origin")

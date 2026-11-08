@@ -1,11 +1,15 @@
 import io
 
+import pytest
 from alembic import command
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
-from sqlalchemy import Engine, text
+from alembic.migration import MigrationContext
+from sqlalchemy import Column, Engine, Index, Integer, MetaData, Table, text
 from sqlalchemy.orm import Session
 
 from app.core.config import REPO_ROOT
+from app.models import Base
 
 
 def test_migration_upgrades_empty_database_and_preserves_extensions_on_rollback(
@@ -51,3 +55,28 @@ def test_session_commit_stays_inside_the_per_test_transaction(
             connection.execute(text("SELECT to_regclass('t02_transaction_probe')")).scalar_one()
             is None
         )
+
+
+def test_models_match_the_migrated_schema(test_engine: Engine) -> None:
+    with test_engine.connect() as connection:
+        context = MigrationContext.configure(
+            connection, opts={"compare_type": True, "compare_server_default": True}
+        )
+        assert compare_metadata(context, Base.metadata) == []
+
+
+@pytest.mark.parametrize("missing", ["table", "column", "index"])
+def test_schema_comparison_detects_missing_migrations(empty_engine: Engine, missing: str) -> None:
+    metadata = MetaData()
+    table = Table("t02_schema_probe", metadata, Column("id", Integer, primary_key=True))
+    if missing == "column":
+        table.append_column(Column("revision", Integer))
+    if missing == "index":
+        Index("ix_t02_schema_probe_id", table.c.id)
+    with empty_engine.begin() as connection:
+        if missing != "table":
+            connection.execute(text("CREATE TABLE t02_schema_probe (id integer PRIMARY KEY)"))
+        context = MigrationContext.configure(connection)
+        changes = compare_metadata(context, metadata)
+        expected = {"table": "add_table", "column": "add_column", "index": "add_index"}[missing]
+        assert any(change[0] == expected for change in changes)

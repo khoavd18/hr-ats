@@ -4,19 +4,23 @@ import re
 import sys
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
+from traceback import walk_tb
+from types import TracebackType
 from typing import Any
 
 REDACTED = "[REDACTED]"
 EMAIL_PATTERN = re.compile(r"[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+", re.UNICODE)
-PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+?84|0)(?:[\s().-]*\d){8,10}(?!\w)")
+PHONE_PATTERN = re.compile(r"(?<![\w.])(?:\+84|84(?!\.)|0(?!\.))(?:[\s().-]*\d){8,10}(?!\w)")
 URL_CREDENTIALS_PATTERN = re.compile(r"([a-z][a-z0-9+.-]*://)[^/\s@]+@", re.IGNORECASE)
-SENSITIVE_PARTS = (
+SENSITIVE_KEYS = {
     "text",
     "body",
     "cv",
     "content",
     "password",
     "secret",
+    "secret_key",
     "token",
     "authorization",
     "cookie",
@@ -26,17 +30,30 @@ SENSITIVE_PARTS = (
     "redis_url",
     "email",
     "phone",
+}
+SENSITIVE_SUFFIXES = (
+    "_text",
+    "_body",
+    "_content",
+    "_password",
+    "_secret",
+    "_secret_key",
+    "_token",
+    "_api_key",
+    "_access_key",
+    "_email",
+    "_phone",
 )
-ASSIGNMENT_PATTERN = re.compile(
-    r"\b[\w-]*(?:text|body|cv|content|password|secret|token|authorization|cookie|api_key|access_key)"
-    r"[\w-]*[\"']?\s*[:=]\s*",
-    re.IGNORECASE,
-)
+DIAGNOSTIC_SUFFIXES = ("_id", "_status", "_count")
+ASSIGNMENT_PATTERN = re.compile(r"(?<![\w-])(?P<key>[a-zA-Z_][\w-]*)[\"']?\s*[:=]\s*")
 STANDARD_FIELDS = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime", "taskName"}
 
 
 def sensitive_key(key: str) -> bool:
-    return any(part in key.lower() for part in SENSITIVE_PARTS)
+    key = key.casefold().replace("-", "_")
+    if key.endswith(DIAGNOSTIC_SUFFIXES):
+        return False
+    return key in SENSITIVE_KEYS or key.endswith(SENSITIVE_SUFFIXES)
 
 
 def redact(value: Any, depth: int = 0) -> Any:
@@ -62,13 +79,21 @@ def redact(value: Any, depth: int = 0) -> Any:
         value = URL_CREDENTIALS_PATTERN.sub(r"\1" + REDACTED + "@", value)
         value = EMAIL_PATTERN.sub(REDACTED, value)
         value = PHONE_PATTERN.sub(REDACTED, value)
-        assignment = ASSIGNMENT_PATTERN.search(value)
-        if assignment:
-            value = value[: assignment.end()] + REDACTED
+        for assignment in ASSIGNMENT_PATTERN.finditer(value):
+            if sensitive_key(assignment.group("key")):
+                return value[: assignment.end()] + REDACTED
         return value
     if value is None or isinstance(value, (bool, int, float)):
         return value
     return redact(str(value), depth + 1)
+
+
+def safe_traceback(traceback: TracebackType | None) -> list[str]:
+    # Walk frame metadata only: no source lookup, exception message, locals or full filesystem path.
+    return [
+        redact(f"{Path(frame.f_code.co_filename).name}:{line} in {frame.f_code.co_name}")
+        for frame, line in walk_tb(traceback)
+    ]
 
 
 class PiiFilter(logging.Filter):
@@ -82,7 +107,8 @@ class PiiFilter(logging.Filter):
                 record.__dict__[key] = REDACTED if sensitive_key(key) else redact(value)
         if record.exc_info and record.exc_info[0] is not None:
             record.__dict__["exception_type"] = record.exc_info[0].__name__
-        # Raw exception messages, source lines and stack info may contain unstructured CV data.
+            record.__dict__["stack"] = safe_traceback(record.exc_info[2])
+        # Keep only safe frames; raw messages, source lines and locals may contain CV data.
         record.exc_info = None
         record.exc_text = None
         record.stack_info = None

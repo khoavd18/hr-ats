@@ -1,9 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     data_retention_months: int = 24
     frontend_origin: str = "http://localhost:3000"
     tz: str = "Asia/Ho_Chi_Minh"
+
+    @model_validator(mode="after")
+    def validate_production_signing_key(self) -> Self:
+        key = self.secret_key.get_secret_value()
+        if self.app_env == "prod" and (
+            key.strip() in {"", "change-me"} or len(key.encode("utf-8")) < 32
+        ):
+            raise ValueError("SECRET_KEY must be non-default and at least 32 UTF-8 bytes in prod")
+        return self
 
     @field_validator("storage_local_dir")
     @classmethod

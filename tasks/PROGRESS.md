@@ -3,11 +3,25 @@
 | ID | Trạng thái | Ngày | Ghi chú |
 |---|---|---|---|
 | T01 | done | 2026-11-08 | Ba tiêu chí nghiệm thu đạt. MinIO (profile `s3`, tuỳ chọn) hoãn lại vì image không tải được; dùng `STORAGE_BACKEND=local`. Xem câu hỏi #8. |
-| T02 | review | 2026-11-08 | Khung backend, migration extension và 44 test pass; lint/format/mypy sạch; Uvicorn và migration CLI trên DB trống đã kiểm chứng. |
+| T02 | review | 2026-11-08 | Fix round 1: F1–F7 đã xử lý; 76 test pass, lint/format/mypy sạch; chờ review lại. |
 | T03–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T02 · 2026-11-08 · review · Fix round 1
+
+VERIFIED: sửa F1–F7 trong `tasks/reviews/T02.md` theo `tasks/_fix.md`; giữ nhánh `task/T02-backend-skeleton`, chờ review lại trước khi merge.
+
+- Giữ stack file/dòng/hàm đã lọc thay vì bỏ toàn bộ traceback; không giữ message exception, source, locals hay đường dẫn đầy đủ.
+- Bỏ `create_all` khỏi fixture; schema chỉ qua Alembic, có đối chiếu model/schema và test phát hiện thiếu table/column/index.
+- Thu hẹp redaction để giữ metadata chẩn đoán và số thập phân; vẫn che email/SĐT/CV/secret key và giá trị nhạy cảm lồng nhau.
+- Truyền Settings riêng của app tới DB/Redis; thêm guard key production và log HTTP chỉ có metadata an toàn.
+- README ghi cách xử lý DB test khi sửa migration đã áp dụng; cập nhật spec 07/08 và câu hỏi #14. Không tự reset DB test hoặc thêm dependency.
+
+Kiểm chứng cuối: `uv run pytest` **76 passed, 1 warning**; `uv run ruff check .`, `uv run ruff format --check .` (28 file), `uv run mypy app` (17 file), `uv run alembic upgrade head` đều pass. Test DB/migration riêng **7 passed**. Chạy thật Uvicorn thường và `--reload`: health, config, log HTTP đạt. `git diff --check` sạch; không còn DB tạm của T02, các tiến trình smoke đã dừng.
+
+File chính: `backend/app/core/logging.py`, `errors.py`, `db.py`, `redis.py`, `config.py`, `middleware.py`, `backend/app/main.py`, fixture/test backend, README, spec 07/08, câu hỏi mở, `tasks/reviews/T02.md`. Báo cáo fix ghi từng finding, bằng chứng test và nguyên văn warning `httpx2` đã đối chiếu với source Starlette đang cài. Chờ review lại; trạng thái giữ `review`.
 
 ## T02 · 2026-11-08 · review
 

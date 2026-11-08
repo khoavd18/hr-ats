@@ -62,3 +62,14 @@ def test_cors_origin_normalizes_trailing_slash() -> None:
 def test_unknown_provider_is_rejected() -> None:
     with pytest.raises(ValidationError):
         Settings(llm_provider="unknown")
+
+
+@pytest.mark.parametrize("key", ["", " " * 32, "change-me", "synthetic-short-key", "x" * 31])
+def test_production_refuses_default_or_short_signing_keys(key: str) -> None:
+    with pytest.raises(ValidationError, match="SECRET_KEY"):
+        Settings(app_env="prod", secret_key=key)
+
+
+def test_production_accepts_a_sufficiently_long_synthetic_key() -> None:
+    settings = Settings(app_env="prod", secret_key="synthetic-production-key-for-tests-only")
+    assert settings.app_env == "prod"

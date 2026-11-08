@@ -1,10 +1,12 @@
 from collections.abc import Iterator
 from functools import lru_cache
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 
 
 def build_engine(database_url: str) -> Engine:
@@ -17,10 +19,10 @@ def build_engine(database_url: str) -> Engine:
 
 
 @lru_cache
-def get_engine() -> Engine:
-    return build_engine(get_settings().database_url)
+def get_engine(database_url: str) -> Engine:
+    return build_engine(database_url)
 
 
-def get_session() -> Iterator[Session]:
-    with Session(get_engine()) as session:
+def get_session(settings: Annotated[Settings, Depends(get_settings)]) -> Iterator[Session]:
+    with Session(get_engine(settings.database_url)) as session:
         yield session

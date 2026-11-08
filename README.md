@@ -66,6 +66,8 @@ uv run uvicorn app.main:app --reload
 
 API health: <http://localhost:8000/api/v1/health>; cấu hình nhãn: <http://localhost:8000/api/v1/config/public>; tài liệu API ở <http://localhost:8000/docs> khi `APP_ENV != prod`. Settings đọc `.env` tại gốc repo; đường dẫn storage tương đối cũng tính từ gốc repo. Downgrade migration nền giữ lại các extension đã được T01 cấp sẵn.
 
+Khi `APP_ENV=prod`, cung cấp `SECRET_KEY` ngẫu nhiên có ít nhất 32 byte UTF-8 qua môi trường; ứng dụng từ chối key mẫu `change-me` và key ngắn. Settings truyền cho `create_app(settings)` được dùng thống nhất cho API, DB và Redis.
+
 Kiểm tra backend trong terminal khác, tại `backend/`:
 
 ```sh
@@ -76,6 +78,10 @@ uv run mypy app
 ```
 
 Test tự tạo schema trên DB local `hr_ats_test`, rollback từng test, dùng provider AI giả và chặn mạng ngoài. Test migration tạo/xoá DB tạm của riêng fixture để kiểm chứng trạng thái DB trống. Celery eager dùng broker trong bộ nhớ; test không cần API key thật.
+
+Schema test được tạo hoàn toàn bằng Alembic và được đối chiếu với model để phát hiện migration thiếu table/column/index. Fixture giữ `hr_ats_test` giữa các lần chạy. Nếu chỉnh sửa migration đã áp dụng trong dev, xoá riêng DB local `hr_ats_test` rồi chạy lại `uv run pytest` để fixture tạo lại từ đầu; thao tác này làm mất dữ liệu test trong DB đó. Với migration đã merge, hãy thêm revision mới.
+
+Log HTTP giữ method, route template, status và thời gian xử lý; log exception giữ file/dòng/hàm để chẩn đoán, đồng thời bỏ exception message, source và locals.
 
 Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 

@@ -1,13 +1,15 @@
 from collections.abc import Iterator
+from typing import Annotated
 
+from fastapi import Depends
 from redis import Redis
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 
 
-def get_redis() -> Iterator[Redis]:
+def get_redis(settings: Annotated[Settings, Depends(get_settings)]) -> Iterator[Redis]:
     with Redis.from_url(
-        get_settings().redis_url,
+        settings.redis_url,
         decode_responses=True,
         socket_connect_timeout=2,
         socket_timeout=2,

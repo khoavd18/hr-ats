@@ -37,7 +37,9 @@ def test_validation_errors_do_not_echo_input(app: FastAPI, client: TestClient) -
     assert "synthetic-private-input" not in response.text
 
 
-def test_unexpected_errors_do_not_leak_internal_details(app: FastAPI, client: TestClient) -> None:
+def test_unexpected_errors_do_not_leak_internal_details(
+    app: FastAPI, client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
     @app.get("/test/unexpected")
     def fail() -> None:
         raise RuntimeError("synthetic-private-detail")
@@ -48,6 +50,9 @@ def test_unexpected_errors_do_not_leak_internal_details(app: FastAPI, client: Te
         "error": {"code": "INTERNAL_ERROR", "message": "Đã có lỗi xảy ra. Vui lòng thử lại sau."}
     }
     assert "synthetic-private-detail" not in response.text
+    record = next(record for record in caplog.records if record.name == "app.core.errors")
+    assert record.stack[-1].endswith(" in fail")
+    assert "synthetic-private-detail" not in caplog.text
 
 
 def test_http_errors_do_not_echo_exception_details(app: FastAPI, client: TestClient) -> None:

@@ -5,6 +5,7 @@ from app.core.config import Settings, get_settings
 from app.core.cors import ApiCORSMiddleware
 from app.core.errors import ErrorResponse, register_error_handlers
 from app.core.logging import configure_logging
+from app.core.middleware import RequestLoggingMiddleware
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type", "X-CSRF-Token"],
     )
     register_error_handlers(application)
+    application.add_middleware(RequestLoggingMiddleware)
     application.dependency_overrides[get_settings] = lambda: settings
     application.include_router(router, prefix="/api/v1")
     return application

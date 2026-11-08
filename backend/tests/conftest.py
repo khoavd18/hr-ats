@@ -38,7 +38,6 @@ get_settings.cache_clear()
 
 from app.core.db import build_engine, get_session  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.models import Base  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -152,7 +151,6 @@ def test_engine(admin_connection: psycopg.Connection) -> Iterator[Engine]:
             config = migration_config()
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
-            Base.metadata.create_all(connection)
         yield engine
     finally:
         engine.dispose()

@@ -23,6 +23,8 @@ Test backend chạy trên DB Postgres riêng (`hr_ats_test`, tạo bởi fixture
 
 Nền T02: fixture chỉ cho phép DB trên localhost và luôn chọn `hr_ats_test`, dùng transaction ngoài + savepoint để rollback cả khi code gọi `session.commit()`. Test migration từ DB trống dùng DB tạm có tên `hr_ats_test_t02_<uuid>` trên cùng server, chỉ xoá đúng DB do fixture vừa tạo. DB dev và `hr_ats_test` được giữ lại. Migration đầu chỉ bật extension `vector`/`unaccent`; downgrade giữ extension vì chúng có thể do hạ tầng T01 tạo trước Alembic.
 
+Schema test chỉ được tạo/cập nhật bằng Alembic, không dùng `Base.metadata.create_all`. Test đối chiếu `Base.metadata` với schema đã migrate bằng `compare_metadata` (gồm type và server default); thiếu table/column/index phải bị phát hiện. Fixture giữ DB giữa các phiên; khi sửa migration đã áp dụng trong dev, cần reset riêng `hr_ats_test` theo hướng dẫn README để chạy lại lịch sử. Migration đã merge phải được thay đổi bằng revision mới.
+
 ## Definition of Done cho mỗi task
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.
 2. Có test cho logic mới (unit cho services/ai, API test cho endpoint); test cũ vẫn pass.

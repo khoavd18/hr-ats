@@ -71,7 +71,7 @@ def test_key_value_messages_and_secrets_are_redacted(log_output) -> None:
     assert "synthetic-secret" not in output.getvalue()
 
 
-def test_exception_content_and_stack_details_are_not_logged(log_output) -> None:
+def test_exception_content_is_omitted_but_safe_frames_are_logged(log_output) -> None:
     logger, output = log_output
     try:
         raise ValueError(FAKE_CV)
@@ -81,6 +81,12 @@ def test_exception_content_and_stack_details_are_not_logged(log_output) -> None:
     assert result["exception_type"] == "ValueError"
     assert FAKE_CV not in output.getvalue()
     assert "Traceback" not in output.getvalue()
+    assert result["stack"]
+    assert result["stack"][-1].startswith("test_logging.py:")
+    assert result["stack"][-1].endswith(
+        " in test_exception_content_is_omitted_but_safe_frames_are_logged"
+    )
+    assert "raise ValueError" not in output.getvalue()
 
 
 def test_cyclic_payload_is_bounded(log_output) -> None:
@@ -109,3 +115,46 @@ def test_pii_in_mapping_keys_is_redacted(log_output) -> None:
     logger.info("Synthetic keyed data", extra={"payload": {FAKE_EMAIL: FAKE_PHONE}})
     assert FAKE_EMAIL not in output.getvalue()
     assert json.loads(output.getvalue())["payload"] == {REDACTED: REDACTED}
+
+
+@pytest.mark.parametrize(
+    "key", ["cv_file_id", "email_status", "context", "cv_count", "body_id", "content_type"]
+)
+def test_diagnostic_fields_are_preserved(log_output, key: str) -> None:
+    logger, output = log_output
+    logger.info("Synthetic diagnostic", extra={key: "synthetic-diagnostic"})
+    assert json.loads(output.getvalue())[key] == "synthetic-diagnostic"
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Processing context: job 42",
+        "Content-Type: application/json",
+        "Retry in 0.1234567890 seconds",
+        "Retry in 10.0912345678 seconds",
+        "email_status=sent cv_file_id=synthetic-id cv_count=2",
+    ],
+)
+def test_diagnostic_messages_are_preserved(log_output, message: str) -> None:
+    logger, output = log_output
+    logger.info(message)
+    assert json.loads(output.getvalue())["message"] == message
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["note_text", "email_body", "access_token", "smtp_password", "secret_key", "s3_secret_key"],
+)
+def test_sensitive_suffix_assignments_are_redacted(log_output, key: str) -> None:
+    logger, output = log_output
+    logger.info("%s=%s", key, FAKE_CV)
+    assert FAKE_CV not in output.getvalue()
+    assert json.loads(output.getvalue())["message"] == f"{key}={REDACTED}"
+
+
+def test_diagnostic_field_values_still_mask_pii(log_output) -> None:
+    logger, output = log_output
+    logger.info("Synthetic diagnostic", extra={"cv_file_id": FAKE_EMAIL, "context": FAKE_PHONE})
+    result = json.loads(output.getvalue())
+    assert result["cv_file_id"] == result["context"] == REDACTED

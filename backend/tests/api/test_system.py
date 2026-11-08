@@ -86,7 +86,9 @@ def test_openapi_and_docs_are_available_in_dev(client: TestClient) -> None:
 
 
 def test_production_does_not_expose_docs_or_openapi() -> None:
-    application = create_app(Settings(app_env="prod"))
+    application = create_app(
+        Settings(app_env="prod", secret_key="synthetic-production-key-for-tests-only")
+    )
     with TestClient(application) as client:
         for path in ("/docs", "/redoc", "/openapi.json"):
             response = client.get(path)
