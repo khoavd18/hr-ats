@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "task/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: hr
+          POSTGRES_PASSWORD: hr
+          POSTGRES_DB: hr_ats
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hr -d hr_ats"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init databases (same script as docker compose)
+        env:
+          PGPASSWORD: hr
+        run: psql -h localhost -U hr -d hr_ats -f ../scripts/init-db.sql
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Typecheck
+        run: uv run mypy app
+
+      - name: Migrations
+        run: uv run alembic upgrade head
+
+      - name: Tests
+        run: uv run pytest -q
