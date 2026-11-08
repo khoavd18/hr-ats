@@ -3,6 +3,7 @@
 Đọc file này trước mỗi task. Spec nằm ở `docs/specs/`; quy tắc chung ở `AGENTS.md`.
 
 Lệnh tắt cho agent: `Implement Txx` (`tasks/_implement.md`), `Review Txx` (`tasks/_review.md`), `Fix Txx` (`tasks/_fix.md`). Báo cáo review lưu ở `tasks/reviews/`.
+Chạy tự động nhiều task trên máy dev: `.\scripts\auto-task.ps1 -From T03 -To T18` (dừng ở task nhạy cảm T04, T05, T23, T24, T29 để người duyệt merge, và sau mỗi mốc T04, T18, T21, T24, T28).
 Trạng thái task trong `PROGRESS.md`: `todo` → `review` (agent làm xong) → `done` (đã review và merge) hoặc `blocked`.
 
 ## Quy trình cho mỗi task
