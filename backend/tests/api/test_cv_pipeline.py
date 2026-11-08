@@ -12,12 +12,14 @@ import pytest
 from docx import Document
 from sqlalchemy import func, select
 
+from app.ai.embed import FakeEmbedder
 from app.ai.extract import ExtractionError
 from app.ai.llm import FakeLLM, LLMValidationError
 from app.api.cv_files import storage_dependency
 from app.core.config import REPO_ROOT, get_settings
 from app.models import Application, Candidate, CvFile, User, UserRole
 from app.models.enums import ProcessingStatus
+from app.services import embeddings
 from app.storage import LocalStorage, StorageError
 from app.workers import tasks
 from tests.auth_helpers import csrf_headers, sign_in
@@ -85,6 +87,16 @@ def test_upload_ten_labeled_cvs_dedupe_cross_format_and_isolate_corruption(
             return super().complete_json(**kwargs)
 
     monkeypatch.setattr(tasks, "get_llm_client", lambda settings: RecordingFake())
+    embedded = []
+
+    class RecordingEmbedder(FakeEmbedder):
+        def embed(self, texts):
+            embedded.extend(texts)
+            return super().embed(texts)
+
+    monkeypatch.setattr(
+        embeddings, "get_embedder", lambda settings: RecordingEmbedder(settings.embedding_dim)
+    )
     documents = [
         (label["file_name"], (SAMPLES / label["file_name"]).read_bytes()) for label in DIGITAL
     ]
@@ -106,7 +118,18 @@ def test_upload_ten_labeled_cvs_dedupe_cross_format_and_isolate_corruption(
             datetime.now(ZoneInfo(get_settings().tz)).date(), get_settings().data_retention_months
         )
         assert candidate.consent_at is None
-        assert candidate.embedding is candidate.anonymized_text is None
+        assert candidate.anonymized_text
+        assert len(candidate.embedding) == get_settings().embedding_dim
+        assert candidate.embedding == pytest.approx(
+            FakeEmbedder(get_settings().embedding_dim).embed([candidate.anonymized_text])[0]
+        )
+        assert label["full_name"] not in candidate.anonymized_text
+        assert candidate.anonymized_text in embedded
+        assert all(
+            label["email"] not in text and label["full_name"] not in text for text in embedded
+        )
+        assert label["date_of_birth"] not in candidate.anonymized_text
+        assert label["location"] not in candidate.anonymized_text
         assert "email" not in row.parsed_json and "phone" not in row.parsed_json
         # Original contacts stay in local persistence, never in any parse request/log.
         assert all(label["email"] not in user and label["phone"] not in user for user in sent)
@@ -225,6 +248,79 @@ def test_phone_only_match_updates_same_candidate(client, account, db_session, ru
     )
     assert first.candidate_id == second.candidate_id and count_candidates(db_session) == 1
     assert db_session.get(Candidate, first.candidate_id).phone == "+84900000123"
+
+
+def test_t11_pipeline_cosine_top_k_and_real_duplicate_suggestion(
+    client, account, db_session, runtime
+):
+    sign_in(client)
+    items = upload(
+        client,
+        ("python.docx", cv_docx("Họ tên: Nhân Vật Giả\nKỹ năng: Python SQL FastAPI")),
+        ("react.docx", cv_docx("Họ tên: Người Giả Khác\nKỹ năng: React CSS Typescript")),
+        ("excel.docx", cv_docx("Họ tên: Người Giả Nữa\nKỹ năng: Excel Bookkeeping Tax")),
+    )
+    rows = [get_row(db_session, item) for item in items]
+    candidate = db_session.get(Candidate, rows[0].candidate_id)
+    vector = FakeEmbedder(get_settings().embedding_dim).embed(["Python SQL FastAPI"])[0]
+    distance = Candidate.embedding.cosine_distance(vector)
+    hits = db_session.execute(
+        select(Candidate.id, distance.label("distance"))
+        .where(Candidate.deleted_at.is_(None), Candidate.embedding.is_not(None))
+        .order_by(distance, Candidate.id)
+        .limit(2)
+    ).all()
+    assert len(hits) == 2 and hits[0].id == candidate.id
+    assert hits[0].distance < hits[1].distance
+    revision = get_row(
+        db_session,
+        upload(
+            client, ("possible.docx", cv_docx("Họ tên: nhan vat gia\nKỹ năng: Python SQL FastAPI"))
+        )[0],
+    )
+    assert revision.status == ProcessingStatus.done
+    assert revision.candidate_id != candidate.id
+    assert revision.parsed_json["possible_duplicate_of"] == str(candidate.id)
+    assert count_candidates(db_session) == 4
+
+
+def test_t11_encoder_failure_and_wrong_dimension_roll_back_revision(
+    client, account, db_session, runtime, monkeypatch, caplog
+):
+    sign_in(client)
+    first = get_row(
+        db_session,
+        upload(
+            client,
+            (
+                "original.docx",
+                cv_docx("Họ tên: Nhân Vật Giả\nEmail: vector@example.invalid\nKỹ năng: SQL"),
+            ),
+        )[0],
+    )
+    original = db_session.get(Candidate, first.candidate_id)
+    old_text, old_vector = original.anonymized_text, list(original.embedding)
+
+    class BrokenEmbedder:
+        def embed(self, texts):
+            return [[1.0, 0.0]]
+
+    monkeypatch.setattr(embeddings, "get_embedder", lambda settings: BrokenEmbedder())
+    failed = get_row(
+        db_session,
+        upload(
+            client,
+            (
+                "revision.docx",
+                cv_docx("Họ tên: Tên Sửa Giả\nEmail: vector@example.invalid\nKỹ năng: Python"),
+            ),
+        )[0],
+    )
+    assert failed.status == ProcessingStatus.failed and failed.candidate_id is None
+    db_session.refresh(original)
+    assert original.full_name == "Nhân Vật Giả" and original.anonymized_text == old_text
+    assert original.embedding == pytest.approx(old_vector)
+    assert "vector@example.invalid" not in caplog.text + failed.error
 
 
 def test_without_contacts_creates_distinct_candidates_until_embedding_exists(

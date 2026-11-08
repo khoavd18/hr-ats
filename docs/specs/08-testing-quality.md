@@ -69,6 +69,21 @@ Các test upload/quyền T07 dùng kết quả extract giả rõ ràng cho fixtu
 PDF ngắn; test T10 dùng file PDF/DOCX thật từ bộ giả đã commit, không mock extract.
 Không thay đổi migration, dependency, frontend hoặc điều kiện skip OCR của T08.
 
+T11 thêm `tests/unit/test_anonymize.py`, `test_embed.py`, `test_reembed_cli.py`,
+`tests/api/test_embeddings.py` và mở rộng `test_cv_pipeline.py` trong lệnh chuẩn
+`uv run pytest`: 50 CV giả trích xuất thật cùng biến thể tên có/không dấu/NFD/hoa
+thường, metadata VI/EN/nhãn riêng dòng, link/ảnh và giữ kỹ năng/lịch sử làm việc.
+Factory/fake L2/tất định/đúng chiều; local qua boundary SentenceTransformer giả
+kiểm cache/flags/encode/lỗi không lộ nội dung, không tải model. Pipeline kiểm chỉ
+text đã ẩn danh đi vào embedder, vector đúng chiều và top-k cosine PostgreSQL;
+nghi trùng không gộp, rollback revision khi embedding lỗi/sai chiều. Hook Job và
+CLI reembed kiểm tạo/cập nhật, repeatable, rollback toàn lượt không trộn model,
+clear vector hết hạn/đã xoá/đã gộp và lỗi CLI an toàn. Test T10 bỏ kỳ vọng hook
+embedding rỗng vì T11 đã triển khai, giữ và tăng kiểm tra dữ liệu/quyền cũ.
+CLI có test subprocess thật trên DB tạm đã migrate và regression trợ giúp tiếng
+Việt khi stdout Windows dùng cp1252.
+Dependency local là extra nên CI mặc định không import torch/tải trọng số.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.

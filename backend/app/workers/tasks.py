@@ -18,6 +18,7 @@ from app.core.db import get_engine
 from app.models.candidates import Candidate, CvFile
 from app.models.enums import ProcessingStatus
 from app.services.dedupe import IdentityConflict, possible_duplicate, save_candidate
+from app.services.embeddings import embed_candidate
 from app.storage import build_storage
 from app.workers.celery_app import celery_app
 
@@ -36,7 +37,9 @@ def retention_date(today: date, months: int) -> date:
 
 
 def anonymize_and_embed(session: Session, candidate: Candidate, text: str) -> None:
-    """T11 hook: text has contacts redacted; anonymize before embedding."""
+    """Save only local anonymization output as the candidate vector's source."""
+    embed_candidate(candidate, text)
+    session.flush()
 
 
 def create_and_score_application(session: Session, candidate: Candidate, cv_file: CvFile) -> None:

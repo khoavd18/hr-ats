@@ -12,10 +12,97 @@
 | T08 | done | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
 | T09 | done | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
 | T10 | done | 2026-11-08 | VERIFIED: parse ba phần song song, dedupe email/SĐT/cosine và worker nguyên tử/idempotent; 586 test backend pass/12 skip OCR Windows, Linux offline 134 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T10, CI và merge. |
-| T11–T33 | todo | | |
+| T11 | review | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
+| T12–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T11 · 2026-11-08 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md` trên nhánh
+`task/T11-anonymize-embeddings`; T10 đã done và working tree sạch trước khi bắt
+đầu. Giữ review đến khi được duyệt và merge vào main.
+
+- Thêm `ai/anonymize.py`: NFC, che liên hệ và tên có/không dấu/đ/hoa thường theo
+  ranh giới từ; bỏ metadata cá nhân VI/EN, cả nhãn riêng dòng, link profile và
+  markup ảnh. Giữ kỹ năng, công ty và mốc thời gian nghề nghiệp. Nếu parse không
+  cung cấp tên khớp, che header có thể là tên mà không lưu identity suy đoán.
+  Giới hạn heuristic được ghi rõ ở spec 04/câu hỏi #46, không tuyên bố NER đầy đủ.
+- Thêm Protocol Embedder/factory, FakeEmbedder SHA-256 từng từ tất định và
+  LocalEmbedder sentence-transformers lazy-load/cache process, trọng số ở
+  `var/models`, tắt remote code/progress, dùng safetensors. Validate đủ batch,
+  đúng chiều, hữu hạn, khác zero và chuẩn hoá L2; lỗi cố định, không log input
+  hay exception gốc, không tự fallback fake. Test không tải model/mạng ngoài.
+- Dependency local ở extra `local-embedding` (sentence-transformers 5.7.0
+  trong uv.lock); `uv sync` mặc định vẫn giữ 73 package cho fake/CI. So TOML của
+  lockfile với HEAD xác nhận mọi version dependency đã có đều giữ nguyên.
+- Nối hook worker T10 bằng `services/embeddings.embed_candidate`: chỉ text đã
+  ẩn danh được truyền embedder; text/vector cùng transaction với Candidate/file,
+  lỗi rollback revision. Nghi trùng theo tên/cosine hoạt động, chỉ gợi ý UUID.
+  `embed_job` lấy title/description/must_have/nice_to_have, không tự commit;
+  T13 dùng hook này trước commit lúc tạo/sửa. Không mở API Job/tìm kiếm sớm.
+- CLI `reembed --all` dùng text đã ẩn danh, không đọc CV gốc/gọi parse. Rebuild
+  ứng viên còn hạn/chưa xoá/chưa gộp và mọi Job trong một transaction, clear
+  vector ứng viên không hợp lệ. Thiếu text/lỗi/sai chiều rollback cả lượt;
+  chỉ in số lượng/mã lỗi. README yêu cầu dừng writer/tìm kiếm lúc đổi model,
+  đồng bộ cấu hình và chỉ bật lại sau thành công; dimension khác vẫn cần
+  migration riêng. Sửa stdout UTF-8 để trợ giúp CLI chạy được trên Windows.
+- Mở rộng test T10, thay kỳ vọng hook rỗng bằng kiểm tra vector/text thực tế;
+  giữ và tăng các assertion cũ về liên hệ, dedupe, rollback, consent và quyền.
+  Cập nhật README, spec 04/08 và câu hỏi #46–#48. Không đổi DB schema, API,
+  frontend, stack, stage hoặc luồng gửi email.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Ẩn danh ít nhất 15 CV, không còn họ tên có/không dấu, email, SĐT, ngày sinh, giới tính | VERIFIED — đạt | `test_anonymize_fifty_extracted_cvs_and_name_variants`: 50 PDF/DOCX giả được extract thật, thêm biến thể tên uppercase/không dấu/NFD; kiểm mọi trường cá nhân và giữ skills/company/start. 22 test metadata/ranh giới/null-name bổ sung |
+| Pipeline lưu embedding đúng chiều; top-k bằng FakeEmbedder chạy được | VERIFIED — đạt | Test upload 10 CV T10 ghi nhận input embedder chỉ có anonymized_text; vector đúng EMBEDDING_DIM. `test_t11_pipeline_cosine_top_k_and_real_duplicate_suggestion` truy vấn cosine top-2 PostgreSQL thật, kiểm thứ tự/gợi ý không gộp. Test sai chiều rollback revision |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ dịch vụ/volume dev.
+- Tại backend: `uv sync`: pass, resolve 125 package, kiểm tra 73 package mặc
+  định; không cài extra nặng/tải trọng số model. `uv run alembic upgrade head`:
+  pass, head vẫn `0003_core_data_model`; suite migration từ DB trống/rollback/
+  schema comparison cũ tiếp tục pass.
+- `uv run pytest`: lượt cuối **691 passed, 12 skipped, 1 warning**, 703 test
+  thu thập (tăng 105 test so với T10). Skip chỉ là 12 OCR T08 vì Windows không
+  có Tesseract; không thêm skip/giảm điều kiện. PostgreSQL/Redis local thật;
+  CLI subprocess `python -m app.scripts.reembed --all` chạy trên DB tạm đã
+  migrate và commit vector khớp kết quả FakeEmbedder của process cha.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 104 file format
+  đúng; `uv run mypy app`: pass, 61 source file. CLI `uv run python -m
+  app.scripts.reembed --help`: pass; regression subprocess ép cp1252 vẫn pass.
+- `uv run pytest tests/unit/test_anonymize.py tests/unit/test_embed.py tests/unit/test_reembed_cli.py tests/api/test_embeddings.py tests/api/test_cv_pipeline.py --cov=app.ai.anonymize --cov=app.ai.embed --cov=app.services.embeddings --cov=app.scripts.reembed --cov-report=term-missing -q`:
+  **124 passed**, coverage dòng/nhánh **96%** (anonymize 98%, embed 100%, hooks
+  100%, CLI 89%; entrypoint/session CLI chạy trong subprocess riêng nên không
+  cộng vào coverage process cha). Không đặt ngưỡng coverage mới.
+- Linux image OCR T08 có sẵn, repo read-only, network none:
+  `docker run --rm --network none --mount type=bind,source=D:/code/tool/hr-ats,target=/workspace,readonly -w /workspace/backend -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/t11-linux.coverage hr-ats-t08-ocr uv run --no-sync pytest tests/unit/test_anonymize.py tests/unit/test_embed.py tests/unit/test_extract.py tests/unit/test_redact.py -q -o cache_dir=/tmp/t11-pytest-cache`:
+  **212 passed/0 skipped**, gồm OCR thật. Cùng image/mount/network chạy
+  `uv run --no-sync pytest tests/unit/test_reembed_cli.py -q -o cache_dir=/tmp/t11-cli-pytest-cache`:
+  **4 passed/0 skipped**. `uv run --no-sync mypy --cache-dir=/tmp/t11-mypy-cache app`:
+  pass 61 file trên Linux. Các lượt Linux kiểm đúng bản app cuối.
+- `git diff --check`: pass. Tự review theo secure-code-review: trace CV → che
+  cục bộ → embedder → parameterized SQL; không input CV vào path/model download,
+  không log CV/liên hệ/provider exception, không mở thêm endpoint/quyền. Không
+  còn finding đã xác nhận trong phạm vi T11. Dependency vulnerability audit
+  NOT TESTED vì không có pip-audit; không cài thêm công cụ ngoài task. Cảnh báo
+  Starlette/httpx #13 có sẵn được giữ nguyên.
+
+File chính: `backend/app/ai/{anonymize,embed}.py`,
+`backend/app/services/embeddings.py`, `backend/app/workers/tasks.py`,
+`backend/app/scripts/reembed.py`, `backend/tests/unit/test_{anonymize,embed,reembed_cli}.py`,
+`backend/tests/api/test_{embeddings,cv_pipeline}.py`, manifest/lockfile, README,
+spec 04/08, open-questions và PROGRESS.
+
+ASSUMED: mặc định #46–#48 đã ghi rõ. NOT TESTED: model local BAAI/bge-m3 thật,
+chất lượng retrieval thực tế, tải lớn/rebuild toàn kho production, CI remote
+(chưa push), review độc lập. Không đổi frontend nên không chạy frontend/E2E UI.
+Điều kiện dữ liệu thật/provider parse tại #40 vẫn UNKNOWN trước production.
+Chờ Review T11, CI xanh và merge; T12/T13/T16 nối chức năng trong task của chúng.
 
 ## T10 · 2026-11-08 · review
 
