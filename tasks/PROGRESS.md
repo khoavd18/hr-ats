@@ -12,7 +12,7 @@
 | T08 | done | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
 | T09 | done | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
 | T10 | done | 2026-11-08 | VERIFIED: parse ba phần song song, dedupe email/SĐT/cosine và worker nguyên tử/idempotent; 586 test backend pass/12 skip OCR Windows, Linux offline 134 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T10, CI và merge. |
-| T11 | review | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
+| T11 | done | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
 | T12–T33 | todo | | |
 
 ## Nhật ký
