@@ -68,6 +68,7 @@ def main() -> None:
                     ("admin", UserRole.admin),
                     ("recruiter", UserRole.recruiter),
                     ("ranking", UserRole.admin),
+                    ("profile", UserRole.admin),
                 ):
                     session.add(
                         User(

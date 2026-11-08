@@ -9,6 +9,18 @@ function mockResponse(body: unknown, status = 200) {
 }
 
 describe("API client", () => {
+  it("reads authorized download bytes while retaining cookie authentication", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response("synthetic-pdf", { headers: { "Content-Type": "application/pdf" } }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const blob = await api<Blob>("/cv-files/synthetic/download", { responseType: "blob" });
+    expect(await blob.text()).toBe("synthetic-pdf");
+    expect(fetchMock.mock.calls[0][1].credentials).toBe("include");
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("responseType");
+  });
   it("uses the configured API base and always includes cookies", async () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:8001/api/v1/");
     const fetchMock = mockResponse({ items: [] });

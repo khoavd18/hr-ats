@@ -11,7 +11,8 @@ test("drops ten synthetic CVs and isolates invalid and unreadable files in a rea
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await context.route("**/*", (route) => {
-    const host = new URL(route.request().url()).hostname;
+    const url = new URL(route.request().url());
+    const host = url.protocol === "blob:" ? new URL(url.pathname).hostname : url.hostname;
     return ["localhost", "127.0.0.1"].includes(host) ? route.continue() : route.abort();
   });
   await page.goto("/login");

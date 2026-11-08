@@ -186,6 +186,51 @@ ASSUMED: các chi tiết chưa chốt trước T07 được ghi tại câu hỏi
   không trả exception gốc. Retry bằng endpoint rescore. Chi tiết idempotency và
   khoảng trống commit/publish tại spec 04/câu hỏi #49–#51.
 
+### Contract hồ sơ và phản hồi T15
+
+- `GET /applications/{id}` → 200 `{application: ApplicationRead, candidate:
+  CandidateRead, cv_files, feedback, activities, loaded_at}`. Kiểm Job owner/member
+  từ DB; admin/lead toàn bộ. Application thiếu/đã xoá hoặc ứng viên đã xoá/gộp/hết
+  hạn → 404; ngoài quyền Job → 403, kể cả khi là owner Application. Thành công
+  ghi audit `action=view, entity=candidate, entity_id=candidate.id` (`candidate.view`),
+  IP kết nối đã kiểm định; không tin X-Forwarded-For. Commit audit trước trả nội dung.
+- `cv_files` chỉ file chưa xoá của ứng viên, kiểm quyền file theo T07, thứ tự mới
+  nhất rồi id; mỗi file chỉ `{id, mime_type, status, extracted_text}`. Text chỉ có
+  với DOCX; PDF/ảnh dùng GET download T07 có audit và attachment. Web nhận byte có
+  cookie qua API client, tạo URL blob cho viewer và thu hồi URL khi đóng/đổi file.
+  Không trả storage_key, parsed_json, vector hoặc lỗi xử lý thô.
+- `feedback` là phản hồi hiện tại của chính caller hoặc null. `activities` chỉ
+  Application đang xem, bỏ activity đã xoá, mới nhất trước (occurred_at/id), dùng
+  ActivityRead cộng actor_name nullable. Chỉ hiển thị nhãn loại đã dịch và nội dung
+  ghi chú do người dùng nhập; không render payload dạng dữ liệu kỹ thuật. Các bảng
+  email/interview và thao tác stage được bổ sung theo T19–T23.
+- `POST /applications/{id}/ai-feedback` → 200 AiFeedbackRead. Input đúng
+  `{verdict: agree|disagree, corrected_level?, comment?}`; disagree cần mức sửa
+  thuộc bốn mức AI, agree không nhận mức sửa. comment nullable hoặc trim 1–10000
+  ký tự. Upsert nguyên tử theo (application_id, user_id); user lấy từ phiên, gửi
+  lần sau thay toàn bộ phản hồi trước (field bỏ qua trở về null). Giữ id/created_at,
+  cập nhật updated_at; phản hồi user khác độc lập. Mỗi lần ghi activity ai_feedback
+  với payload chỉ verdict/corrected_level; phản hồi và activity cùng transaction,
+  lỗi rollback cả hai. Không đổi điểm AI, stage, owner hoặc gửi email.
+- `POST /applications/{id}/notes` nhận `{text}` trim 1–10000 ký tự → 201
+  ProfileActivity. Lưu activity note với payload `{text}`, actor/Job/ứng viên lấy
+  từ phiên/hồ sơ có quyền. Đây là nội dung HR chủ động nhập, lưu trong DB nghiệp
+  vụ, không đi qua bộ log metadata `log_activity` và không ghi vào log ứng dụng.
+  Không nới kiểm soát payload tự động cho những activity khác.
+- `PATCH /candidates/{id}` → 200 CandidateRead; recruiter cần ít nhất một
+  Application chưa xoá của ứng viên trong Job có quyền, admin/lead toàn bộ;
+  ứng viên thiếu/đã xoá/gộp/hết hạn → 404, ngoài quyền → 403. Cho sửa full_name
+  (trim 1–200, không null), email (nullable, chuẩn hoá/validate như T04), phone
+  (nullable, trim tối đa 50), location/current_title (nullable, trim 1–200),
+  years_experience (nullable, 0–9999.99, tối đa hai số lẻ), skills (tối đa 100
+  chuỗi trim 1–200, không null). Chỉ thay trường được gửi; không cho sửa consent,
+  retention, nguồn, vector hoặc text CV. Sửa thông tin hiển thị không gọi lại AI;
+  text CV/ẩn danh/vector/kết quả chấm giữ theo bản CV đã xử lý.
+- Mọi endpoint cần đăng nhập; mutation cần CSRF/Origin T04. Field thừa/input sai
+  → 422 envelope không phản chiếu input. Thành công `Cache-Control: no-store`.
+
+ASSUMED: các mặc định T15 ghi tại câu hỏi #59–#61; không đổi schema DB/KPI.
+
 ## Phỏng vấn, offer, placement
 - `POST /applications/{id}/interviews` · `PATCH /interviews/{id}` · `GET /interviews?from=&to=&mine=true`
 - `GET /interviews/{id}/ics` → file lịch .ics để gửi kèm email

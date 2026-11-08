@@ -89,6 +89,14 @@ T05 dùng trigger BEFORE INSERT OR UPDATE (kể cả sửa trực tiếp search_
 
 `services/activity.py:log_activity(session, ...)` thêm và flush bản ghi, không commit; caller phải kiểm quyền trước và commit/rollback chung với thao tác nghiệp vụ. Payload là metadata JSON; helper từ chối khoá nhạy cảm/CV/parsed_json và giá trị bị bộ lọc PII nhận diện, không đưa input vào thông báo lỗi hay log. Caller không được đưa nội dung CV vào trường tự do. Note nghiệp vụ phải tuân thủ cùng giới hạn dữ liệu cá nhân. `occurred_at` mặc định now, cho phép caller truyền thời điểm sự kiện; actor null dành cho hệ thống.
 
+T15: ghi chú HR chủ động nhập qua endpoint `/applications/{id}/notes` là
+activity `note` với payload `{text}`; service kiểm quyền Job trước khi lưu vào
+DB nghiệp vụ. Nội dung này được giữ trong lịch sử hồ sơ có quyền, không ghi vào
+log ứng dụng và không dùng để sao chép CV tự động. Service tạo note riêng,
+không nới bộ lọc metadata `log_activity` của các sự kiện tự động. Activity
+`ai_feedback` chỉ lưu verdict/corrected_level; comment lưu tại ai_feedback,
+upsert cùng transaction với activity. Contract chi tiết tại spec 03/T15.
+
 ### tasks
 `title`, `description`, `assignee_id`, `created_by`, `job_id null`, `application_id null`, `due_at null`, `status task_status`, `completed_at`.
 

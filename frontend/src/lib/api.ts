@@ -59,7 +59,10 @@ export function getCsrfToken(): string | undefined {
   }
 }
 
-export type ApiOptions = Omit<RequestInit, "credentials"> & { csrfToken?: string };
+export type ApiOptions = Omit<RequestInit, "credentials"> & {
+  csrfToken?: string;
+  responseType?: "blob";
+};
 
 let refreshing: Promise<unknown> | null = null;
 
@@ -99,7 +102,7 @@ async function request<T = unknown>(path: string, options: ApiOptions = {}): Pro
     throw new ApiError(0, "INVALID_PATH", t("api.unknown"));
   }
 
-  const { csrfToken, ...requestOptions } = options;
+  const { csrfToken, responseType, ...requestOptions } = options;
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
@@ -161,6 +164,7 @@ async function request<T = unknown>(path: string, options: ApiOptions = {}): Pro
     return undefined as T;
   }
   try {
+    if (responseType === "blob") return (await response.blob()) as T;
     return (await response.json()) as T;
   } catch {
     throw new ApiError(response.status, "INVALID_RESPONSE", t("api.invalidResponse"));
