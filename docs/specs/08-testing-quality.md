@@ -84,6 +84,23 @@ CLI có test subprocess thật trên DB tạm đã migrate và regression trợ 
 Việt khi stdout Windows dùng cp1252.
 Dependency local là extra nên CI mặc định không import torch/tải trọng số.
 
+T12 thêm `tests/unit/test_scoring_rules.py`, `test_score.py`,
+`tests/api/test_scoring.py` và hai test cạnh tranh trong `test_cv_worker.py` vào
+`uv run pytest`. Unit kiểm mọi nhánh/thứ tự ưu tiên mức AI, biên 299/300 ký tự,
+50% unknown/75 điểm, trọng số/partial/cấu hình, thiếu nice/must/criteria, round;
+trích dẫn bịa/null/sai hoa thường, NFC/NFD/khoảng trắng và coverage tiêu chí.
+API PostgreSQL kiểm ba endpoint, admin/lead/owner/member/outsider/thu hồi quyền,
+auth/CSRF/input, trùng active/soft delete, ứng viên đã gộp/hết hạn, queue/provider/
+activity lỗi, rollback, bulk cô lập lỗi, giữ stage/owner và chỉ text ẩn danh vào LLM.
+DB tạm với kết nối worker độc lập kiểm commit trước publish, hai insert cùng cặp,
+hai score delivery chỉ một lần gọi AI/activity, crash rollback rồi delivery lại.
+Luồng upload thật 50 PDF/DOCX kỹ thuật số → parse/ẩn danh/embedding → thêm vào 5
+Job từ jobs.json → score FakeLLM kiểm 250 cặp; tính cả 50 cặp của 10 CV scan chưa
+chạy trong mẫu số 300 để yêu cầu khớp ≥70% trên toàn ma trận; thêm kiểm tra ≥70%
+trên 60 CV phải khớp cả năm Job. OCR scan vẫn được
+kiểm riêng T08/Linux/CI. Không sửa dữ liệu nhãn hay công thức để tăng tỷ lệ,
+không gọi provider/mạng ngoài và không thay điều kiện skip OCR.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.

@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     s3_secret_key: SecretStr = SecretStr("")
     llm_provider: Literal["fake", "anthropic", "openai", "ollama"] = "fake"
     llm_model: str = ""
+    score_must_weight: float = Field(default=0.75, ge=0, le=1, allow_inf_nan=False)
+    score_partial_value: float = Field(default=0.5, ge=0, le=1, allow_inf_nan=False)
+    score_high_threshold: int = Field(default=75, ge=0, le=100)
+    score_unknown_threshold: float = Field(default=0.5, gt=0, le=1, allow_inf_nan=False)
+    score_min_text_length: int = Field(default=300, ge=0)
     anthropic_api_key: SecretStr = SecretStr("")
     openai_api_key: SecretStr = SecretStr("")
     ollama_base_url: str = "http://localhost:11434"

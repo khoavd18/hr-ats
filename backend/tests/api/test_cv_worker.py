@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from datetime import date
 from threading import Barrier, Lock
 from types import SimpleNamespace
 
@@ -10,8 +11,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import REPO_ROOT, get_settings
-from app.models import Activity, Candidate, CvFile, User, UserRole
-from app.models.enums import ProcessingStatus
+from app.core.errors import AppError
+from app.models import Activity, Application, Candidate, CvFile, HiringUnit, Job, User, UserRole
+from app.models.enums import ActivityType, HiringUnitKind, ProcessingStatus
+from app.services.applications import create_application
 from app.services.cv_files import upload_file
 from app.storage import LocalStorage
 from app.workers import tasks
@@ -196,3 +199,135 @@ def test_worker_crash_rolls_back_to_pending_and_redelivery_completes(
     with Session(runtime.engine) as session:
         assert session.scalar(select(CvFile)).status == ProcessingStatus.done
         assert session.scalar(select(func.count()).select_from(Candidate)) == 1
+
+
+def test_t12_concurrent_bank_add_commits_before_independent_score_worker(
+    committed_runtime, monkeypatch
+):
+    runtime = committed_runtime
+    with Session(runtime.engine) as session:
+        unit = HiringUnit(name="Đơn vị giả T12", kind=HiringUnitKind.department)
+        candidate = Candidate(
+            full_name="Nhân Vật Giả T12",
+            retention_until=date(2099, 1, 1),
+            anonymized_text="Kỹ năng: Python\n" + "Kinh nghiệm giả. " * 30,
+        )
+        session.add_all([unit, candidate])
+        session.flush()
+        job = Job(
+            hiring_unit_id=unit.id,
+            owner_id=runtime.actor_id,
+            title="Python",
+            description="Yêu cầu giả",
+            must_have=["Python"],
+        )
+        session.add(job)
+        session.commit()
+        candidate_id, job_id = candidate.id, job.id
+    barrier = Barrier(2)
+    observed = []
+    original = tasks.score_application.delay
+
+    def independent_worker(application_id):
+        # A new DB connection must see the committed row before the worker starts.
+        with Session(runtime.engine) as session:
+            assert session.get(Application, application_id) is not None
+        original(application_id)
+        observed.append(application_id)
+
+    monkeypatch.setattr(tasks.score_application, "delay", independent_worker)
+
+    def add_once(_):
+        with Session(runtime.engine) as session:
+            actor = session.get(User, runtime.actor_id)
+            barrier.wait(timeout=10)
+            try:
+                return create_application(
+                    session, actor, candidate_id=candidate_id, job_id=job_id
+                ).id
+            except AppError as exc:
+                assert exc.code == "APPLICATION_EXISTS"
+                return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(add_once, range(2)))
+    assert sum(result is not None for result in results) == 1
+    assert len(observed) == 1
+    with Session(runtime.engine) as session:
+        application = session.scalar(select(Application))
+        assert application.ai_status == "done" and application.ai_score == 100
+        assert application.stage == "new"
+        assert session.scalar(select(func.count()).select_from(Application)) == 1
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(Activity)
+                .where(Activity.type == ActivityType.ai_scored)
+            )
+            == 1
+        )
+
+
+def test_t12_parallel_score_delivery_is_idempotent_and_crash_can_resume(
+    committed_runtime, monkeypatch
+):
+    runtime = committed_runtime
+    with Session(runtime.engine) as session:
+        unit = HiringUnit(name="Đơn vị giả T12", kind=HiringUnitKind.department)
+        candidate = Candidate(
+            full_name="Nhân Vật Giả T12",
+            retention_until=date(2099, 1, 1),
+            anonymized_text="Kỹ năng: Python\n" + "Kinh nghiệm giả. " * 30,
+        )
+        session.add_all([unit, candidate])
+        session.flush()
+        job = Job(
+            hiring_unit_id=unit.id,
+            owner_id=runtime.actor_id,
+            title="Python",
+            description="Yêu cầu giả",
+            must_have=["Python"],
+        )
+        session.add(job)
+        session.flush()
+        application = Application(candidate_id=candidate.id, job_id=job.id, owner_id=job.owner_id)
+        session.add(application)
+        session.commit()
+        application_id = str(application.id)
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    original = tasks.score_cv
+
+    def crash(*args, **kwargs):
+        raise SimulatedCrash()
+
+    monkeypatch.setattr(tasks, "score_cv", crash)
+    with pytest.raises(SimulatedCrash):
+        tasks.score_application.run(application_id)
+    with Session(runtime.engine) as session:
+        assert session.get(Application, application_id).ai_status == "pending"
+        assert session.scalar(select(func.count()).select_from(Activity)) == 0
+    barrier = Barrier(2)
+    lock = Lock()
+    calls = 0
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        with lock:
+            calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(tasks, "score_cv", counted)
+
+    def deliver(_):
+        barrier.wait(timeout=10)
+        tasks.score_application.run(application_id)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(deliver, range(2)))
+    assert calls == 1
+    with Session(runtime.engine) as session:
+        assert session.get(Application, application_id).ai_status == "done"
+        assert session.scalar(select(func.count()).select_from(Activity)) == 1

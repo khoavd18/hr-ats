@@ -13,10 +13,99 @@
 | T09 | done | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
 | T10 | done | 2026-11-08 | VERIFIED: parse ba phần song song, dedupe email/SĐT/cosine và worker nguyên tử/idempotent; 586 test backend pass/12 skip OCR Windows, Linux offline 134 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T10, CI và merge. |
 | T11 | done | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
-| T12–T33 | todo | | |
+| T12 | review | 2026-11-08 | VERIFIED: chấm tiêu chí/bằng chứng, điểm tất định, worker và ba API có quyền/CSRF; 774 test backend pass/12 skip OCR Windows, Linux offline 242 pass/0 skip. Bộ mẫu 250/250 cặp đã chấm, 50/60 CV khớp cả 5 Job (83,3%); Ruff/mypy/migration sạch. Chờ Review T12, CI và merge. |
+| T13–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T12 · 2026-11-08 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md` trên nhánh
+`task/T12-criteria-scoring`; T11 đã done và working tree sạch trước khi bắt đầu.
+Giữ trạng thái review đến khi được duyệt và merge vào main.
+
+- Thêm `ai/score.py`: dùng prompt score v1/adapter T09, chỉ nhận anonymized_text
+  và yêu cầu Job. Kiểm đúng thứ tự/nguyên văn/kind/số tiêu chí; sai coverage trả
+  lỗi an toàn. Bằng chứng so sau NFC/gộp khoảng trắng, phân biệt hoa/thường và
+  dấu; bịa/null/không khớp → unknown, xoá evidence sai. Không thêm retry ngoài
+  adapter, không đọc CV gốc/identity và không log output.
+- Thêm `ai/scoring_rules.py`: công thức 75/25, met/partial/not_met/unknown theo
+  spec; insufficient ưu tiên trước low/high/medium, ngưỡng 50% unknown, 300 ký tự
+  và 75 điểm. Cấu hình SCORE_* qua môi trường, validate miền/NaN/Infinity. Trường
+  hợp không must/không tiêu chí và round được ghi rõ tại spec 04/câu hỏi #49.
+- Nối pipeline tạo Application new/owner Job cùng transaction Candidate/file,
+  chỉ publish score sau commit. Revision dùng lại active Application, reset AI
+  và giữ stage/owner. Unique partial index PostgreSQL chống hai insert cùng cặp;
+  không thêm migration. SHA-256 và delivery file lặp giữ hành vi T07/T10.
+- Worker score khoá hàng, savepoint bao score/activity ai_scored, metadata model/
+  version/thời điểm; lỗi rollback/failed không chứa exception. Delivery lặp không
+  chấm/ghi activity lại; crash rollback và delivery sau xử lý được. Bulk rescore
+  transaction/publish từng hồ sơ, bỏ soft delete/merged/hết hạn, cô lập lỗi; thiếu
+  anonymized_text failed, không fallback CV gốc. Không đổi stage/gửi email.
+- Thêm ba POST theo T12 với schema input, ApplicationRead, cookie/CSRF và quyền
+  Job owner/member từ DB, admin/lead toàn bộ. Create 201, trùng active 409,
+  rescore 202, lỗi publish 503 hoặc snapshot create failed. Spec 03 ghi rõ
+  contract và cách thử lại; publish lỗi không đổi CV done hay ghi đè score done.
+- FakeLLM vẫn offline, chỉ đọc từ khoá/mục kỹ năng và số năm kinh nghiệm VI/EN,
+  không đọc gold labels. Có nhưng thiếu kinh nghiệm → partial, không kinh nghiệm
+  → not_met, đủ → met; trích evidence thật. Không sửa CV/nhãn/công thức/prompt.
+- Thêm 83 test; mở rộng test upload T07 để giữ đủ ba cv_uploaded và kiểm thêm ba
+  ai_scored/Application theo hành vi T12. Lượt full đầu phát hiện kỳ vọng cũ chỉ
+  có ba activity; đã bổ sung assertion theo loại, giữ mọi kiểm tra upload/quyền/
+  download/audit, không bỏ test hay giảm tiêu chí.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Mọi nhánh ai_level và công thức điểm | VERIFIED — đạt | `tests/unit/test_scoring_rules.py`: 31 test, gồm bốn mức, biên 299/300 ký tự, 50% unknown/75 điểm, thứ tự ưu tiên, thiếu nice/must/criteria, round và cấu hình; coverage module 100% dòng/nhánh |
+| Evidence bịa → unknown | VERIFIED — đạt | `tests/unit/test_score.py`: 28 test, bịa/null/sai hoa thường cho cả bốn result, NFC/NFD/whitespace, coverage tiêu chí, factory và FakeLLM kinh nghiệm; coverage score.py 100% dòng/nhánh |
+| E2E FakeLLM/jobs.json ≥70% expected_level | VERIFIED — đạt | `test_fake_llm_end_to_end_sample_jobs_matches_at_least_seventy_percent`: HTTP upload 50 PDF/DOCX thật giả lập → storage/extract/parse/ẩn danh/embedding → API tạo hồ sơ/worker/Postgres; 250/250 cặp đã chấm khớp, 250/300 toàn ma trận và 50/60 CV khớp cả năm Job = 83,3%. Tính 10 CV scan chưa chấm là không khớp, không loại khỏi mẫu số; kiểm có cả high/medium/low |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ dịch vụ/volume dev hiện có.
+- Tại backend: `uv sync`: pass, 125 package resolve/73 package mặc định được kiểm
+  tra; manifest/lockfile không đổi. Sandbox chặn cache uv mặc định, dùng
+  `UV_CACHE_DIR=D:/code/tool/hr-ats/var/uv-cache`; pytest dùng quyền local được
+  cấp cho thư mục tạm/cache và DB, không thay fixture/chặn mạng.
+- `uv run alembic upgrade head`: pass; schema/head vẫn `0003_core_data_model`.
+  Suite migration DB trống/rollback/schema comparison tiếp tục pass.
+- `uv run pytest`: lượt cuối **774 passed, 12 skipped, 1 warning**, 786 test;
+  skip chỉ 12 OCR T08 do Windows không có Tesseract, giữ ngoại lệ cũ. PostgreSQL/
+  Redis local thật, FakeLLM/FakeEmbedder, không mạng ngoài. Warning upstream
+  Starlette/httpx đã biết được giữ nguyên.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 112 file format
+  đúng; `uv run mypy app`: pass, 66 source file. `git diff --check`: pass.
+- `uv run pytest tests/unit/test_scoring_rules.py tests/unit/test_score.py tests/api/test_scoring.py tests/api/test_cv_worker.py --cov=app.ai.score --cov=app.ai.scoring_rules --cov=app.services.applications --cov=app.api.applications --cov=app.workers.tasks --cov-report=term-missing --junitxml=../var/t12-tests.xml -o junit_family=legacy -q`:
+  **87 passed**, coverage tổng dòng/nhánh **96%**; score/rules/API/service mới
+  đều 100%, worker 91% (các nhánh T10 và nhánh Application biến mất giữa bulk).
+  Báo cáo JUnit local xác nhận `250/250 evaluated; 250/300 total; 50/60 CVs match
+  all five jobs`. Không đặt ngưỡng coverage mới.
+- `docker run --rm --pull never --network none --mount type=bind,source=D:/code/tool/hr-ats,target=/workspace,readonly -w /workspace/backend -e PYTHONDONTWRITEBYTECODE=1 hr-ats-t08-ocr uv run --no-sync pytest tests/unit/test_scoring_rules.py tests/unit/test_score.py tests/unit/test_llm.py tests/unit/test_extract.py -q -o cache_dir=/tmp/t12-pytest-cache`:
+  **242 passed/0 skipped**, gồm OCR thật, repo read-only, không tải image/model.
+- Tự review theo secure-code-review: trace ba endpoint → quyền DB → unique index/
+  transaction → publish → worker chỉ anonymized_text; không SQL/path/shell từ
+  input, không PII/exception provider vào log/activity. Thử lỗi queue/provider/
+  activity, rollback, hai insert/delivery đồng thời và crash trên DB riêng đều
+  pass. Không thay dependency/migration/frontend/dữ liệu mẫu; scanner dependency
+  `pip-audit` không cài, không thêm công cụ/mạng ngoài để quét trong task này.
+
+File chính: `backend/app/ai/score.py`, `scoring_rules.py`, `llm.py`,
+`backend/app/services/applications.py`, `backend/app/api/applications.py`,
+`backend/app/schemas/applications.py`, `backend/app/workers/tasks.py`, config/main,
+test scoring/worker/upload, `.env.example`, README, spec 01/03/04/08 và câu hỏi mở.
+
+ASSUMED: mặc định nhỏ ở #49–#51. Chưa thêm outbox ngoài spec: crash giữa commit
+và publish có thể còn pending, dùng rescore sau phục hồi; bulk delivery trùng có
+thể mở lượt chấm lại mới. Chỉ kiểm evidence tồn tại, chưa kiểm hàm ý bằng LLM/NLI.
+Không có blocker T12.
+
+NOT TESTED: provider/model thật và dữ liệu thật, GitHub Actions trên remote (chưa
+push), UI nghiệp vụ/E2E trình duyệt (T14/T18), bộ đánh giá chất lượng thật T31.
+Không thay kết luận UNKNOWN trong LLM contract; tỷ lệ bộ giả không chứng minh
+chất lượng model thật. Chờ Review T12, CI xanh và merge.
 
 ## T11 · 2026-11-08 · review
 

@@ -103,8 +103,8 @@ retry ở tầng parse; một phần lỗi thì không trả kết quả thiếu
   bằng chứng đồng ý, giữ consent đã có. Khi không trích được tên, parsed_json vẫn
   null, Candidate dùng nhãn "Chưa xác định" vì cột full_name bắt buộc.
 - `anonymize_and_embed(session, candidate, text)` và
-  `create_and_score_application(session, candidate, cv_file)` là hook rỗng cho
-  T11/T12 tại T10; T11 đã nối hook đầu, hook application/chấm điểm vẫn chờ T12.
+  `create_and_score_application(session, candidate, cv_file)` là hook cho
+  T11/T12 tại T10; T11 đã nối hook đầu, T12 đã nối hook application/chấm điểm.
   Không đổi stage/gửi email.
   ASSUMED (#44): chỉ tìm nghi trùng khi CV không có liên hệ và sau hook có vector
   khác zero. Tên bỏ dấu/đ/hoa thường và gộp khoảng trắng; cosine > 0.95, chọn
@@ -176,6 +176,16 @@ LLM trả cho **từng tiêu chí**:
 cùng `reasons` (2–3 câu tiếng Việt, ngắn, không nhắc tên/giới tính/tuổi) và `flags` (mảng mã: `job_hopping`, `employment_gap`, `missing_must_have`, `overqualified`, `unclear_cv`).
 `evidence` phải là chuỗi có thật trong `anonymized_text` (code kiểm tra; nếu không khớp thì đặt `result = unknown`).
 
+T12: `score_cv(anonymized_text, *, job_title, job_description, must_have,
+nice_to_have, client=None, version=1)` trả `ScoreResult(judged: ScoreOutput,
+model, prompt_version)`; nội dung không xuất trong repr. Chỉ truyền text đã ẩn
+danh, không đọc CV gốc/identity. Output phải giữ đúng số lượng/thứ tự/nguyên văn
+tiêu chí và kind của Job (kể cả tiêu chí lặp); thiếu/thêm/đổi → lỗi output, không
+tự sửa trọng số hoặc chấm thiếu tiêu chí. Retry schema/transport do adapter T09
+đảm nhiệm. So bằng chứng sau NFC và gộp mọi khoảng trắng, phân biệt hoa/thường
+và dấu; bằng chứng null/rỗng/không khớp → `unknown`, xoá evidence sai. Đây chỉ là
+kiểm trích dẫn tồn tại, chưa chứng minh trích dẫn có hàm ý đúng với tiêu chí.
+
 ## 9. Tính điểm tất định (`ai/scoring_rules.py`)
 - Giá trị: `met = 1`, `partial = 0.5`, `not_met = 0`, `unknown = 0`.
 - `must_score` = trung bình tiêu chí must; `nice_score` = trung bình tiêu chí nice (nếu không có nice thì bằng `must_score`).
@@ -186,6 +196,42 @@ cùng `reasons` (2–3 câu tiếng Việt, ngắn, không nhắc tên/giới t�
   - `high` nếu `ai_score ≥ 75` và không có must `not_met`;
   - còn lại `medium`.
 Ngưỡng là hằng số cấu hình được; có unit test bao phủ mọi nhánh.
+
+T12: cấu hình môi trường `SCORE_MUST_WEIGHT=0.75` (nice = 1 − must),
+`SCORE_PARTIAL_VALUE=0.5`, `SCORE_HIGH_THRESHOLD=75`,
+`SCORE_UNKNOWN_THRESHOLD=0.5`, `SCORE_MIN_TEXT_LENGTH=300`; validate miền giá trị,
+không nhận NaN/Infinity. `round` theo Python (tie to even). Không có must →
+must_score=0; không có tiêu chí → score=0, level=insufficient. Độ dài tính theo
+text đã ẩn danh. Không đổi stage, owner, rejected_reason hoặc gửi email.
+
+### Application và worker T12
+
+- Upload có Job: cùng transaction T10 tạo Application stage=new, owner=owner Job;
+  unique partial index hiện có chống trùng candidate/job. CV revision cùng người
+  và Job dùng Application chưa xoá, xoá kết quả cũ/đặt pending, giữ stage/owner.
+  File đã done/sha256 trùng vẫn không chạy lại. Hook trả ID; chỉ publish
+  `score_application` queue ai sau commit file/Candidate/Application.
+- Worker khoá hàng Application, chỉ xử lý pending/running; done/failed hoặc đã
+  xoá thì bỏ qua delivery lặp. Không chấm Candidate đã xoá/gộp/hết hạn. Thiếu
+  anonymized_text → failed, không fallback sang extracted_text/parsed_json.
+  Savepoint bao score + activity `ai_scored` (actor null, payload chỉ level/score).
+  Thành công lưu toàn bộ ai_* cùng model/v1/thời điểm UTC; lỗi rollback rồi xoá
+  kết quả dở, chỉ đặt ai_status=failed, không log/lưu exception provider/CV.
+  Crash rollback về pending và delivery lại xử lý được. running chỉ flush như T10.
+- Chấm lại một Application: kiểm quyền, khoá/reset pending và commit trước publish.
+  `rescore_job` duyệt Application chưa xoá, bỏ Candidate không hợp lệ; reset/
+  commit/publish từng hồ sơ riêng, một lỗi chấm hoặc publish không chặn hồ sơ sau.
+  Mỗi yêu cầu chấm lại thành công ghi activity mới; worker score delivery lặp
+  không ghi trùng. Bulk task delivery lặp có thể tạo một lượt chấm lại mới.
+- Lỗi publish score đặt pending → failed; không đổi CV done hoặc ghi đè score đã
+  done nếu dispatch timeout sau thành công. HR dùng endpoint rescore để thử lại.
+  ASSUMED (#51): chưa thêm outbox/schema ngoài spec; crash giữa commit và publish
+  có thể để pending, cần chấm lại khi worker/broker đã phục hồi.
+- FakeLLM vẫn offline, không đọc jobs.json/nhãn: so từ khoá có ranh giới từ,
+  đọc mục kỹ năng dạng nhãn hoặc heading riêng dòng; dùng trích dẫn danh sách
+  kỹ năng cho từ khoá không có. Kinh nghiệm dùng số năm ghi rõ VI/EN: đủ → met,
+  có nhưng thiếu → partial, zero → not_met, thiếu thông tin → unknown.
+  Đây là heuristic fixture để kiểm pipeline, không phải quy tắc đánh giá CV thật.
 
 ## LLM adapter (`ai/llm.py`)
 ```python
