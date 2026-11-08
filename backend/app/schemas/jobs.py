@@ -8,6 +8,7 @@ from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from app.models.enums import HiringUnitKind, JobStatus
 from app.schemas.core import HiringUnitRead, JobRead
+from app.schemas.ranking import AiCounts
 from app.schemas.users import EmailInput, InputModel
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -127,6 +128,7 @@ class JobResponse(JobRead):
     owner_name: str
     member_ids: list[UUID]
     needs_rescore: bool = False
+    ai_counts: AiCounts = Field(default_factory=AiCounts)
 
 
 class JobList(InputModel):

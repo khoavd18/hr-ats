@@ -15,10 +15,90 @@
 | T11 | done | 2026-11-08 | VERIFIED: ẩn danh trên 50 CV giả, fake/local embedding, hook pipeline/Job và CLI reembed nguyên tử; 691 test backend pass/12 skip OCR Windows, Linux offline 212 + 4 pass/0 skip; Ruff/mypy/migration sạch. Chờ Review T11, CI và merge. |
 | T12 | done | 2026-11-08 | VERIFIED: chấm tiêu chí/bằng chứng, điểm tất định, worker và ba API có quyền/CSRF; 774 test backend pass/12 skip OCR Windows, Linux offline 242 pass/0 skip. Bộ mẫu 250/250 cặp đã chấm, 50/60 CV khớp cả 5 Job (83,3%); Ruff/mypy/migration sạch. Chờ Review T12, CI và merge. |
 | T13 | done | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
-| T14–T33 | todo | | |
+| T14 | review | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
+| T15–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T14 · 2026-11-08 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md` trên nhánh
+`task/T14-job-detail-upload-ranking`; T12/T13 đã done và working tree sạch trước
+khi bắt đầu. Giữ review đến khi được duyệt và merge vào main.
+
+- Thêm GET bảng xếp hạng có quyền Job từ DB, phân trang 20/100, q literal và lọc
+  stage/mức AI; mặc định mức AI rồi điểm giảm dần, null cuối, ngày/id ổn định.
+  Query chỉ chọn cột tóm tắt, không lấy CV text/vector/liên hệ cho bảng. Bỏ hồ sơ
+  đã xoá và ứng viên đã xoá/gộp/hết hạn. Counts bảy mức/trạng thái toàn Job trước
+  filter/page; dùng chung cho JobResponse, batch một query nhóm cho trang Job.
+- GET trạng thái CV giữ quyền/audit T07; thêm processing_error cố định và
+  application_id/ai_status có kiểm quyền Job gốc, không xuất error DB. Đọc file
+  thông qua Job khác không tiết lộ Application Job gốc. Upload SHA trùng giữ
+  contract T07, không tự chuyển/thêm sang Job khác. HTTP polling thành công
+  (health/file/ranking) xuống DEBUG, lỗi giữ INFO, chỉ route template.
+- UI `/jobs/[id]` ba tab; Ứng viên có kéo thả/chọn nhiều file, tiến trình/lỗi riêng
+  tên file, polling 3 giây, tìm/lọc, phân trang, bảng sáu cột không hiện điểm số,
+  AiLevelBadge và thống kê. Trạng thái file dừng polling khi terminal/lỗi HTTP,
+  retry riêng đúng dòng. Hỗ trợ tải lại file trùng từng lỗi, giới hạn 50 tệp và
+  báo rõ trùng ở Job khác. Danh sách Job có cột counts và tên mở trang chi tiết.
+- Dòng/nút tên mở Sheet khung, Escape/Đóng trả focus; Thông tin đọc mô tả/yêu cầu
+  và link Sửa T13; Quy trình khung T20, chi tiết/feedback ở T15. Mọi chuỗi UI mới
+  trong vi.ts. Không thêm mutation tuyển dụng, schema, dependency hay provider.
+- Thêm fixture trình duyệt DB/storage dùng một lần, Alembic và FakeLLM/eager
+  Celery; tài khoản ranking riêng cho E2E song song. Dừng bằng stop file để dọn
+  graceful trên Windows. Cập nhật README, spec 03/05/08 và câu hỏi #55–#58.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Kéo 10 CV mẫu vào Job mẫu/FakeLLM, bảng hiện 10 dòng đúng thứ tự AI | VERIFIED — đạt | `test_ten_real_synthetic_cvs_ranked_with_independent_file_errors` qua HTTP/storage/extract/parse/ẩn danh/embedding/score thật trên PostgreSQL; Playwright `job-ranking.spec.ts` thực sự kéo bằng DataTransfer, kiểm 3 high → 1 medium → 6 low, sáu cột, filter/drawer/counts ở 1280px |
+| File lỗi có thông báo Việt đúng dòng, file khác tiếp tục | VERIFIED — đạt | Cùng lô 10 CV + executable + PDF hỏng: API kiểm index/status/error an toàn; E2E kiểm lỗi trên dòng invalid.exe/broken.pdf, 10 file khác hoàn tất; Vitest kiểm ba trạng thái polling 3 giây, lỗi worker/AI/HTTP, retry và không phản chiếu lỗi thô |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ volume dev.
+- Backend: `uv sync`, `uv run alembic upgrade head`: pass, giữ head
+  `0003_core_data_model`. Full suite cuối `uv run pytest`: **841 passed,
+  12 skipped, 1 warning**, tổng 853 test, 175,45s. Skip chỉ OCR T08 do thiếu
+  Tesseract trên Windows; warning upstream Starlette/httpx có sẵn. Không sửa
+  test cũ, điều kiện skip hay tiêu chí. PostgreSQL/Redis local, FakeLLM/
+  FakeEmbedder, fixture chặn mạng ngoài. Bộ T14 riêng **22 pass**; lượt chung
+  `uv run pytest tests/api/test_ranking.py tests/api/test_cv_files.py -q --tb=short`
+  sau tự review **39 pass**.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 120 file đúng
+  format. `uv run mypy app`: pass, 71 source file. `git diff --check`: pass.
+  Dùng UV_CACHE_DIR trong var; pytest cần quyền local cho tmp_path/cache Windows,
+  lượt sandbox đầu báo PermissionError nên chạy lại có quyền, không đổi fixture.
+- Frontend: `npm ci`: pass, 536 package, audit **0 vulnerabilities** (deprecation
+  upstream giữ nguyên); `npm test`: **69 pass**, 9 file, không skip/mạng ngoài.
+  `npm run lint`, `npm run typecheck`: pass. `NEXT_TELEMETRY_DISABLED=1 npm run build`
+  (PowerShell đặt env trước): pass, có `/jobs/[id]`, 9,21 kB/159 kB first load JS.
+- `uv run python -m tests.ranking_browser_server` + `npm run dev`, sau đó
+  `npx playwright test`: **3 pass**, gồm hai bài auth T04. Lượt đầu hai bài dùng
+  chung admin khiến phiên bị thu hồi/401; tách tài khoản fixture rồi cả suite
+  pass. Vitest đầu bắt mất focus khi đóng drawer; sửa onCloseAutoFocus và giữ
+  assertion. Đã xem ảnh `var/t14-ranking.png`, không tràn ở 1280px/pageerror.
+- Dừng API bằng `var/t14-browser.stop`, process exit 0, web dừng sau E2E.
+  `docker compose exec -T db psql -U hr -d postgres -tAc "SELECT count(*) FROM pg_database WHERE datname LIKE 'hr_ats_test_t14_%'"`
+  trả **0**, không còn DB T14 tạm, giữ DB dev/test và volume. Ảnh/artifact trong
+  var/test-results được gitignore.
+- Tự review theo secure-code-review: endpoint → auth/quyền DB → SQL tham số →
+  summary/snapshot công khai; kiểm thu hồi membership và file scope khác Job.
+  Không SQL/path/shell từ input, không HTML thô, không log CV/tên file/query/lỗi
+  provider. Test metadata chứng minh lỗi DB giả không bị phản chiếu. Không thay
+  dependency backend; pip-audit không cài nên scanner Python NOT TESTED.
+
+File chính: schemas/services/ranking.py, api/jobs.py, services/cv_files.py,
+core/middleware.py, test_ranking.py, ranking_browser_server.py;
+frontend job-detail/cv-upload/ai-counts/jobs-list, route jobs/[id], types/i18n,
+Vitest và E2E job-ranking; README/specs/PROGRESS.
+
+ASSUMED: #55–#57 ghi mặc định nhỏ, không blocker. VERIFIED: #58 là giới hạn fake
+parse T09 với nhãn riêng dòng/header, UI hiển thị thiếu thông tin đúng contract;
+không mở rộng parser ngoài T14. NOT TESTED: provider/dữ liệu thật, tải production,
+OCR Windows, CI remote (chưa push), review độc lập. Chờ Review T14, CI và merge.
 
 ## T13 · 2026-11-08 · review
 

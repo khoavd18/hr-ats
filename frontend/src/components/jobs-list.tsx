@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-header";
 import { QueryFeedback } from "@/components/query-feedback";
+import { AiCounts } from "@/components/ai-counts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -121,17 +122,17 @@ export function JobsList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {(["title", "unit", "owner", "deadline", "status", "actions"] as const).map(
-                    (key) => (
-                      <TableHead key={key}>{t(`jobs.${key}`)}</TableHead>
-                    ),
-                  )}
+                  {(
+                    ["title", "unit", "owner", "aiCounts", "deadline", "status", "actions"] as const
+                  ).map((key) => (
+                    <TableHead key={key}>{t(`jobs.${key}`)}</TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {jobs.data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center">
+                    <TableCell colSpan={7} className="py-10 text-center">
                       <p>{t("jobs.emptyTitle")}</p>
                       <p className="mt-2 text-sm text-muted-foreground">{t("jobs.emptyHint")}</p>
                       <Button asChild variant="outline" className="mt-4">
@@ -145,7 +146,7 @@ export function JobsList() {
                     <TableCell className="max-w-64 truncate font-medium" title={job.title}>
                       <Link
                         className="text-primary underline-offset-4 hover:underline"
-                        href={`/jobs/${job.id}/edit`}
+                        href={`/jobs/${job.id}`}
                       >
                         {job.title}
                       </Link>
@@ -155,6 +156,13 @@ export function JobsList() {
                     </TableCell>
                     <TableCell className="max-w-44 truncate" title={job.owner_name}>
                       {job.owner_name}
+                    </TableCell>
+                    <TableCell>
+                      {job.ai_counts && (
+                        <div className="max-w-64">
+                          <AiCounts counts={job.ai_counts} />
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {job.deadline

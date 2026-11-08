@@ -11,8 +11,7 @@ from starlette.exceptions import HTTPException
 
 from app.api.dependencies import DB, Config, CurrentUser
 from app.core.errors import AppError, ErrorDetail
-from app.schemas.core import CvFileRead
-from app.schemas.cv_files import CvUploadResponse, CvUploadResult
+from app.schemas.cv_files import CvFileStatusRead, CvUploadResponse, CvUploadResult
 from app.services import cv_files
 from app.services.cv_validation import MAX_FILE_BYTES, MAX_FILES
 from app.storage import Storage, build_storage
@@ -111,12 +110,12 @@ async def upload_files(
         await form.close()
 
 
-@router.get("/{cv_file_id}", response_model=CvFileRead)
+@router.get("/{cv_file_id}", response_model=CvFileStatusRead)
 def file_status(
     cv_file_id: UUID, request: Request, response: Response, session: DB, actor: CurrentUser
-) -> CvFileRead:
+) -> CvFileStatusRead:
     cv_file = cv_files.get_file(session, actor, cv_file_id)
-    snapshot = CvFileRead.model_validate(cv_file)
+    snapshot = cv_files.status_snapshot(session, actor, cv_file)
     cv_files.record_access(session, actor, cv_file, "view", client_ip(request))
     response.headers["Cache-Control"] = "no-store"
     return snapshot
