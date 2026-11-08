@@ -13,6 +13,10 @@ const errorKeys: Record<string, TranslationKey> = {
   FORBIDDEN: "api.forbidden",
   CORS_REJECTED: "api.forbidden",
   CSRF_INVALID: "api.csrf",
+  INVALID_CREDENTIALS: "auth.invalidCredentials",
+  ACCOUNT_LOCKED: "auth.locked",
+  EMAIL_EXISTS: "users.emailExists",
+  SELF_LOCKOUT: "users.selfLockout",
 };
 
 const statusKeys: Record<number, TranslationKey> = {
@@ -53,8 +57,39 @@ export function getCsrfToken(): string | undefined {
 
 export type ApiOptions = Omit<RequestInit, "credentials"> & { csrfToken?: string };
 
-/** Paths are relative to the API base; authentication stays in HttpOnly cookies. */
+let refreshing: Promise<unknown> | null = null;
+
 export async function api<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
+  try {
+    return await request<T>(path, options);
+  } catch (error) {
+    const canRefresh = !path.startsWith("/auth/") || path === "/auth/me";
+    if (!(error instanceof ApiError) || error.status !== 401 || !canRefresh) throw error;
+    if (!getCsrfToken()) {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("auth:unauthorized"));
+      throw error;
+    }
+    try {
+      refreshing ??= request("/auth/refresh", { method: "POST" }).finally(() => {
+        refreshing = null;
+      });
+      await refreshing;
+    } catch (refreshError) {
+      if (
+        refreshError instanceof ApiError &&
+        refreshError.status === 401 &&
+        typeof window !== "undefined"
+      ) {
+        window.dispatchEvent(new Event("auth:unauthorized"));
+      }
+      throw refreshError;
+    }
+    return request<T>(path, options);
+  }
+}
+
+/** Paths are relative to the API base; authentication stays in HttpOnly cookies. */
+async function request<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
   // Never send credentials or a CSRF token to a caller-supplied origin.
   if (!path.startsWith("/") || /[\\#\r\n]/.test(path) || path.startsWith("//")) {
     throw new ApiError(0, "INVALID_PATH", t("api.unknown"));

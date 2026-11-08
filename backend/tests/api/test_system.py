@@ -8,10 +8,11 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.db import get_session
 from app.core.redis import get_redis
 from app.main import create_app
+from tests.auth_helpers import sign_in
 
 
 def test_health_checks_real_postgresql_and_redis(client: TestClient) -> None:
@@ -43,10 +44,10 @@ def test_dependency_failures_return_safe_503(app: FastAPI, client: TestClient, f
     redis_client.ping.assert_called_once()
 
 
-def test_public_configuration_exposes_only_the_configured_label() -> None:
-    application = create_app(Settings(hiring_unit_label="Phòng tuyển dụng"))
-    with TestClient(application) as client:
-        response = client.get("/api/v1/config/public")
+def test_public_configuration_exposes_only_the_configured_label(app, client, account) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(hiring_unit_label="Phòng tuyển dụng")
+    assert sign_in(client).status_code == 200
+    response = client.get("/api/v1/config/public")
     assert response.status_code == 200
     assert response.json() == {"hiring_unit_label": "Phòng tuyển dụng"}
 

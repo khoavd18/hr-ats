@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { t, type TranslationKey } from "@/i18n/vi";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/auth-provider";
+import { ApiError } from "@/lib/api";
 
 const navigation = [
   { href: "/", label: "nav.overview", icon: LayoutDashboard },
@@ -28,6 +30,20 @@ const navigation = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function signOut() {
+    setPending(true);
+    setError(null);
+    try {
+      await logout();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("api.unknown"));
+    } finally {
+      setPending(false);
+    }
+  }
   return (
     <div className="flex min-h-screen">
       <a
@@ -50,26 +66,30 @@ export function AppShell({ children }: { children: ReactNode }) {
           {t("shell.workspace")}
         </p>
         <nav aria-label={t("nav.label")} className="space-y-1 px-3">
-          {navigation.map(({ href, label, icon: Icon }) => {
-            const active =
-              href === "/"
-                ? pathname === "/"
-                : pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-secondary",
-                  active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                )}
-              >
-                <Icon aria-hidden="true" className="size-5" />
-                {t(label)}
-              </Link>
-            );
-          })}
+          {navigation
+            .filter(
+              ({ href }) => href !== "/settings" || user?.role === "admin" || user?.role === "lead",
+            )
+            .map(({ href, label, icon: Icon }) => {
+              const active =
+                href === "/"
+                  ? pathname === "/"
+                  : pathname === href || pathname.startsWith(`${href}/`);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-secondary",
+                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  <Icon aria-hidden="true" className="size-5" />
+                  {t(label)}
+                </Link>
+              );
+            })}
         </nav>
         <div className="mx-4 mb-5 mt-auto rounded-lg bg-secondary p-4">
           <Sparkles aria-hidden="true" className="mb-2 size-4 text-primary" />
@@ -83,10 +103,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CircleUserRound aria-hidden="true" className="size-5" />
-            <span>{t("shell.signedOut")}</span>
+            <span>{user?.full_name}</span>
           </div>
-          <Button variant="outline" size="sm" disabled title={t("shell.logoutHint")}>
-            {t("shell.logout")}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <Button variant="outline" size="sm" disabled={pending} onClick={() => void signOut()}>
+            {pending ? t("common.processing") : t("shell.logout")}
           </Button>
         </header>
         <main id="main-content" tabIndex={-1} className="mx-auto max-w-7xl p-8 lg:p-10">

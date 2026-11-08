@@ -29,6 +29,9 @@ Kiểm tra quyền ở tầng service (hàm `authorize(user, action, resource)`)
 ## Ứng dụng
 - Mật khẩu argon2; khoá tài khoản 15 phút sau 5 lần sai.
 - Cookie `HttpOnly`, `Secure` (prod), `SameSite=Lax`; CSRF token cho request thay đổi dữ liệu.
+- T04 dùng Argon2id và JWT HS256 (kiểm chữ ký, issuer, audience, expiry, loại access/refresh và phiên bản so với DB). Mỗi tài khoản một phiên hoạt động; refresh xoay token, logout/đổi mật khẩu/đổi quyền/khoá thu hồi ngay cả token đã sao chép. Phiên bản cấp token được chụp trước commit để tránh cấp nhầm phiên mới khi có request đồng thời.
+- CSRF double-submit có chữ ký HMAC-SHA256; sau đăng nhập, hash CSRF còn gắn với JWT. Cookie `csrf_token` đọc được để frontend gắn `X-CSRF-Token`; các cookie xác thực vẫn HttpOnly. Xem bootstrap và mã lỗi tại spec 03. Dev/test dùng cùng hostname `localhost`; triển khai web/API phải cùng hostname (reverse proxy) để frontend đọc cookie CSRF host-only. Origin phải cấu hình đúng.
+- Đếm sai/khoá và refresh dùng row lock trong transaction để tránh mất cập nhật và dùng lại refresh. Thao tác quản lý user lấy advisory transaction lock trước row lock actor để tránh hai admin chỉnh nhau bị deadlock. `authorize()` từ chối action chưa biết; interface `ResourceScope` cho T05 chỉ nhận membership đã truy vấn từ DB, không nhận từ body của người dùng.
 - CORS chỉ `FRONTEND_ORIGIN`.
 - Upload: kiểm MIME thật (magic bytes), giới hạn kích thước, từ chối file thực thi/macro (`.docm`).
 - Render email: Jinja2 sandbox, escape HTML.

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from redis import Redis
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import current_user
 from app.core.config import Settings, get_settings
 from app.core.db import get_session
 from app.core.errors import ErrorResponse
@@ -23,6 +24,8 @@ def health(
     return HealthResponse()
 
 
-@router.get("/config/public", response_model=PublicConfigResponse)
+@router.get(
+    "/config/public", response_model=PublicConfigResponse, dependencies=[Depends(current_user)]
+)
 def public_config(settings: Annotated[Settings, Depends(get_settings)]) -> PublicConfigResponse:
     return PublicConfigResponse(hiring_unit_label=settings.hiring_unit_label)

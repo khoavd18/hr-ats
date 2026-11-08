@@ -25,6 +25,8 @@ Nền T02: fixture chỉ cho phép DB trên localhost và luôn chọn `hr_ats_t
 
 Schema test chỉ được tạo/cập nhật bằng Alembic, không dùng `Base.metadata.create_all`. Test đối chiếu `Base.metadata` với schema đã migrate bằng `compare_metadata` (gồm type và server default); thiếu table/column/index phải bị phát hiện. Fixture giữ DB giữa các phiên; khi sửa migration đã áp dụng trong dev, cần reset riêng `hr_ats_test` theo hướng dẫn README để chạy lại lịch sử. Migration đã merge phải được thay đổi bằng revision mới.
 
+T04 bổ sung API test auth/users, bảng quyền, CLI, đăng nhập sai đồng thời và refresh token cạnh tranh; tất cả dùng dữ liệu giả. `uv run python -m tests.auth_browser_server` tại backend tạo DB tạm `hr_ats_test_t04_<uuid>` riêng, migrate/seed user giả và phục vụ API localhost:8000. Chạy `npm run dev` rồi lệnh chuẩn `npx playwright test` tại frontend để kiểm tra auth UI với backend thật (không cần seed T18). Dừng server bằng Ctrl+C để xoá đúng DB tạm của fixture. Các test này không thay thế E2E nghiệp vụ tại T18; xem README về điều kiện chạy. Vitest kiểm tra route guard và refresh client, Playwright chặn request ngoài localhost.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.
