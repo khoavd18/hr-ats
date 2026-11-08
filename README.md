@@ -238,6 +238,45 @@ sửa cài đặt để test pass. CI cài cả hai ngôn ngữ trước pytest.
 mock tại ranh giới subprocess, kiểm tra thiếu OCR/timeout/lỗi, 300 DPI và che
 nhiều dạng liên hệ; không gọi provider hoặc mạng ngoài khi test.
 
+### Thử adapter AI (T09)
+
+Tại `backend/`, không cần DB hoặc key khi dùng fake:
+
+```sh
+uv run python -m app.scripts.llm_smoke --provider fake
+uv run pytest tests/unit/test_llm.py tests/unit/test_prompts.py tests/unit/test_ai_schemas.py -q
+```
+
+Script thử ba prompt parse và một prompt score bằng dữ liệu giả cố định, chỉ in
+metadata/trạng thái. Fake parse dòng có nhãn Họ tên/Kỹ năng, score bằng từ khoá,
+chỉ dành cho dev/test, không đo chất lượng AI. Mặc định LLM_PROVIDER=fake giữ nguyên.
+
+Để tự thử provider thật, đặt LLM_MODEL là model id tường minh và ANTHROPIC_API_KEY
+qua môi trường hoặc `.env` đã gitignore, rồi chạy:
+
+```sh
+uv run python -m app.scripts.llm_smoke --provider anthropic
+```
+
+Có thể thêm `--model <model-id>` thay LLM_MODEL. OpenAI dùng `--provider openai`
+và OPENAI_API_KEY; Ollama dùng `--provider ollama`, LLM_MODEL và OLLAMA_BASE_URL
+(mặc định http://localhost:11434). Ollama cần model đã cài; script không tải model.
+Base URL phải là HTTP(S) origin, không credential/path/query/fragment.
+
+HTTPX có sẵn gọi [Anthropic tool schema](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools),
+[OpenAI strict JSON schema](https://developers.openai.com/api/docs/guides/structured-outputs),
+[Ollama chat JSON schema](https://docs.ollama.com/api/chat).
+Model phải hỗ trợ tham số tương ứng và temperature=0. Timeout 60 giây mỗi pha,
+max output 4096 token/lần; hai retry mạng/429/5xx và một lần sửa JSON/schema.
+Log chỉ model/token/thời gian/kết quả thử, không CV/prompt/key/lỗi thô. Lỗi có
+mã/thông báo cố định, script exit 1. Không tự chọn model hay đổi provider khi lỗi.
+
+NOT TESTED: kết nối provider/model thật. Nhà cung cấp/model được duyệt và giá tiền
+vẫn UNKNOWN trong [LLM contract](docs/ml/llm-contract.md); người vận hành chủ động
+thử dữ liệu giả với key riêng. T09 chưa nối pipeline CV; cần chốt chính sách parse
+dữ liệu thật theo câu hỏi #40 trước production. Contract render/schema và cách
+lưu client.model/prompt.prompt_version cho T10/T12: [spec 04](docs/specs/04-ai-pipeline.md).
+
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.

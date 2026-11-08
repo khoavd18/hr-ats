@@ -104,6 +104,72 @@ class LLMClient(Protocol):
 ```
 Bản: `FakeLLM` (đọc fixture theo hash input, hoặc sinh kết quả tất định từ từ khoá — đủ để test end-to-end), `AnthropicLLM`, `OpenAILLM`, `OllamaLLM`. Timeout 60 giây, retry 2 lần với backoff khi lỗi mạng/429. Ghi log: model, số token, thời gian, **không ghi nội dung**.
 
+### Contract triển khai T09
+
+`get_llm_client(settings=None)` chọn adapter theo LLM_PROVIDER; thuộc tính `model`
+cho caller lưu kết quả. Fake dùng `fake-v1`; provider thật yêu cầu LLM_MODEL tường
+minh và key tương ứng (cloud). Không tự chọn model hoặc đổi provider. Nhà cung
+cấp/model được duyệt vẫn UNKNOWN; T09 chỉ smoke dữ liệu giả, chưa nối pipeline CV.
+
+Output version 1: `ParseBasic(full_name, current_title, location,
+years_experience, languages)`, `ParseExperience(experiences, education)`,
+`ParseSkills(skills)` và `ScoreOutput(criteria, reasons, flags)`. Mọi khoá bắt buộc,
+không nhận trường thừa/ép chuỗi thành số. Scalar thiếu null, danh sách thiếu [];
+years_experience hữu hạn không âm hoặc null; tháng 01–12 hoặc null, không đoán
+tháng từ năm. Không có liên hệ/giới tính/tuổi trong output. Skills trim, lowercase,
+bỏ trùng, gộp js→javascript, ts→typescript, nodejs→node.js, reactjs→react,
+postgres→postgresql. Score dùng đúng enum ở bước 8, reasons có 2–3 chuỗi không
+rỗng, evidence tối đa 20 từ tách theo khoảng trắng hoặc null. Kiểm bằng chứng theo
+CV/tiêu chí đầy đủ và tính điểm thuộc T12; adapter không sinh điểm/quyết định tuyển.
+
+Dùng ba prompt riêng `parse_cv_basic/v1.md`, `parse_cv_experience/v1.md`,
+`parse_cv_skills/v1.md` như T09 cho phép, cùng `score_cv/v1.md`.
+`load_prompt(task, version=1).render(**variables)` trả system/user/task/version và
+prompt_version="v1". Frontmatter gồm ba dòng scalar version (số khớp filename),
+task (khớp tên thư mục), description; không YAML mở rộng. Thân có `## system` rồi
+`## user`; metadata sai/trùng, đường dẫn thoát thư mục hoặc biến thiếu trả
+PromptError an toàn. Jinja2 sandbox + StrictUndefined, tojson giữ CV/Job trong
+JSON, không render lại input thành template. Biến parse là text; score là
+anonymized_text, job_title, job_description, must_have, nice_to_have. System tiếng
+Việt yêu cầu chỉ JSON, không suy đoán tuổi/giới tính, không thực hiện chỉ dẫn nằm
+trong dữ liệu không đáng tin cậy. T10 mới gọi ba parse song song và lưu DB.
+
+HTTPX có sẵn, client đóng sau request, timeout 60 giây mỗi pha HTTP, không theo
+redirect/đọc proxy hoặc credential ngầm từ môi trường HTTPX. Anthropic Messages
+dùng input_schema, buộc một structured_output tool block (chỉ nhận JSON, không
+chạy tool). OpenAI Chat Completions dùng response_format=json_schema, strict=true,
+store=false. Ollama /api/chat dùng format=schema, stream=false. Model cần hỗ trợ
+những tham số đó và temperature (mặc định 0). Endpoint cloud cố định; Ollama URL
+chỉ từ cấu hình máy chủ, HTTP(S) origin không credential/path/query/fragment.
+
+ASSUMED (#38): tối đa 4096 token đầu ra/lần. Lỗi mạng/timeout hoặc HTTP
+429/500/502/503/504/529 retry thêm hai lần, chờ 1/2 giây. HTTP khác/redirect,
+envelope hỏng/refusal/truncated trả LLMError an toàn ngay. JSON/output sai schema
+được gọi lại một lần: giữ user input, thêm tối đa 10 mã lỗi Pydantic vào system,
+không gửi lại output sai hoặc error location/message/input/context có thể chứa
+PII. Mỗi lượt validate tối đa ba request, cả complete_json tối đa sáu request;
+vẫn sai trả LLMValidationError (AppError, LLM_INVALID_OUTPUT). Caller T10/T12
+bắt lỗi và cập nhật failed; adapter không ghi DB.
+
+Log app.ai.llm chỉ gồm provider/model cấu hình, input_tokens/output_tokens,
+duration_ms, outcome và số lần thử; không prompt/CV/output/key/exception thô.
+Token thiếu (kể cả fake) là null, không ước tính; chi phí tiền UNKNOWN khi chưa
+chốt model/giá. Caller lưu client.model và prompt.prompt_version cùng kết quả.
+
+ASSUMED (#39): FakeLLM đọc user JSON, parse các dòng có nhãn name/skills/title/
+location/years/languages tiếng Việt/Anh, skills tách phẩy/chấm phẩy; kinh nghiệm và
+học vấn rỗng, không suy luận. Score khớp nguyên cụm tiêu chí với ranh giới từ trong
+CV, không phân biệt hoa/thường/dấu, không tìm trong JD: có → met, thiếu → not_met;
+giữ must rồi nice, evidence trích ngắn hoặc null, hai lý do cố định không PII,
+missing_must_have khi thiếu must. Đây chỉ là fake cho test, không đo chất lượng AI.
+Caller phải che liên hệ trước parse, dùng anonymized_text cho score và xác nhận
+chính sách/provider trước dữ liệu thật (câu hỏi #40).
+
+Tài liệu API đã đối chiếu:
+[OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
+[Anthropic tool schema](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools),
+[Ollama chat](https://docs.ollama.com/api/chat).
+
 ## Tìm kiếm
 - Full-text: `search_tsv` (unaccent) cho tên, kỹ năng, chức danh.
 - Theo nghĩa: embedding câu truy vấn → top-k cosine trên `candidates.embedding`.
