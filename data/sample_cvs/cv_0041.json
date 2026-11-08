@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0041",
+  "file_name": "cv_0041.pdf",
+  "layout": "english",
+  "language": "en",
+  "career": "marketing",
+  "region": "south",
+  "gender": "Nam",
+  "full_name": "Trương Minh Khang",
+  "email": "cv_0041@example.com",
+  "phone": "0900 000 040",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 41, Đường Mô Phỏng, Khu south",
+  "current_title": "Marketing specialist",
+  "years_experience": 1,
+  "skills": [
+    "content marketing"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sao Giấy",
+      "title": "Marketing specialist",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Planned content, measured campaigns and improved product landing pages."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Nam",
+      "degree": "Bachelor",
+      "major": "Communications",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

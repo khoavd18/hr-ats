@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0027",
+  "file_name": "cv_0027.pdf",
+  "layout": "table",
+  "language": "vi",
+  "career": "backend",
+  "region": "central",
+  "gender": "Nam",
+  "full_name": "Hoàng Đình Phúc",
+  "email": "cv_0027@example.com",
+  "phone": "0900 000 026",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 27, Đường Mô Phỏng, Khu central",
+  "current_title": "Lập trình viên backend",
+  "years_experience": 2,
+  "skills": [
+    "python",
+    "sql"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sao Giấy",
+      "title": "Lập trình viên backend",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Xây dựng API quản lý đơn hàng; viết kiểm thử và tối ưu truy vấn dữ liệu."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Công nghệ thông tin",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "medium",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

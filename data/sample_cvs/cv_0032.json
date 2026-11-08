@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0032",
+  "file_name": "cv_0032.docx",
+  "layout": "two_column",
+  "language": "vi",
+  "career": "backend",
+  "region": "north",
+  "gender": "Nữ",
+  "full_name": "Phạm Bảo Anh",
+  "email": "cv_0032@example.com",
+  "phone": "0900 000 031",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 32, Đường Mô Phỏng, Khu north",
+  "current_title": "Lập trình viên backend",
+  "years_experience": 6,
+  "skills": [
+    "python",
+    "sql",
+    "fastapi",
+    "docker",
+    "redis"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "Lập trình viên backend",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Xây dựng API quản lý đơn hàng; viết kiểm thử và tối ưu truy vấn dữ liệu."
+    },
+    {
+      "company": "Công ty Giả lập Mầm Bạc",
+      "title": "Lập trình viên backend",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Xây dựng API quản lý đơn hàng; viết kiểm thử và tối ưu truy vấn dữ liệu."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Công nghệ thông tin",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "high",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

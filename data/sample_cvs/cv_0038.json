@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0038",
+  "file_name": "cv_0038.pdf",
+  "layout": "two_column",
+  "language": "vi",
+  "career": "frontend",
+  "region": "north",
+  "gender": "Nữ",
+  "full_name": "Nguyễn Thu Hà",
+  "email": "cv_0038@example.com",
+  "phone": "0900 000 037",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 38, Đường Mô Phỏng, Khu north",
+  "current_title": "Lập trình viên frontend",
+  "years_experience": 1,
+  "skills": [
+    "javascript"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Lập trình viên frontend",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Kỹ thuật phần mềm",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

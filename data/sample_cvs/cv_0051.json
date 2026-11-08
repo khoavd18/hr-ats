@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0051",
+  "file_name": "cv_0051.pdf",
+  "layout": "table",
+  "language": "vi",
+  "career": "marketing",
+  "region": "central",
+  "gender": "Nam",
+  "full_name": "Hoàng Đình Phúc",
+  "email": "cv_0051@example.com",
+  "phone": "0900 000 050",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 51, Đường Mô Phỏng, Khu central",
+  "current_title": "Chuyên viên marketing",
+  "years_experience": 6,
+  "skills": [
+    "content marketing",
+    "seo",
+    "analytics",
+    "copywriting",
+    "campaign planning"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "Chuyên viên marketing",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    },
+    {
+      "company": "Công ty Giả lập Sao Giấy",
+      "title": "Chuyên viên marketing",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Truyền thông",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "high"
+  }
+}

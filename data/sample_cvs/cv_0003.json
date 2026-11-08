@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0003",
+  "file_name": "cv_0003.pdf",
+  "layout": "table",
+  "language": "vi",
+  "career": "accounting",
+  "region": "central",
+  "gender": "Nam",
+  "full_name": "Đặng Hữu An",
+  "email": "cv_0003@example.com",
+  "phone": "0900 000 002",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 3, Đường Mô Phỏng, Khu central",
+  "current_title": "Nhân viên kế toán",
+  "years_experience": 1,
+  "skills": [
+    "bookkeeping"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Sóng Cam",
+      "title": "Nhân viên kế toán",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Đối chiếu công nợ, nhập chứng từ và lập báo cáo thu chi hằng tháng."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Kế toán",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0028",
+  "file_name": "cv_0028.pdf",
+  "layout": "avatar",
+  "language": "vi",
+  "career": "frontend",
+  "region": "central",
+  "gender": "Nữ",
+  "full_name": "Đặng Ngọc Trâm",
+  "email": "cv_0028@example.com",
+  "phone": "0900 000 027",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 28, Đường Mô Phỏng, Khu central",
+  "current_title": "Lập trình viên frontend",
+  "years_experience": 2,
+  "skills": [
+    "javascript",
+    "react"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "Lập trình viên frontend",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Kỹ thuật phần mềm",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "medium",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

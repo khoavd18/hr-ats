@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0007",
+  "file_name": "cv_0007.docx",
+  "layout": "one_column",
+  "language": "vi",
+  "career": "frontend",
+  "region": "north",
+  "gender": "Nam",
+  "full_name": "Nguyễn Minh Khôi",
+  "email": "cv_0007@example.com",
+  "phone": "0900 000 006",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 7, Đường Mô Phỏng, Khu north",
+  "current_title": "Lập trình viên frontend",
+  "years_experience": 2,
+  "skills": [
+    "javascript",
+    "react"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Đồi Lam",
+      "title": "Lập trình viên frontend",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Phát triển giao diện quản lý kho; kiểm tra biểu mẫu và hiển thị trên điện thoại."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Kỹ thuật phần mềm",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "medium",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

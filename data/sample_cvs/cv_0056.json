@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0056",
+  "file_name": "cv_0056.docx",
+  "layout": "two_column",
+  "language": "vi",
+  "career": "marketing",
+  "region": "north",
+  "gender": "Nữ",
+  "full_name": "Trần Ngọc Mai",
+  "email": "cv_0056@example.com",
+  "phone": "0900 000 055",
+  "date_of_birth": "2002-06-15",
+  "location": "Số 56, Đường Mô Phỏng, Khu north",
+  "current_title": "Chuyên viên marketing",
+  "years_experience": 1,
+  "skills": [
+    "content marketing"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "Chuyên viên marketing",
+      "start": "2025-01",
+      "end": "2026-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Truyền thông",
+      "start": "2021-09",
+      "end": "2025-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

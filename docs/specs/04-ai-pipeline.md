@@ -86,6 +86,7 @@ Bản: `FakeLLM` (đọc fixture theo hash input, hoặc sinh kết quả tất 
 
 ## Đánh giá (`eval/`)
 - `eval/generate_synthetic_cvs.py`: sinh CV giả tiếng Việt (DOCX + PDF, 1 cột, 2 cột, có bảng, bản ảnh scan có nhiễu) cùng file nhãn JSON (thông tin đúng + mức phù hợp với vài Job mẫu).
+- T06: chạy tại `backend/` bằng `uv run python ../eval/generate_synthetic_cvs.py --count 60 --seed 20261108 --out ../data/sample_cvs`; mặc định đầu ra là `data/sample_cvs/` ở gốc repo. Schema nhãn version 1 dùng `CVLabel`/`JobDataset` trong `eval/schemas.py`: mỗi CV có `<id>.json`, `synthetic=true`, trường parse đúng và `expected_level[job_id]`; `jobs.json` có năm Job cùng ma trận `expected_level[cv_id][job_id]`. Nhãn `high|medium|low|insufficient`; metadata/ZIP/font/random cố định để sinh lại cùng byte với dependency khóa. Chi tiết nguồn giả, kịch bản nhãn và giới hạn ở `eval/README.md`. Đây là contract fixture, không thay schema parse production hoặc quy tắc chấm điểm ở bước 9.
 - `eval/run_parse_eval.py`: độ chính xác theo trường (exact match cho email/phone/tên; F1 cho kỹ năng).
 - `eval/run_score_eval.py`: so `ai_level` với nhãn; precision@10, mức đồng thuận (Cohen's kappa); chạy được trên bộ công khai (xem `docs/research/datasets.md`) và trên bộ CV nội bộ đã ẩn danh đặt ngoài repo (`EVAL_DATA_DIR`).
 - `eval/run_bias_check.py`: cùng một CV, thay tên nam/nữ và các tên vùng miền khác nhau → mức chênh `ai_score`; báo cáo nếu chênh > 5 điểm.

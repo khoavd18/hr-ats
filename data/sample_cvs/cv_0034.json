@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0034",
+  "file_name": "cv_0034.docx",
+  "layout": "avatar",
+  "language": "vi",
+  "career": "accounting",
+  "region": "central",
+  "gender": "Nữ",
+  "full_name": "Võ Thanh Thảo",
+  "email": "cv_0034@example.com",
+  "phone": "0900 000 033",
+  "date_of_birth": "1997-06-15",
+  "location": "Số 34, Đường Mô Phỏng, Khu central",
+  "current_title": "Nhân viên kế toán",
+  "years_experience": 6,
+  "skills": [
+    "bookkeeping",
+    "excel",
+    "tax reporting",
+    "reconciliation",
+    "budgeting"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Mây Tím",
+      "title": "Nhân viên kế toán",
+      "start": "2020-01",
+      "end": "2023-01",
+      "description": "Đối chiếu công nợ, nhập chứng từ và lập báo cáo thu chi hằng tháng."
+    },
+    {
+      "company": "Công ty Giả lập Sao Giấy",
+      "title": "Nhân viên kế toán",
+      "start": "2023-01",
+      "end": "2026-01",
+      "description": "Đối chiếu công nợ, nhập chứng từ và lập báo cáo thu chi hằng tháng."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Trung",
+      "degree": "Cử nhân",
+      "major": "Kế toán",
+      "start": "2016-09",
+      "end": "2020-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "high",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}

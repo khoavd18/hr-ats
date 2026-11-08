@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0025",
+  "file_name": "cv_0025.pdf",
+  "layout": "one_column",
+  "language": "vi",
+  "career": "marketing",
+  "region": "north",
+  "gender": "Nam",
+  "full_name": "Nguyễn Minh Khôi",
+  "email": "cv_0025@example.com",
+  "phone": "0900 000 024",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 25, Đường Mô Phỏng, Khu north",
+  "current_title": "Chuyên viên marketing",
+  "years_experience": 2,
+  "skills": [
+    "content marketing",
+    "seo"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "Chuyên viên marketing",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Lập lịch nội dung, đo hiệu quả chiến dịch và cải thiện trang giới thiệu sản phẩm."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Truyền thông",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "medium"
+  }
+}

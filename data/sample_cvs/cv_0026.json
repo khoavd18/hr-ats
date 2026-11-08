@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "id": "cv_0026",
+  "file_name": "cv_0026.pdf",
+  "layout": "two_column",
+  "language": "vi",
+  "career": "hr",
+  "region": "north",
+  "gender": "Nữ",
+  "full_name": "Trần Ngọc Mai",
+  "email": "cv_0026@example.com",
+  "phone": "0900 000 025",
+  "date_of_birth": "2001-06-15",
+  "location": "Số 26, Đường Mô Phỏng, Khu north",
+  "current_title": "Chuyên viên nhân sự",
+  "years_experience": 2,
+  "skills": [
+    "recruitment",
+    "onboarding"
+  ],
+  "experience": [
+    {
+      "company": "Công ty Giả lập Lá Vuông",
+      "title": "Chuyên viên nhân sự",
+      "start": "2024-01",
+      "end": "2026-01",
+      "description": "Điều phối lịch phỏng vấn, hỗ trợ hội nhập và tổng hợp báo cáo nhân sự."
+    }
+  ],
+  "education": [
+    {
+      "school": "Đại học Mô phỏng Miền Bắc",
+      "degree": "Cử nhân",
+      "major": "Quản trị nhân lực",
+      "start": "2020-09",
+      "end": "2024-06"
+    }
+  ],
+  "expected_level": {
+    "job_backend": "low",
+    "job_frontend": "low",
+    "job_accounting": "low",
+    "job_sales": "low",
+    "job_marketing": "low"
+  }
+}
