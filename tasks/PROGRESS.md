@@ -16,7 +16,7 @@
 | T12 | done | 2026-11-08 | VERIFIED: chấm tiêu chí/bằng chứng, điểm tất định, worker và ba API có quyền/CSRF; 774 test backend pass/12 skip OCR Windows, Linux offline 242 pass/0 skip. Bộ mẫu 250/250 cặp đã chấm, 50/60 CV khớp cả 5 Job (83,3%); Ruff/mypy/migration sạch. Chờ Review T12, CI và merge. |
 | T13 | done | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
 | T14 | done | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
-| T15 | review | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
+| T15 | done | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
 | T16–T33 | todo | | |
 
 ## Nhật ký
