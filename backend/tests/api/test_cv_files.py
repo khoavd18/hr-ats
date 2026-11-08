@@ -133,7 +133,11 @@ def test_mixed_upload_duplicate_status_download_and_audit(
         "message": "Chỉ chấp nhận tệp PDF, DOCX, JPG hoặc PNG hợp lệ.",
     }
     assert db_session.scalar(select(func.count()).select_from(CvFile)) == 3
-    activities = db_session.scalars(select(Activity)).all()
+    # T12 also scores the three applications. Keep the T07 upload assertions
+    # scoped to cv_uploaded, and verify the additional scoring activities too.
+    activities = db_session.scalars(
+        select(Activity).where(Activity.type == ActivityType.cv_uploaded)
+    ).all()
     assert len(activities) == 3
     assert all(
         row.type == ActivityType.cv_uploaded
@@ -145,7 +149,23 @@ def test_mixed_upload_duplicate_status_download_and_audit(
     duplicate = upload(client, [files[0]], scope.job.id).json()["items"][0]
     assert duplicate["duplicate"] and duplicate["cv_file"]["id"] == items[0]["cv_file"]["id"]
     assert db_session.scalar(select(func.count()).select_from(CvFile)) == 3
-    assert db_session.scalar(select(func.count()).select_from(Activity)) == 3
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(Activity)
+            .where(Activity.type == ActivityType.cv_uploaded)
+        )
+        == 3
+    )
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(Activity)
+            .where(Activity.type == ActivityType.ai_scored)
+        )
+        == 3
+    )
+    assert db_session.scalar(select(func.count()).select_from(Application)) == 3
     assert len(list(cv_runtime.root.iterdir())) == 3
     for index, item in enumerate(items[:3]):
         cv_file = item["cv_file"]

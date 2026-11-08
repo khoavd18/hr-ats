@@ -158,7 +158,7 @@ Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 
 Lệnh chính xác nằm trong `docs/specs/08-testing-quality.md`. Test dùng adapter giả và không gọi mạng bên ngoài.
 
-### Upload và worker T07/T10/T11
+### Upload và worker T07/T10/T11/T12
 
 Tại `backend/`, chạy worker bên cạnh API (cùng `.env`, DB và storage):
 
@@ -172,7 +172,7 @@ uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P so
 
 Mặc định `STORAGE_BACKEND=local` lưu tại `var/storage` ở gốc repo, key ngẫu nhiên. GET trạng thái và download qua API có kiểm quyền/audit; storage không public. S3 dùng boto3 với `S3_BUCKET` có sẵn, endpoint/credential từ biến S3; không cần bật MinIO để dùng/test M1. Các test S3 dùng Stubber offline; runtime S3 được hoãn theo câu hỏi #8.
 
-Worker đọc storage → trích text → che email/SĐT → gọi ba phần parse song song → tạo/cập nhật ứng viên → ẩn danh cục bộ → embedding → `done`; lỗi từng file chuyển `failed` với thông báo tiếng Việt. Mỗi kết quả parse có model/version; email lowercase và SĐT canonical lấy cục bộ. Hai CV khác định dạng cùng email/SĐT gắn cùng ứng viên; thời hạn lưu cộng `DATA_RETENTION_MONTHS` tháng lịch theo `TZ`, không tự sinh bằng chứng đồng ý. CV không có liên hệ, tên chuẩn hoá trùng và cosine > 0.95 chỉ có gợi ý `possible_duplicate_of`, không tự gộp. Application/chấm điểm chờ T12.
+Worker đọc storage → trích text → che email/SĐT → gọi ba phần parse song song → tạo/cập nhật ứng viên → ẩn danh cục bộ → embedding → `done`; lỗi từng file chuyển `failed` với thông báo tiếng Việt. Mỗi kết quả parse có model/version; email lowercase và SĐT canonical lấy cục bộ. Hai CV khác định dạng cùng email/SĐT gắn cùng ứng viên; thời hạn lưu cộng `DATA_RETENTION_MONTHS` tháng lịch theo `TZ`, không tự sinh bằng chứng đồng ý. CV không có liên hệ, tên chuẩn hoá trùng và cosine > 0.95 chỉ có gợi ý `possible_duplicate_of`, không tự gộp. Có `job_id` thì T12 tạo application `new`, owner lấy từ Job và xếp hàng chấm sau commit; revision giữ application/stage/owner, tính lại kết quả AI.
 
 Upload mới trả snapshot `pending`, GET `/api/v1/cv-files/{id}` phản ánh trạng thái hiện tại; download thêm `/download`. Worker giữ transaction đến cuối nên trạng thái có thể vẫn `pending` trong khi đang xử lý. SHA-256 trùng trả cùng ID sau kiểm quyền, không đổi Job/uploader và không tạo thêm file/activity. Nếu publish Redis lỗi, record chuyển `failed`; upload lại cùng file để thử xếp hàng lại. Lỗi parse không tự được xếp hàng lại khi upload cùng hash. Crash đúng khoảng giữa commit và publish có thể để file ở `pending`; chưa có outbox/reconciliation, cần kiểm tra vận hành trước production. Dev/test dùng CV giả; điều kiện dữ liệu thật/provider ở câu hỏi #40 chưa được chốt.
 
@@ -227,6 +227,30 @@ không tự đổi cột/index. Chưa benchmark rebuild toàn kho production.
 T13 dùng `app.services.embeddings.embed_job(job)` sau khi gán title/description/
 must_have/nice_to_have khi tạo/sửa Job và trước commit. Hook không tự commit;
 T11 không mở endpoint Job/tìm kiếm trước T13/T16.
+
+### Chấm điểm T12
+
+Worker `score_application` chỉ gửi `anonymized_text` và bốn trường yêu cầu Job
+cho prompt `score_cv/v1`. Code kiểm đủ/đúng thứ tự tiêu chí, bằng chứng tồn tại
+sau NFC/gộp khoảng trắng; thiếu hoặc bịa bằng chứng → unknown. Điểm/mức tính
+cục bộ theo spec 04, lưu model/version/thời điểm và activity chỉ có level/score.
+Không đổi stage hoặc gửi email. Thiếu text đã ẩn danh hoặc lỗi provider →
+`ai_status=failed`, không fallback sang CV gốc. API thêm/chấm lại cần cookie/CSRF
+và quyền owner/member Job (admin/lead được mọi Job):
+
+- `POST /api/v1/applications` với `{candidate_id, job_id}` → 201, trùng active → 409.
+- `POST /api/v1/applications/{id}/rescore` → 202, chấm lại một hồ sơ.
+- `POST /api/v1/jobs/{id}/rescore` → 202, queue `rescore_job` chấm từng hồ sơ còn hợp lệ.
+
+Cấu hình server trong `.env.example`: `SCORE_MUST_WEIGHT=0.75`,
+`SCORE_PARTIAL_VALUE=0.5`, `SCORE_HIGH_THRESHOLD=75`,
+`SCORE_UNKNOWN_THRESHOLD=0.5`, `SCORE_MIN_TEXT_LENGTH=300`.
+Thay ngưỡng chỉ có hiệu lực với lượt chấm mới; dùng rescore để cập nhật hồ sơ cũ.
+Publish lỗi giữ Application failed (CV đã xử lý vẫn done), thử lại bằng rescore.
+Chưa có outbox: nếu process dừng giữa commit và publish, hồ sơ có thể còn pending;
+sau khi broker/worker phục hồi cần chấm lại. Contract response/lỗi tại spec 03/04.
+FakeLLM đọc từ khoá/kỹ năng và số năm kinh nghiệm trong CV giả, không đọc nhãn kỳ vọng;
+không dùng tỷ lệ khớp fixture để kết luận chất lượng model thật.
 
 ### Trích CV và OCR T08
 

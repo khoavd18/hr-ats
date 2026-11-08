@@ -154,6 +154,43 @@ def _line_value(text: str, labels: str) -> str | None:
     return (match[1].strip() or None) if match else None
 
 
+def _fake_judgment(text: str, criterion: str) -> tuple[str, str | None]:
+    """Offline keyword/numeric heuristic using only explicit CV labels, never gold labels."""
+    required_years = re.search(
+        r"(\d+(?:[.,]\d+)?)\s*(?:nam\s+kinh nghiem|years?\s+(?:of\s+)?experience)",
+        _fold(criterion),
+    )
+    if required_years:
+        for line in text.splitlines():
+            value = _line_value(line, "Số năm kinh nghiệm|Years of experience")
+            number = re.match(r"\d+(?:[.,]\d+)?", value or "")
+            if number is None:
+                number = re.search(
+                    r"\d+(?:[.,]\d+)?(?=\s*(?:nam\s+kinh nghiem|years?\s+(?:of\s+)?experience))",
+                    _fold(line),
+                )
+            if number:
+                actual = float(number[0].replace(",", "."))
+                minimum = float(required_years[1].replace(",", "."))
+                # Some explicitly stated experience is partial support; zero is not met.
+                result = "met" if actual >= minimum else "partial" if actual > 0 else "not_met"
+                return result, " ".join(line.split()[:20])
+        return "unknown", None
+    pattern = r"(?<!\w)" + re.escape(_fold(criterion)) + r"(?!\w)"
+    for line in text.splitlines():
+        if re.search(pattern, _fold(line)):
+            # Evidence is a short contiguous excerpt, not invented explanatory text.
+            return "met", " ".join(line.split()[:20])
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if _line_value(line, "Kỹ năng|Skills?"):
+            return "not_met", " ".join(line.split()[:20])
+        if re.fullmatch(r"(?:ky nang|skills?)\s*:?", _fold(line).strip()):
+            if index + 1 < len(lines) and lines[index + 1].strip():
+                return "not_met", " ".join(lines[index + 1].split()[:20])
+    return "unknown", None
+
+
 class FakeLLM(_BaseLLM):
     """Offline fixture heuristic, not an assessment of real candidate quality."""
 
@@ -172,27 +209,12 @@ class FakeLLM(_BaseLLM):
                 criteria = []
                 for kind, key in (("must", "must_have"), ("nice", "nice_to_have")):
                     for criterion in payload[key]:
-                        # Whole phrase, with word boundaries, case/accent-insensitive.
-                        match = re.search(
-                            r"(?<!\w)" + re.escape(_fold(criterion)) + r"(?!\w)", _fold(text)
-                        )
-                        evidence = None
-                        if match:
-                            # Search original text too, so evidence is always an exact substring.
-                            for line in text.splitlines():
-                                if re.search(
-                                    r"(?<!\w)" + re.escape(_fold(criterion)) + r"(?!\w)",
-                                    _fold(line),
-                                ):
-                                    evidence = " ".join(line.split()[:20])
-                                    if evidence not in text:
-                                        evidence = line.strip() if len(line.split()) <= 20 else None
-                                    break
+                        result, evidence = _fake_judgment(text, criterion)
                         criteria.append(
                             {
                                 "criterion": criterion,
                                 "kind": kind,
-                                "result": "met" if match else "not_met",
+                                "result": result,
                                 "evidence": evidence,
                             }
                         )

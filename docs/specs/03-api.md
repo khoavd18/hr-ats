@@ -53,7 +53,7 @@ Các mặc định kỹ thuật trên được ghi ở câu hỏi #18–#20; kh�
 
 - `POST /cv-files`: tên field lặp `files`, tối đa một field chuỗi UUID `job_id`; cần đăng nhập và CSRF. Batch hợp lệ trả **200** `{items: [{index, cv_file, duplicate, error}]}` theo thứ tự đầu vào, `index` bắt đầu từ 0. Thành công có `cv_file` theo schema `CvFileRead`, `error=null`; file lỗi có `cv_file=null`, `error={code,message}` tiếng Việt và `duplicate=false`. Lỗi một file không huỷ các file hợp lệ khác. Batch rỗng/sai field/sai UUID/quá 50 file → 422; Job không tồn tại → 404, không có quyền → 403 trước khi lưu file nào.
 - Giới hạn 10 MB = 10 × 1024 × 1024 byte, tính trên nội dung. Nhận diện MIME từ magic bytes, không tin tên đuôi/Content-Type do client cung cấp. DOCX phải là ZIP có content type Word chuẩn và `word/document.xml`; từ chối `.docm`, VBA và content type macro, ZIP mã hoá, đường dẫn bất thường, quá 2000 entry hoặc tổng giải nén quá 50 MiB. Không giải nén ra đĩa. Mã lỗi file: `INVALID_FILE_TYPE`, `FILE_TOO_LARGE`, `MACRO_NOT_ALLOWED`; thông báo không chứa tên hay nội dung file lỗi.
-- File mới tạo `cv_files(pending)`, `uploaded_by` lấy từ phiên, `job_id` đã kiểm quyền. Ghi một activity `cv_uploaded` có payload chỉ `{cv_file_id}`. Commit DB trước khi gửi task `process_cv_file` vào queue `ai`. Phản hồi file mới là snapshot `pending` dù eager/worker có thể hoàn tất ngay; GET trạng thái trả giá trị hiện tại. T10 thay worker tạm T07: extract → che liên hệ → parse → tạo/cập nhật Candidate, gắn candidate_id rồi done; lỗi riêng từng file chuyển failed. Chưa tạo Application/chấm điểm cho tới hook T12. Chi tiết transaction/metadata tại spec 04.
+- File mới tạo `cv_files(pending)`, `uploaded_by` lấy từ phiên, `job_id` đã kiểm quyền. Ghi một activity `cv_uploaded` có payload chỉ `{cv_file_id}`. Commit DB trước khi gửi task `process_cv_file` vào queue `ai`. Phản hồi file mới là snapshot `pending` dù eager/worker có thể hoàn tất ngay; GET trạng thái trả giá trị hiện tại. T10 thay worker tạm T07: extract → che liên hệ → parse → tạo/cập nhật Candidate, gắn candidate_id rồi done; lỗi riêng từng file chuyển failed. T12 nối hook tạo Application khi có job_id và publish chấm sau commit. Chi tiết transaction/metadata tại spec 04.
 - SHA-256 trùng trả cùng bản ghi với `duplicate=true` và trạng thái hiện tại; không ghi thêm file/activity/task, không đổi Job hoặc uploader của bản ghi cũ. Kiểm quyền cả bản ghi cũ; không có quyền → lỗi từng file `FORBIDDEN` không lộ metadata/ID. Bản ghi/file ứng viên đã soft delete → `NOT_FOUND`, không phục hồi ngầm. Tạo application cho Job khác thuộc T12/các API nghiệp vụ sau.
 - Publish hàng đợi lỗi: giữ file/record đã commit, đặt `status=failed`, lưu lỗi tiếng Việt cố định trong DB (không xuất exception). Upload lại cùng file được phép xếp hàng lại đúng lỗi publish này, giữ nguyên ID và activity. Lỗi storage khi upload → lỗi từng file `STORAGE_UNAVAILABLE`; lỗi storage khi download → HTTP 503 cùng code. DB lỗi sau khi lưu object thì rollback và xoá object vừa tạo.
 - `GET /cv-files/{id}` → 200 `CvFileRead`, ghi audit `action=view`, `entity=cv_file`. `GET /cv-files/{id}/download` → byte gốc, MIME đã xác minh, `Content-Disposition: attachment` với tên `cv-{id}.{đuôi}`, `X-Content-Type-Options: nosniff`; ghi audit `action=download` sau khi đọc storage thành công, trước khi trả byte. Cả hai dùng `Cache-Control: no-store`. Audit chỉ có định danh actor/file, thời điểm, IP kết nối nếu hợp lệ; không tin `X-Forwarded-For`.
@@ -69,6 +69,32 @@ ASSUMED: các chi tiết chưa chốt trước T07 được ghi tại câu hỏi
 - `POST /applications/{id}/ai-feedback` {verdict, corrected_level?, comment?}
 - `POST /applications/{id}/rescore`
 - `POST /applications/{id}/notes` {text} → activity `note`
+
+### Contract thêm hồ sơ và chấm lại T12
+
+- Cả ba POST cần đăng nhập và CSRF. Admin/lead có quyền toàn bộ; recruiter cần
+  owner/member Job ở DB tại thời điểm gọi. `applications.owner_id` riêng không
+  cấp quyền Job. Không cho caller truyền owner, stage hoặc ai_*; field thừa/sai
+  UUID → 422 theo envelope chung.
+- `POST /applications` nhận đúng `{candidate_id, job_id}` → **201** ApplicationRead,
+  `Cache-Control: no-store`. Stage=new, owner=owner Job, ai_status=pending; trả
+  snapshot trước publish kể cả eager worker đã hoàn tất. Job/ứng viên không
+  tồn tại, ứng viên đã xoá/gộp/hết hạn → 404; không có quyền Job → 403; cặp
+  candidate/job có Application chưa xoá → 409 `APPLICATION_EXISTS`. Không phục hồi
+  Application đã xoá, được phép tạo mới theo partial unique index. Thêm từ kho
+  chỉ dùng quyền kho tóm tắt và quyền Job, không đọc/trả CV gốc.
+- `POST /applications/{id}/rescore` → **202** ApplicationRead snapshot pending,
+  no-store. Application đã xoá/ứng viên không hợp lệ → 404; quyền theo Job. Xoá
+  kết quả AI cũ khi đặt pending, giữ stage/owner; commit trước publish.
+- `POST /jobs/{id}/rescore` → **202** `{"status":"pending"}`: nhận yêu cầu bulk,
+  không đồng nghĩa mọi hồ sơ đã chấm xong. Job không tồn tại → 404, không quyền →
+  403. Worker chấm từng Application chưa xoá với ứng viên còn hợp lệ.
+- Publish score lỗi giữ Application đã tạo, đặt ai_status=failed và trả **201**
+  snapshot failed ở create; rescore một hồ sơ trả **503** `AI_QUEUE_UNAVAILABLE`
+  và giữ failed để thử lại. Publish bulk task lỗi trả cùng 503, chưa reset điểm cũ.
+  Lỗi provider trong worker không thành lỗi HTTP của yêu cầu đã nhận: lưu failed,
+  không trả exception gốc. Retry bằng endpoint rescore. Chi tiết idempotency và
+  khoảng trống commit/publish tại spec 04/câu hỏi #49–#51.
 
 ## Phỏng vấn, offer, placement
 - `POST /applications/{id}/interviews` · `PATCH /interviews/{id}` · `GET /interviews?from=&to=&mine=true`
