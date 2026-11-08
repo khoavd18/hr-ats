@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     embedding_provider: Literal["fake", "local"] = "fake"
     embedding_model: str = "BAAI/bge-m3"
-    embedding_dim: int = 1024
+    embedding_dim: int = Field(default=1024, gt=0)
     ocr_enabled: bool = True
     tesseract_langs: str = "vie+eng"
     smtp_host: str = "localhost"

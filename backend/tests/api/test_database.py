@@ -5,7 +5,7 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import Column, Engine, Index, Integer, MetaData, Table, text
+from sqlalchemy import Column, Engine, Index, Integer, MetaData, Table, inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.config import REPO_ROOT
@@ -25,11 +25,32 @@ def test_migration_upgrades_empty_database_and_preserves_extensions_on_rollback(
         command.upgrade(config, "head")
         assert set(connection.execute(extensions_query).scalars()) == {"vector", "unaccent"}
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0002_users"
+            "0003_core_data_model"
         )
+        assert set(inspect(connection).get_table_names()) == set(Base.metadata.tables) | {
+            "alembic_version"
+        }
         command.downgrade(config, "base")
         assert set(connection.execute(extensions_query).scalars()) == {"vector", "unaccent"}
         assert connection.execute(text("SELECT count(*) FROM alembic_version")).scalar_one() == 0
+        assert inspect(connection).get_table_names() == ["alembic_version"]
+        assert (
+            connection.execute(
+                text(
+                    "SELECT count(*) FROM pg_type WHERE typname IN "
+                    "('user_role', 'application_stage', 'processing_status', 'candidate_source', "
+                    "'hiring_unit_kind', 'job_status', 'ai_level', "
+                    "'extraction_method', 'activity_type')"
+                )
+            ).scalar_one()
+            == 0
+        )
+        assert (
+            connection.execute(
+                text("SELECT to_regprocedure('public.candidates_update_search_tsv()')")
+            ).scalar_one()
+            is None
+        )
         command.upgrade(config, "head")
         assert connection.execute(text("SELECT count(*) FROM alembic_version")).scalar_one() == 1
 

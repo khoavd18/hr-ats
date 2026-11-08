@@ -83,6 +83,14 @@ Schema test được tạo hoàn toàn bằng Alembic và được đối chiế
 
 Log HTTP giữ method, route template, status và thời gian xử lý; log exception giữ file/dòng/hàm để chẩn đoán, đồng thời bỏ exception message, source và locals.
 
+### Mô hình lõi T05
+
+Revision `0003_core_data_model` thêm 10 bảng nghiệp vụ, trigger full-text `simple` + `unaccent`, index GIN và HNSW cosine. `uv run pytest` kiểm chứng đủ bảng, schema đọc, ràng buộc, tìm kiếm/vector và quyền owner/member trên PostgreSQL thật. Chưa tạo endpoint nghiệp vụ; các task tiếp theo dùng model/schema và `log_activity()` chung.
+
+Giữ `EMBEDDING_DIM` giống nhau khi migrate và chạy app (mặc định 1024). Khi đổi model/dimension trên DB đã có dữ liệu: dừng worker ghi embedding, sao lưu, tạo revision mới xử lý embedding cũ ở cả `jobs` và `candidates`, bỏ index HNSW trước khi đổi kiểu vector rồi tạo lại, cập nhật cấu hình và tái tạo embedding từ text đã ẩn danh trước khi tiếp tục worker. Không chỉ đổi `.env` rồi chạy app: migration T05 không tự thay kích thước cột đã tồn tại. Kiểm thử migration/rollback trên bản sao trước khi chạy thật.
+
+Rollback T05 về `0002_users` xoá 10 bảng lõi, trigger/function và enum do revision tạo; giữ bảng users và extension. `downgrade base` còn xoá users theo migration T04. Chỉ dùng rollback trên DB tạm hoặc sau khi có xác nhận và backup cho dữ liệu cần giữ; bộ test tạo DB trống riêng và tự dọn đúng DB đó. Rollout dev thông thường chỉ chạy `uv run alembic upgrade head`, không chạy downgrade trên DB dev.
+
 ### Đăng nhập và người dùng T04
 
 Tạo admin đầu tiên tại `backend/` sau khi chạy migration:

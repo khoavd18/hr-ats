@@ -30,6 +30,12 @@ SENSITIVE_KEYS = {
     "redis_url",
     "email",
     "phone",
+    "full_name",
+    "name",
+    "candidate_name",
+    "address",
+    "phone_number",
+    "date_of_birth",
 }
 SENSITIVE_SUFFIXES = (
     "_text",
@@ -43,6 +49,12 @@ SENSITIVE_SUFFIXES = (
     "_access_key",
     "_email",
     "_phone",
+    "_full_name",
+    "_name",
+    "_candidate_name",
+    "_address",
+    "_phone_number",
+    "_date_of_birth",
 )
 DIAGNOSTIC_SUFFIXES = ("_id", "_status", "_count")
 ASSIGNMENT_PATTERN = re.compile(r"(?<![\w-])(?P<key>[a-zA-Z_][\w-]*)[\"']?\s*[:=]\s*")

@@ -158,3 +158,42 @@ def test_diagnostic_field_values_still_mask_pii(log_output) -> None:
     logger.info("Synthetic diagnostic", extra={"cv_file_id": FAKE_EMAIL, "context": FAKE_PHONE})
     result = json.loads(output.getvalue())
     assert result["cv_file_id"] == result["context"] == REDACTED
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "full_name",
+        "name",
+        "candidate_name",
+        "address",
+        "phone_number",
+        "date_of_birth",
+        "FULL_NAME",
+        "profile-name",
+        "contact_address",
+        "candidate_phone_number",
+        "candidate_date_of_birth",
+        "profile_full_name",
+        "original_candidate_name",
+    ],
+)
+def test_t05_candidate_fields_are_redacted_in_all_log_shapes(log_output, key):
+    logger, output = log_output
+    fake = "Synthetic personal field"
+    # 'name' is reserved by Python's LogRecord and cannot be passed via extra.
+    extra = {"nested": {key: fake}}
+    if key != "name":
+        extra[key] = fake
+    logger.info("Candidate diagnostic", extra=extra)
+    logger.info({key: fake})
+    logger.info(json.dumps({key: fake}))
+    logger.info("%s=%s", key, fake)
+    assert fake not in output.getvalue()
+    rows = list(map(json.loads, output.getvalue().splitlines()))
+    if key != "name":
+        assert rows[0][key] == REDACTED
+    assert rows[0]["nested"][key] == REDACTED
+    assert rows[1]["message"][key] == REDACTED
+    assert json.loads(rows[2]["message"])[key] == REDACTED
+    assert rows[3]["message"] == f"{key}={REDACTED}"
