@@ -9,7 +9,7 @@
 | T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
 | T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
-| T08 | review | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. Mypy Linux/Windows pass 51 file; 121 test T08 pass với OCR thật offline, backend Windows 407 pass/12 OCR skip; Ruff sạch. Chờ CI bản sửa và merge. |
+| T08 | review | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
 | T09–T33 | todo | | |
 
 ## Nhật ký
@@ -30,9 +30,11 @@ backend/eval pass; backend Windows **407 passed/12 skipped** (không có Tessera
 lại test T08 sau sửa **109 passed/12 skipped**. Container offline có Tesseract thật
 chạy **121 passed/0 skipped** sau sửa. Cảnh báo Starlette/httpx #13 giữ nguyên.
 
-Chi tiết CI-1/CI-2 và quyết định từng finding F1/F2, lệnh kiểm chứng, ngoại lệ cache
-Windows: `tasks/reviews/T08.md`, mục Fix round 1. Giữ trạng thái `review` vì chưa
-merge; kiểm tra CI của bản sửa sau push trước khi kết thúc.
+VERIFIED: [CI commit 7308023](https://github.com/khoavd18/hr-ats/actions/runs/42472261837)
+đã xanh cả backend/frontend. Backend **419 passed/0 skipped**, gồm OCR thật;
+lint/typecheck/migration pass. Frontend lint/typecheck/test/build pass. Chi tiết
+CI-1/CI-2 và quyết định từng finding F1/F2, lệnh kiểm chứng, ngoại lệ cache Windows:
+`tasks/reviews/T08.md`, mục Fix round 1. Giữ trạng thái `review` vì chưa merge.
 
 ## T08 · 2026-11-08 · review
 
