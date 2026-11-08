@@ -87,6 +87,8 @@ def authorize(
     if user.is_active:
         if action in {"users.manage", "data_requests.manage", "audit_log.view"}:
             allowed = user.role == UserRole.admin
+        elif action == "cv_bank.merge":
+            allowed = user.role in {UserRole.admin, UserRole.lead}
         elif action in {"email_templates.manage", "hiring_units.manage"}:
             allowed = user.role in {UserRole.admin, UserRole.lead}
         elif action in {

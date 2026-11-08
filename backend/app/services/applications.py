@@ -43,6 +43,14 @@ def accessible_job(session: Session, actor: User, job_id: UUID) -> Job:
 def ensure_application(
     session: Session, candidate: Candidate, job: Job
 ) -> tuple[Application, bool]:
+    # Serialize bank creation with a human merge; recheck eligibility after waiting.
+    session.scalar(
+        select(Candidate)
+        .where(Candidate.id == candidate.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    eligible_candidate(session, candidate.id)
     # PostgreSQL's partial unique index handles concurrent bank/pipeline inserts.
     application_id = session.scalar(
         insert(Application)

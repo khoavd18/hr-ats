@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import date
-from threading import Barrier, Lock
+from threading import Barrier, Event, Lock
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +15,7 @@ from app.core.errors import AppError
 from app.models import Activity, Application, Candidate, CvFile, HiringUnit, Job, User, UserRole
 from app.models.enums import ActivityType, HiringUnitKind, ProcessingStatus
 from app.services.applications import create_application
+from app.services.cv_bank import merge
 from app.services.cv_files import upload_file
 from app.storage import LocalStorage
 from app.workers import tasks
@@ -331,3 +332,73 @@ def test_t12_parallel_score_delivery_is_idempotent_and_crash_can_resume(
     with Session(runtime.engine) as session:
         assert session.get(Application, application_id).ai_status == "done"
         assert session.scalar(select(func.count()).select_from(Activity)) == 1
+
+
+def test_t16_creation_waiting_on_merge_cannot_recreate_source_application(
+    committed_runtime, monkeypatch
+):
+    """Preload source on connection B, merge on A, then resume B's creation."""
+    from app.services import applications, cv_bank
+
+    runtime = committed_runtime
+    with Session(runtime.engine) as session:
+        unit = HiringUnit(name="Đơn vị giả T16", kind=HiringUnitKind.department)
+        source = Candidate(full_name="Nguồn giả", retention_until=date(2099, 1, 1))
+        target = Candidate(full_name="Đích giả", retention_until=date(2099, 1, 1))
+        session.add_all([unit, source, target])
+        session.flush()
+        job = Job(
+            title="Vị trí giả T16",
+            description="Yêu cầu giả",
+            owner_id=runtime.actor_id,
+            hiring_unit_id=unit.id,
+        )
+        session.add(job)
+        session.commit()
+        source_id, target_id, job_id = source.id, target.id, job.id
+    loaded = Event()
+    merging = Event()
+    original_eligible = applications.eligible_candidate
+    original_log = cv_bank.log_activity
+
+    def paused_eligible(session, candidate_id):
+        candidate = original_eligible(session, candidate_id)
+        # Only pause the first read, before ensure_application takes the row lock.
+        if not loaded.is_set():
+            loaded.set()
+            assert merging.wait(10)
+        return candidate
+
+    def pause_merge(session, **kwargs):
+        # Candidate locks and mutations already held. Creation must wait and
+        # re-read the merged candidate instead of trusting its identity map.
+        merging.set()
+        return original_log(session, **kwargs)
+
+    monkeypatch.setattr(applications, "eligible_candidate", paused_eligible)
+    monkeypatch.setattr(cv_bank, "log_activity", pause_merge)
+
+    def create():
+        with Session(runtime.engine) as session:
+            with pytest.raises(AppError) as error:
+                create_application(
+                    session,
+                    session.get(User, runtime.actor_id),
+                    candidate_id=source_id,
+                    job_id=job_id,
+                )
+            assert error.value.code == "NOT_FOUND"
+
+    def merge_once():
+        assert loaded.wait(10)
+        with Session(runtime.engine) as session:
+            merge(session, session.get(User, runtime.actor_id), source_id, target_id)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        create_future = pool.submit(create)
+        merge_future = pool.submit(merge_once)
+        create_future.result(timeout=20)
+        merge_future.result(timeout=20)
+    with Session(runtime.engine) as session:
+        assert session.get(Candidate, source_id).merged_into_id == target_id
+        assert session.scalar(select(func.count()).select_from(Application)) == 0
