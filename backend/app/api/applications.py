@@ -1,13 +1,55 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 
+from app.api.cv_files import client_ip
 from app.api.dependencies import DB, CurrentUser
 from app.schemas.applications import ApplicationCreate
-from app.schemas.core import ApplicationRead
-from app.services import applications
+from app.schemas.core import AiFeedbackRead, ApplicationRead, CandidateRead
+from app.schemas.profile import (
+    ApplicationDetail,
+    CandidatePatch,
+    FeedbackInput,
+    NoteInput,
+    ProfileActivity,
+)
+from app.services import applications, profile
 
 router = APIRouter(tags=["applications"])
+
+
+@router.get("/applications/{application_id}", response_model=ApplicationDetail)
+def detail(
+    application_id: UUID, request: Request, response: Response, session: DB, actor: CurrentUser
+):
+    response.headers["Cache-Control"] = "no-store"
+    return profile.detail(session, actor, application_id, client_ip(request))
+
+
+@router.post("/applications/{application_id}/ai-feedback", response_model=AiFeedbackRead)
+def feedback(
+    application_id: UUID, body: FeedbackInput, response: Response, session: DB, actor: CurrentUser
+):
+    response.headers["Cache-Control"] = "no-store"
+    return profile.feedback(session, actor, application_id, body)
+
+
+@router.post(
+    "/applications/{application_id}/notes", response_model=ProfileActivity, status_code=201
+)
+def note(
+    application_id: UUID, body: NoteInput, response: Response, session: DB, actor: CurrentUser
+):
+    response.headers["Cache-Control"] = "no-store"
+    return profile.add_note(session, actor, application_id, body.text)
+
+
+@router.patch("/candidates/{candidate_id}", response_model=CandidateRead)
+def patch_candidate(
+    candidate_id: UUID, body: CandidatePatch, response: Response, session: DB, actor: CurrentUser
+):
+    response.headers["Cache-Control"] = "no-store"
+    return profile.patch_candidate(session, actor, candidate_id, body)
 
 
 @router.post("/applications", response_model=ApplicationRead, status_code=201)

@@ -141,6 +141,31 @@ provider, chặn request browser ngoài localhost. Tạo file `var/t14-browser.s
 DB test và volume. `tests.auth_browser_server` T04 vẫn dùng riêng cho auth E2E;
 fixture T14 hỗ trợ cả ba bài. Không đổi schema, dependency hay ngoại lệ OCR.
 
+## Kiểm thử T15
+
+`tests/api/test_profile.py` trong `uv run pytest` kiểm detail/audit candidate.view,
+DOCX text có quyền và không xuất storage/parsed/vector, upsert lần hai cùng user,
+phản hồi riêng từng user, activity và rollback, whitelist sửa thông tin, ghi chú,
+CSRF/auth/validation, owner/member/admin/lead/ngoài quyền/thu hồi quyền, ứng viên
+đã xoá/gộp/hết hạn. Chỉ dữ liệu giả và PostgreSQL local, không gọi provider/mạng ngoài.
+
+Vitest `candidate-profile.test.tsx` kiểm các ký hiệu tiêu chí, dịch cảnh báo,
+câu insufficient, đồng ý/không đồng ý có sửa mức, form thông tin/ghi chú, tải/lỗi/
+thử lại và escape nội dung. Kiểm API client đọc blob có cookie, tạo/thu hồi URL
+PDF khi đóng; test toàn bộ dictionary không có thuật ngữ bị cấm. E2E mới
+`candidate-profile.spec.ts` dùng API thật và DOCX/PDF giả T06, FakeLLM, kiểm
+feedback lặp, sửa tên, ghi chú, mở lại dữ liệu và viewer ở 1280px. Fixture
+`tests.ranking_browser_server` thêm tài khoản profile riêng để không thu hồi
+phiên của các bài cũ. Lệnh chuẩn E2E, cách dừng/dọn vẫn như T14 ở trên.
+Riêng bài T15 dùng channel `chromium` (browser đầy đủ cài cùng
+`npx playwright install chromium`) để kiểm native PDF renderer; headless shell
+mặc định không có viewer này. Guard mạng E2E cho phép localhost và URL blob
+có origin localhost, vẫn chặn mọi request ngoài máy. Kiểm plugin PDF được gắn
+và xem ảnh chụp trước khi kết luận viewer hoạt động.
+Guard bài T15 cho phép thêm tài nguyên offline của PDF viewer tích hợp
+(`chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai`, `chrome://resources`);
+các URL HTTP(S) ngoài localhost vẫn bị chặn.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.

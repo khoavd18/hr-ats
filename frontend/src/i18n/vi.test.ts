@@ -13,6 +13,10 @@ describe("Vietnamese translations", () => {
     }
   });
 
+  it("does not expose technical vocabulary in any UI translation", () => {
+    expect(Object.values(vi).join("\n")).not.toMatch(/\b(?:LLM|embedding|prompt|JSON)\b/i);
+  });
+
   it("restricts keys and infers the literal return type", () => {
     expectTypeOf<Parameters<typeof t>[0]>().toEqualTypeOf<TranslationKey>();
     expectTypeOf(t("nav.jobs")).toEqualTypeOf<"Việc tuyển dụng">();

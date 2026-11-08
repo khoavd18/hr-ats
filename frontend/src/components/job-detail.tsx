@@ -8,6 +8,7 @@ import { QueryFeedback } from "@/components/query-feedback";
 import { AiLevelBadge } from "@/components/ai-level-badge";
 import { AiCounts } from "@/components/ai-counts";
 import { CvUpload } from "@/components/cv-upload";
+import { CandidateProfile } from "@/components/candidate-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -295,21 +296,21 @@ export function JobDetail({ jobId }: { jobId: string }) {
         }}
       >
         <SheetContent
-          className="sm:max-w-lg"
+          className="w-[94vw] overflow-y-auto sm:max-w-[1200px]"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             drawerTrigger.current?.focus();
           }}
         >
           <SheetHeader>
-            <SheetTitle>{selected?.candidate_name ?? t("ranking.profile")}</SheetTitle>
-            <SheetDescription>{t("ranking.profileHint")}</SheetDescription>
+            <SheetTitle>
+              {ranking.data?.items.find((row) => row.id === selected?.id)?.candidate_name ??
+                selected?.candidate_name ??
+                t("ranking.profile")}
+            </SheetTitle>
+            <SheetDescription>{t("profile.aiHint")}</SheetDescription>
           </SheetHeader>
-          {selected?.ai_level && selected.ai_status === "done" && (
-            <div className="mt-6">
-              <AiLevelBadge level={selected.ai_level} />
-            </div>
-          )}
+          {selected && <CandidateProfile key={selected.id} applicationId={selected.id} />}
         </SheetContent>
       </Sheet>
     </div>

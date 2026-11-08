@@ -16,10 +16,97 @@
 | T12 | done | 2026-11-08 | VERIFIED: chấm tiêu chí/bằng chứng, điểm tất định, worker và ba API có quyền/CSRF; 774 test backend pass/12 skip OCR Windows, Linux offline 242 pass/0 skip. Bộ mẫu 250/250 cặp đã chấm, 50/60 CV khớp cả 5 Job (83,3%); Ruff/mypy/migration sạch. Chờ Review T12, CI và merge. |
 | T13 | done | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
 | T14 | done | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
-| T15–T33 | todo | | |
+| T15 | review | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
+| T16–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T15 · 2026-11-08 · review
+
+VERIFIED: triển khai đúng một task theo `tasks/_implement.md` trên nhánh
+`task/T15-candidate-drawer-ai-feedback`; T14 đã done và working tree sạch trước
+khi bắt đầu. Giữ review đến khi được duyệt và merge vào main.
+
+- Thêm GET chi tiết Application/Candidate, file DTO tối thiểu (text chỉ DOCX),
+  phản hồi riêng của caller và activities đúng Application. Kiểm quyền Job từ DB,
+  bỏ hồ sơ/ứng viên đã xoá, gộp hoặc hết hạn; kiểm quyền từng file. Ghi audit
+  `action=view, entity=candidate` trước khi trả nội dung, IP kết nối được kiểm
+  định và không tin X-Forwarded-For. Không xuất storage_key/parsed_json/vector.
+- POST ai-feedback atomic upsert theo unique application/user; gửi lần hai giữ
+  id và thay phản hồi trước. User lấy từ phiên; disagree cần mức sửa, comment
+  tuỳ chọn; activity ai_feedback chỉ verdict/level, cùng savepoint/transaction
+  với upsert. Test lỗi ghi activity chứng minh rollback cả phản hồi. Không đổi
+  điểm AI/stage/owner hay gửi email.
+- POST notes kiểm quyền rồi lưu Activity note có text HR nhập trong DB nghiệp
+  vụ; không nới helper log_activity metadata và không log nội dung. PATCH ứng
+  viên whitelist bảy trường tên/liên hệ/địa điểm/chức danh/năm KN/kỹ năng,
+  chỉ sửa trường gửi lên; kiểm quyền Candidate qua Job hiện hành. Không sửa
+  consent/retention/CV/vector hoặc tự gọi lại AI. Input thừa/sai bị từ chối,
+  các mutation giữ CSRF/Origin, response thành công no-store.
+- Drawer hai cột tối đa 1200px có chọn bản CV, viewer PDF/ảnh dùng byte qua
+  endpoint download có quyền/audit và URL blob được thu hồi khi đóng/đổi file;
+  DOCX là text thuần. Bên phải có thông tin sửa được/nhắc consent, nhãn/điểm
+  tham khảo/lý do, bốn kết quả tiêu chí kèm trích dẫn, năm cờ dịch tiếng Việt và
+  fallback cho mã không biết. insufficient hiện đúng câu trong task. Có Đồng ý/
+  Không đồng ý, chọn mức và bình luận; lịch sử mới trước, ô ghi chú; tải/lỗi/
+  thử lại, giữ nội dung khi lỗi lưu. Escape/Đóng trả focus; tiêu đề/bảng cập nhật
+  tên sau sửa. Chuỗi mới trong vi.ts, không render HTML/payload/mã kỹ thuật.
+- Cập nhật contract spec 02/03/05/08 và mặc định #59–#61. Không đổi schema,
+  công thức AI, dependency, stack hoặc scope task sau.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Phản hồi lần hai của cùng user ghi đè lần một | VERIFIED — đạt | `test_feedback_second_submission_overwrites_same_user_without_changing_ai_or_stage`: giữ id, một row, thay verdict/level/comment; user khác độc lập, hai activity; E2E đồng ý → không đồng ý và mở lại dữ liệu đã lưu |
+| Recruiter không có quyền Job → 403 | VERIFIED — đạt | `test_every_endpoint_checks_current_job_scope[outsider/revoked]` cho cả bốn endpoint; owner Application riêng không cấp quyền, không có activity/audit khi bị từ chối |
+| Mở chi tiết ghi audit candidate.view | VERIFIED — đạt | `test_detail_records_candidate_view_and_exposes_only_authorized_docx_text`: action=view/entity=candidate, đúng actor/ứng viên, không tin header IP; response no-store |
+| UI không hiện bốn thuật ngữ kỹ thuật trong task | VERIFIED — đạt | `vi.test.ts` kiểm toàn dictionary, `candidate-profile.test.tsx` kiểm nội dung/cảnh báo/fallback; E2E đọc nội dung drawer, i18n-usage kiểm chuỗi JSX/nhãn lấy từ vi.ts |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ nguyên volume dev.
+- Backend: `uv sync`, `uv run alembic upgrade head`: pass, head giữ
+  `0003_core_data_model`. `uv run pytest`: **866 passed, 12 skipped, 1 warning**,
+  tổng 878 test, 164,18s. Bộ T15 riêng **25 pass**. Skip chỉ OCR T08 do thiếu
+  Tesseract Windows; không thay test cũ/điều kiện skip. Warning upstream
+  Starlette/httpx có sẵn. PostgreSQL/Redis local, fake provider, không mạng ngoài.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 123 file.
+  `uv run mypy app`: pass, 73 source file. `git diff --check`: pass.
+  Dùng UV_CACHE_DIR trong var; chạy test với quyền local vì cache/tmp Windows.
+- Frontend: `npm ci`: pass, 536 package, audit **0 vulnerabilities**; giữ warning
+  deprecation upstream. `npm test`: **77 pass**, 10 file, không skip/mạng ngoài.
+  `npm run lint`, `npm run typecheck`: pass. `npm run build` với
+  NEXT_TELEMETRY_DISABLED=1: pass, `/jobs/[id]` 13,2 kB / 162 kB first load JS.
+- `uv run python -m tests.ranking_browser_server` + `npm run dev`, sau đó
+  `npx playwright test`: **4 pass**, 14,6s, gồm ba bài cũ. Bài T15 dùng account
+  riêng, DOCX/PDF kỹ thuật số giả T06; thêm/sửa/phản hồi/ghi chú và mở lại với
+  API thật, FakeLLM/eager. Đã xem `var/t15-profile-docx.png` và
+  `var/t15-profile-pdf.png`: nội dung CV hiển thị, không tràn ở 1280px/pageerror.
+  PDF được kiểm bằng Chromium đầy đủ và native plugin, không chỉ kiểm URL iframe.
+- Lượt E2E đầu chọn nhầm scan thiếu OCR; đổi sang PDF kỹ thuật số cho bài viewer.
+  Các lượt tiếp theo phát hiện query test trùng tên sau khi sửa và native PDF
+  bị headless shell/guard chặn tài nguyên browser offline. Sửa locator đúng vùng,
+  dùng channel chromium và cho phép đúng tài nguyên PDF browser/URL blob nội bộ;
+  guard HTTP(S) ngoài localhost vẫn chặn. Không bỏ/skip assertion hay đổi code
+  nghiệp vụ để che lỗi. Unit/Vitest đầu phát hiện rollback và nhãn form trùng,
+  đã sửa và giữ regression.
+- Dừng API qua stop file, fixture exit 0 và truy vấn PostgreSQL xác nhận **0** DB
+  `hr_ats_test_t14_*` còn lại; web kiểm thử đã dừng. Không xoá DB dev/test/volume.
+  Tự review theo secure-code-review: quyền từng tài nguyên/CSRF/whitelist, ORM
+  parameter hoá, escape nội dung và log không có CV/note/comment; không có dữ
+  liệu thật, secret, CV mới hoặc artifact kiểm thử được đưa vào diff.
+
+ASSUMED: các mặc định nhỏ #59–#61 về DTO/quyền sửa, note chủ động và profile
+correction giữ provenance bản CV. Không có blocker; email/interview/stage/task
+đầy đủ theo T19–T25, quản trị đồng ý theo T29.
+
+NOT TESTED: CI remote (chưa push), review độc lập và merge. Chờ `Review T15`;
+chưa đổi trạng thái done. Không chạy seed T18 hoặc đánh giá lại mô hình vì T15
+không sửa pipeline/chấm điểm/provider. File chính: API/schema/service profile,
+test_profile.py; CandidateProfile/ProfileInfo/ProfileAI/CvPreview, profile-types,
+API client blob, vi.ts và test UI/E2E; spec 02/03/05/08, open-questions, PROGRESS.
 
 ## T14 · 2026-11-08 · review
 
