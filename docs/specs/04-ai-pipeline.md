@@ -312,6 +312,20 @@ Tài liệu API đã đối chiếu:
 - Theo nghĩa: embedding câu truy vấn → top-k cosine trên `candidates.embedding`.
 - Gợi ý cho Job: top-50 ứng viên gần `jobs.embedding`, loại người đã có application, chỉ những ai còn trong hạn lưu trữ.
 
+T16 nối ba truy vấn qua API có quyền, DTO tóm tắt và filter tại spec 03/T16.
+Semantic dùng adapter T11 cho câu kỹ năng/chức danh, che liên hệ/metadata có nhãn
+cục bộ trước khi gọi; không đưa raw CV vào tìm kiếm. Fake không đánh giá được
+chất lượng ngữ nghĩa. Tên ứng viên cụ thể tìm bằng full-text. Gợi ý dùng vector
+Job đã lưu, không gọi LLM, không tự tạo hồ sơ. HR chọn nhiều mới gọi T12 tạo và
+chấm theo workflow hiện có.
+
+Nghi trùng T10 chỉ là UUID gợi ý, đọc theo lô và bỏ bên đã hết hạn/xoá/gộp.
+Gộp cần admin/lead xác nhận so sánh hai bên; giữ dữ liệu bản đích, chuyển file/
+Application, soft delete nguồn và Application xung đột, activity metadata chung
+transaction. Không tự chấm lại/đổi stage hoặc suy diễn đồng ý. Khoá Candidate ở
+T12 chống request thêm hồ sơ bằng nguồn vừa bị gộp. Chi tiết xung đột/lịch sử và
+quyền ở contract T16 spec 03; không thêm bước AI hoặc schema.
+
 ## Đánh giá (`eval/`)
 - `eval/generate_synthetic_cvs.py`: sinh CV giả tiếng Việt (DOCX + PDF, 1 cột, 2 cột, có bảng, bản ảnh scan có nhiễu) cùng file nhãn JSON (thông tin đúng + mức phù hợp với vài Job mẫu).
 - T06: chạy tại `backend/` bằng `uv run python ../eval/generate_synthetic_cvs.py --count 60 --seed 20261108 --out ../data/sample_cvs`; mặc định đầu ra là `data/sample_cvs/` ở gốc repo. Schema nhãn version 1 dùng `CVLabel`/`JobDataset` trong `eval/schemas.py`: mỗi CV có `<id>.json`, `synthetic=true`, trường parse đúng và `expected_level[job_id]`; `jobs.json` có năm Job cùng ma trận `expected_level[cv_id][job_id]`. Nhãn `high|medium|low|insufficient`; metadata/ZIP/font/random cố định để sinh lại cùng byte với dependency khóa. Chi tiết nguồn giả, kịch bản nhãn và giới hạn ở `eval/README.md`. Đây là contract fixture, không thay schema parse production hoặc quy tắc chấm điểm ở bước 9.

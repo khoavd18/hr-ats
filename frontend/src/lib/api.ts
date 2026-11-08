@@ -21,6 +21,9 @@ const errorKeys: Record<string, TranslationKey> = {
   INVALID_JOB_USER: "api.validation",
   EMBEDDING_UNAVAILABLE: "api.unavailable",
   AI_QUEUE_UNAVAILABLE: "api.unavailable",
+  APPLICATION_EXISTS: "bank.alreadyAdded",
+  INVALID_MERGE: "api.validation",
+  EMBEDDING_FAILED: "api.unavailable",
 };
 
 const statusKeys: Record<number, TranslationKey> = {

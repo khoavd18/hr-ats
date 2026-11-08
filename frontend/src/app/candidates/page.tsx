@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+import { CvBank } from "@/components/cv-bank";
 
 export default function CandidatesPage() {
-  return <PlaceholderPage page="candidates" />;
+  return <CvBank />;
 }

@@ -9,6 +9,7 @@ import { AiLevelBadge } from "@/components/ai-level-badge";
 import { AiCounts } from "@/components/ai-counts";
 import { CvUpload } from "@/components/cv-upload";
 import { CandidateProfile } from "@/components/candidate-profile";
+import { AddFromBank } from "@/components/bank-add-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,6 +84,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
               <TabsTrigger value="info">{t("ranking.info")}</TabsTrigger>
             </TabsList>
             <TabsContent value="candidates" className="space-y-5 pt-4">
+              <AddFromBank jobId={jobId} />
               <CvUpload jobId={jobId} />
               {ranking.data && !ranking.isError && <AiCounts counts={ranking.data.ai_counts} />}
               <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-4">

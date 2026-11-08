@@ -139,6 +139,60 @@ ASSUMED: mặc định T14 ở câu hỏi #55–#57; không đổi schema DB ho�
 - `POST /candidates/{id}/consent` {consent_at, note}
 - `DELETE /candidates/{id}` → soft delete
 
+### Contract kho CV T16
+
+- GET `/candidates` và `/candidates/search/semantic` cần đăng nhập, quyền
+  `cv_bank.search` cho cả ba vai trò, trả `{items, total}`, `Cache-Control: no-store`.
+  Item chỉ có id/full_name/current_title/years_experience/skills/location/source/
+  created_at và `possible_duplicate` (null hoặc cùng thông tin tóm tắt, không lồng
+  thêm gợi ý). Không trả liên hệ, consent, CV gốc, vector, parsed_json hoặc Job
+  membership. Kho chung không mở thêm quyền đọc file/chi tiết T07/T15.
+- Cả hai GET nhận q (tối đa 200 ký tự), skills (tối đa 1000, phân tách dấu phẩy,
+  yêu cầu đủ tất cả kỹ năng khớp chính xác), min_years (0–9999.99), location
+  (tối đa 200, substring literal), source (enum), page ≥1, page_size 1–100
+  (mặc định 20). Bộ lọc kỹ năng/địa điểm không phân biệt hoa/thường/dấu; unknown
+  years không đạt min_years. Field query thừa/sai bị từ chối 422. Luôn bỏ ứng viên
+  xoá/gộp/hết hạn (ngày theo TZ, retention_until bằng hôm nay vẫn hợp lệ).
+- Full-text: q trim, `plainto_tsquery('simple', unaccent(q))` đối chiếu search_tsv
+  hiện có, xếp rank giảm dần rồi created_at giảm dần/id tăng dần. q rỗng liệt kê
+  theo ngày/id. Không diễn giải q thành cú pháp SQL hoặc tsquery do người dùng viết.
+- Semantic cần q không rỗng; tạo vector câu tìm kiếm qua adapter T11, xếp cosine
+  tăng dần/id, áp dụng cùng filter và pagination. Không đọc CV gốc. Che liên hệ
+  và metadata cá nhân có nhãn trong câu tìm kiếm trước adapter; tên cụ thể dùng
+  full-text. Lỗi adapter → 503 `EMBEDDING_FAILED` an toàn, không fallback; fake
+  chỉ chứng minh luồng chức năng. total tính trước phân trang.
+- Gợi ý `GET /jobs/{id}/suggestions?limit=50` nhận limit 1–50, kiểm quyền Job từ
+  DB trước kể cả danh sách rỗng; ngoài quyền → 403, Job thiếu → 404. Trả cùng
+  envelope tóm tắt, total là số gợi ý trả về (không phải tổng kho). Chỉ lấy vector
+  không null, ứng viên hợp lệ và chưa có Application chưa xoá trong Job, xếp
+  cosine với jobs.embedding tăng dần/id. Job thiếu vector → danh sách rỗng.
+  Application đã soft delete không ngăn ứng viên xuất hiện lại trong gợi ý.
+- Nhãn nghi trùng đọc metadata `possible_duplicate_of` từ file T10 theo lô,
+  hai bên đều phải còn hợp lệ. Hiển thị đối xứng để HR so sánh hai bản;
+  hint sai UUID/tự trỏ hoặc bên kia đã xoá/gộp/hết hạn bị bỏ qua.
+- POST `/candidates/{id}/merge` nhận đúng `{into_id: UUID}`; chỉ admin/lead,
+  recruiter → 403. CSRF/Origin như T04; tự gộp → 422 `INVALID_MERGE`, một trong
+  hai ứng viên thiếu/xoá/gộp/hết hạn → 404. Thành công 200 tóm tắt đích, no-store.
+  Đây là thao tác HR xác nhận, không dựa vào AI để tự gộp.
+- Gộp khoá identity T10 rồi Candidate theo id và Application theo id. Một
+  transaction chuyển mọi cv_files/applications/activities sang đích, đánh dấu
+  nguồn merged_into_id + deleted_at. Nếu cùng Job có hai Application đang hoạt
+  động, giữ bản đích, soft delete bản nguồn trước khi đổi candidate_id để giữ
+  partial unique index. Bản lưu trữ vẫn giữ id, StageEvent và AiFeedback gốc,
+  không mất lịch sử hay ép ghi đè phản hồi; chưa có UI xem lịch sử đã lưu trữ.
+  Activity note metadata `{action: candidate_merged, source_id, target_id}` cùng
+  transaction, không sao chép nội dung CV. Lỗi ghi activity rollback toàn lượt.
+  Giữ thông tin/consent/retention/vector của đích, stage/owner/AI của hồ sơ được
+  giữ; không tự gia hạn, chấm lại hoặc gửi email. Không có DELETE dữ liệu thật.
+- T12 `ensure_application` bổ sung khoá Candidate và kiểm lại eligibility sau
+  khi chờ, trước insert: request đã đọc nguồn trước lúc gộp không thể tạo lại
+  Application cho nguồn sau merge. UI chọn nhiều gọi POST `/applications` T12
+  riêng từng ứng viên; có lỗi một người vẫn tiếp tục người khác, retry riêng
+  người lỗi; 409 APPLICATION_EXISTS được thông báo đã có, không chấm lại ngầm.
+
+ASSUMED: các mặc định quyền gộp/xung đột/lọc ở câu hỏi #62–#64. Không đổi schema,
+stack, công thức AI hoặc phạm vi task sau.
+
 ### Contract upload và truy cập file T07
 
 - `POST /cv-files`: tên field lặp `files`, tối đa một field chuỗi UUID `job_id`; cần đăng nhập và CSRF. Batch hợp lệ trả **200** `{items: [{index, cv_file, duplicate, error}]}` theo thứ tự đầu vào, `index` bắt đầu từ 0. Thành công có `cv_file` theo schema `CvFileRead`, `error=null`; file lỗi có `cv_file=null`, `error={code,message}` tiếng Việt và `duplicate=false`. Lỗi một file không huỷ các file hợp lệ khác. Batch rỗng/sai field/sai UUID/quá 50 file → 422; Job không tồn tại → 404, không có quyền → 403 trước khi lưu file nào.

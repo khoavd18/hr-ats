@@ -166,6 +166,39 @@ Guard bài T15 cho phép thêm tài nguyên offline của PDF viewer tích hợp
 (`chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai`, `chrome://resources`);
 các URL HTTP(S) ngoài localhost vẫn bị chặn.
 
+## Kiểm thử T16
+
+`tests/api/test_cv_bank.py` trong lệnh chuẩn `uv run pytest` kiểm full-text không
+dấu "ke toan" → "Kế toán", filter kết hợp/Unicode/literal wildcard/phân trang,
+DTO không lộ liên hệ/CV/vector, thứ tự cosine thật trên PostgreSQL và lỗi adapter
+an toàn (FakeEmbedder/spy, không mạng). Gợi ý loại ứng viên đã có Application
+đang hoạt động, cho hồ sơ đã lưu trữ, giới hạn 50, vector null, auth/owner/member/
+thu hồi quyền và eligibility của mọi mode. Nhãn nghi trùng đối xứng chỉ tóm tắt.
+Gộp admin/lead, recruiter bị từ chối, CSRF/Origin/input/nguồn hoặc đích không hợp
+lệ; chuyển file/hồ sơ, chỉ một Application đang hoạt động mỗi Job, giữ lịch sử/
+feedback, consent/retention và rollback toàn bộ nếu activity lỗi.
+
+`test_cv_worker.py` thêm test T16 trên DB tạm đã migrate, hai kết nối PostgreSQL
+độc lập điều khiển bằng Event: request create đã đọc source, merge commit rồi
+create tiếp tục phải từ chối source vừa gộp. Không ngủ chờ thời gian hoặc gọi
+provider thật, tái sử dụng fixture `committed_runtime`.
+
+Vitest `cv-bank.test.tsx` kiểm filter/tìm theo nghĩa, thẻ Việt, lựa chọn Job,
+so sánh/cancel/chọn đích/gộp/lỗi retry, recruiter không có nút gộp, thêm nhiều
+người có 409/503/score failed và retry chỉ người lỗi, trạng thái rỗng/thử lại.
+Nhãn select liên kết htmlFor/id để trình duyệt và screen reader nhận đúng.
+
+E2E `cv-bank.spec.ts` dùng fixture `uv run python -m tests.ranking_browser_server`
+như T14/T15 (thêm tài khoản bank riêng và hai CV DOCX giả/hint trong DB/storage
+dùng một lần), chạy frontend rồi lệnh chuẩn `npx playwright test`. Luồng thật:
+tìm không dấu, bật tìm theo nghĩa, chọn hai người từ kho vào Job, chọn nhiều gợi
+ý từ Job khác, mở lại không thấy người đã thêm; xác nhận gộp và kiểm cả hai Job
+chỉ còn một hồ sơ. Chụp thẻ/hộp ở 1280px, kiểm overflow và lỗi JS. Browser chặn
+request ngoài localhost; không thêm seed production hoặc thay phạm vi T18.
+Dừng/dọn fixture bằng `var/t14-browser.stop` như trước. Khi kiểm production
+build, chạy `npm run build` sau khi dừng dev rồi `npm run start`; không chạy
+build và dev đồng thời vì chúng cùng ghi `.next`.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.

@@ -17,10 +17,83 @@
 | T13 | done | 2026-11-08 | VERIFIED: API đơn vị/Job/members, quyền DB, validation, embedding và UI tiếng Việt; 819 backend pass/12 skip OCR cũ, 59 Vitest và 2 E2E pass, smoke T13 API thật 1280px đạt; lint/typecheck/migration/build sạch. Chờ Review T13, CI và merge. |
 | T14 | done | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
 | T15 | done | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
-| T16–T33 | todo | | |
+| T16 | review | 2026-11-08 | VERIFIED: kho CV tìm không dấu/theo nghĩa và bộ lọc, top-50 gợi ý theo Job, chọn nhiều tạo/chấm hồ sơ, gộp nguyên tử có xác nhận/giữ lịch sử. 893 backend pass/12 skip OCR cũ, 85 Vitest và 5 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T16, CI và merge. |
+| T17–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T16 · 2026-11-08 · review
+
+VERIFIED: làm đúng một task theo `tasks/_implement.md` trên nhánh
+`task/T16-cv-bank-search-suggest-merge`; T15 đã done, working tree sạch khi bắt
+đầu. Trạng thái review đến khi được duyệt và merge vào main.
+
+- API kho CV dùng DTO tóm tắt riêng, không xuất email/phone/consent/raw CV/
+  parsed_json/vector hoặc Job membership. Full-text unaccent theo trigger T05,
+  filter kỹ năng đủ tất cả/năm KN/địa điểm/nguồn, phân trang và thứ tự ổn định.
+  Semantic gọi adapter T11 bằng câu tìm đã che liên hệ/metadata có nhãn, lỗi
+  provider an toàn, không fallback. Bỏ ứng viên đã xoá/gộp/hết hạn ở mọi mode.
+- Gợi ý top-50 cosine theo vector Job, kiểm quyền Job từ DB trước kể cả rỗng;
+  loại Application đang hoạt động, vẫn cho bản đã soft delete; Job thiếu vector
+  trả rỗng. Nhãn nghi trùng từ hint T10 đọc theo lô, đối xứng, chỉ hai bên hợp
+  lệ; không đọc raw CV hoặc tự kết luận gộp.
+- Merge chỉ admin/lead sau xác nhận, khoá identity T10 và Candidate/Application
+  theo ID. Chuyển toàn bộ file/hồ sơ/activity về đích, soft delete nguồn; khi
+  cùng Job giữ hồ sơ đích và lưu trữ bản nguồn trước đổi candidate_id để giữ
+  unique partial. Giữ ID/StageEvent/AiFeedback gốc, consent/retention/vector của
+  đích và stage/owner/AI của hồ sơ được giữ. Activity note chỉ action/source_id/
+  target_id cùng transaction, test lỗi chứng minh rollback. Không hard delete,
+  tự gia hạn, đổi stage, tự chấm lại hoặc gửi email. T12 khoá/đọc lại Candidate
+  trước insert; test hai kết nối độc lập không cho tạo hồ sơ từ nguồn vừa gộp.
+- `/candidates` có tìm kiếm/bộ lọc, thẻ ba cột, chọn nhiều và hộp chọn Job có
+  quyền/phân trang. Hộp gộp so sánh hai bên, chọn bản giữ, cảnh báo hậu quả,
+  focus Huỷ và xác nhận rõ ràng; recruiter nhận hướng dẫn nhờ trưởng nhóm.
+  Trong Job có Thêm từ kho CV, gợi ý/chọn nhiều, mỗi người gọi POST T12 riêng;
+  lỗi một người không chặn người khác, chỉ giữ người lỗi để retry. Hiển thị
+  riêng already exists/đã thêm nhưng chấm lỗi; khoá đóng khi đang lưu.
+  Tải/rỗng/lỗi/retry, nhãn select htmlFor/id, toàn bộ chuỗi mới trong vi.ts.
+- Tự rà soát theo secure-code-review: quyền service/CSRF/Origin, SQL bind,
+  DTO tối thiểu, React escape, lỗi an toàn, không log input/CV, khoá/rollback.
+  Không thay schema, dependency, stack hoặc quy tắc chấm điểm. Spec 03/04/05/07/08
+  cập nhật contract và mặc định ASSUMED #62–#64. Review độc lập/CI còn chờ.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Tìm "ke toan" ra CV có "Kế toán" | VERIFIED — đạt | `test_ke_toan_finds_accented_cv_and_returns_only_summary`; E2E `cv-bank.spec.ts` tìm không dấu qua API thật và thấy hai thẻ Kế toán |
+| Gợi ý không trả người đã có trong Job | VERIFIED — đạt | `test_suggestions_exclude_existing_and_limit_to_top_50`, kiểm lại popup sau khi thêm ở E2E; test thêm cho Application đã lưu trữ, vector rỗng, quyền/thu hồi membership |
+| Gộp xong không có Application trùng cùng Job | VERIFIED — đạt | `test_merge_moves_files_and_apps_without_duplicate_active_job_and_keeps_history` cho admin/lead: một active/Job, bản trùng soft delete; E2E gộp hai người đã vào hai Job rồi kiểm mỗi Job total=1; `test_t16_creation_waiting_on_merge_cannot_recreate_source_application` |
+
+### Lệnh và kết quả
+
+- `docker compose up -d db redis mailpit`: VERIFIED — ba service local running.
+- Backend: `uv run pytest`: VERIFIED — **893 passed, 12 skipped** (905 collected),
+  chỉ 12 OCR T08 thiếu Tesseract trên Windows, không thêm skip hoặc nới test.
+  Bao gồm 26 test API T16 và một test cạnh tranh PostgreSQL mới. Fixture chặn
+  mạng ngoài, fake provider và dữ liệu giả; schema/upgrade/rollback DB trống
+  vẫn trong bộ test cũ. Lượt đầu sandbox lỗi quyền tempfile, chạy lại ngoài
+  sandbox theo approval thành công, không thay fixture để bỏ kiểm tra.
+- `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app`,
+  `uv run alembic upgrade head`: VERIFIED — sạch, 127 file format/76 source
+  typecheck, head không cần revision mới.
+- Frontend: `npm test`: VERIFIED — **85 passed / 11 files**;
+  `npm run lint`, `npm run typecheck`, `npm run build`: VERIFIED — sạch.
+- `uv run python -m tests.ranking_browser_server`, production frontend
+  `npm run start`, `npx playwright test`: VERIFIED — **5 passed** trên API/DB/
+  storage thật dùng một lần, gồm T16 và bốn E2E cũ. Bản build cuối chạy tuần tự
+  với server, không cùng ghi `.next`. E2E đầu phát hiện nhãn select lẫn option,
+  sửa liên kết label/id và chạy lại đạt, không thay tiêu chí để lách lỗi.
+- VERIFIED: xem ảnh `var/t16-bank.png`, `var/t16-merge.png`,
+  `var/t16-suggestions.png` ở viewport 1280×800; thẻ/hộp hai cột đọc được,
+  không overflow ngang/lỗi JS. Artifact là dữ liệu giả trong thư mục gitignore.
+- `git diff --check`: VERIFIED — sạch.
+
+ASSUMED: chỉ admin/lead gộp, giữ bản đích và lưu trữ hồ sơ xung đột theo #62–#64.
+NOT TESTED: chất lượng semantic bằng model local thật/hiệu năng kho production;
+fake chỉ kiểm chức năng. Chưa có UI đọc Application đã lưu trữ sau gộp; ID và
+lịch sử được giữ trong DB. Chờ Review T16, CI và merge; không tự đặt done/push.
 
 ## T15 · 2026-11-08 · review
 

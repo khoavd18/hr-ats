@@ -11,11 +11,18 @@ CV là dữ liệu cá nhân, thuộc phạm vi Luật Bảo vệ dữ liệu c�
 | Đổi owner Job (T13) | Có | Có | Không |
 | Xem ứng viên trong Job | Tất cả | Tất cả | Job được phép |
 | Xem kho CV (tìm kiếm) | Có | Có | Có (chỉ thông tin tóm tắt; mở CV gốc → ghi audit) |
+| Gộp ứng viên trong kho (T16) | Có, HR xác nhận | Có, HR xác nhận | Không |
 | Đổi stage, gửi email | Có | Có | Job được phép |
 | Quản lý mẫu email, đơn vị tuyển | Có | Có | Không |
 | Quản lý user, yêu cầu xoá dữ liệu, audit log | Có | Không | Không |
 | Báo cáo | Cả team | Cả team | Của mình |
 Kiểm tra quyền ở tầng service (hàm `authorize(user, action, resource)`), có test cho từng ô của bảng.
+T16: `cv_bank.search` chỉ trả DTO tóm tắt không có liên hệ, raw CV hoặc Job
+membership; không cấp quyền file/chi tiết. Gợi ý kiểm owner/member Job từ DB,
+bao gồm sau thu hồi quyền. `cv_bank.merge` chỉ admin/lead; kiểm cả hai ứng viên
+còn hạn/chưa xoá/gộp, chuyển dữ liệu và activity metadata trong một transaction,
+không suy diễn consent hoặc kéo dài retention. Giữ các kiểm tra CSRF/Origin;
+quyền gộp không lấy từ request body. Chi tiết ở contract T16 spec 03.
 T13: action `jobs.create` kiểm vai trò đang hoạt động; `jobs.manage` kiểm scope
 owner/member từ DB như jobs.view trước khi áp dụng body. Danh sách Job lọc scope
 ngay trong SQL, bao gồm total. `/jobs/options` chỉ trả id/name user/đơn vị đang
