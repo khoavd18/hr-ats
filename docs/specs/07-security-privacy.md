@@ -6,6 +6,9 @@ CV là dữ liệu cá nhân, thuộc phạm vi Luật Bảo vệ dữ liệu c�
 | Hành động | admin | lead | recruiter |
 |---|---|---|---|
 | Xem Job | Tất cả | Tất cả | Job là owner/member |
+| Tạo Job (T13) | Có, gán owner | Có, gán owner | Có, owner là mình |
+| Sửa Job, quản lý thành viên (T13) | Tất cả | Tất cả | Job là owner/member |
+| Đổi owner Job (T13) | Có | Có | Không |
 | Xem ứng viên trong Job | Tất cả | Tất cả | Job được phép |
 | Xem kho CV (tìm kiếm) | Có | Có | Có (chỉ thông tin tóm tắt; mở CV gốc → ghi audit) |
 | Đổi stage, gửi email | Có | Có | Job được phép |
@@ -13,6 +16,11 @@ CV là dữ liệu cá nhân, thuộc phạm vi Luật Bảo vệ dữ liệu c�
 | Quản lý user, yêu cầu xoá dữ liệu, audit log | Có | Không | Không |
 | Báo cáo | Cả team | Cả team | Của mình |
 Kiểm tra quyền ở tầng service (hàm `authorize(user, action, resource)`), có test cho từng ô của bảng.
+T13: action `jobs.create` kiểm vai trò đang hoạt động; `jobs.manage` kiểm scope
+owner/member từ DB như jobs.view trước khi áp dụng body. Danh sách Job lọc scope
+ngay trong SQL, bao gồm total. `/jobs/options` chỉ trả id/name user/đơn vị đang
+hoạt động cho form; không trả email, liên hệ hay quyền quản trị. Quản lý đơn vị
+vẫn chỉ admin/lead. Chi tiết mặc định chưa chốt tại câu hỏi #52.
 
 ## Dữ liệu cá nhân
 - Không gửi email/SĐT gốc cho LLM (xem `04` bước 2). Chấm điểm và embedding chỉ dùng `anonymized_text`.

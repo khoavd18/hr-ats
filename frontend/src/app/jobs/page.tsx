@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+import { JobsList } from "@/components/jobs-list";
 
 export default function JobsPage() {
-  return <PlaceholderPage page="jobs" />;
+  return <JobsList />;
 }

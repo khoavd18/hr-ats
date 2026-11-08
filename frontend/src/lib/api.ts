@@ -17,6 +17,10 @@ const errorKeys: Record<string, TranslationKey> = {
   ACCOUNT_LOCKED: "auth.locked",
   EMAIL_EXISTS: "users.emailExists",
   SELF_LOCKOUT: "users.selfLockout",
+  INVALID_HIRING_UNIT: "jobs.unitRequired",
+  INVALID_JOB_USER: "api.validation",
+  EMBEDDING_UNAVAILABLE: "api.unavailable",
+  AI_QUEUE_UNAVAILABLE: "api.unavailable",
 };
 
 const statusKeys: Record<number, TranslationKey> = {

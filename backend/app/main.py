@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import applications, auth, cv_files, system, users
+from app.api import applications, auth, cv_files, jobs, system, users
 from app.core.config import Settings, get_settings
 from app.core.cors import ApiCORSMiddleware
 from app.core.errors import ErrorResponse, register_error_handlers
@@ -32,7 +32,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(application)
     application.add_middleware(RequestLoggingMiddleware)
     application.dependency_overrides[get_settings] = lambda: settings
-    for router in (system.router, auth.router, users.router, cv_files.router, applications.router):
+    for router in (
+        system.router,
+        auth.router,
+        users.router,
+        cv_files.router,
+        applications.router,
+        jobs.router,
+    ):
         application.include_router(router, prefix="/api/v1")
     return application
 

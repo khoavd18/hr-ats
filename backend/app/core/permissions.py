@@ -89,7 +89,13 @@ def authorize(
             allowed = user.role == UserRole.admin
         elif action in {"email_templates.manage", "hiring_units.manage"}:
             allowed = user.role in {UserRole.admin, UserRole.lead}
-        elif action in {"jobs.view", "job_candidates.view", "applications.move", "emails.send"}:
+        elif action in {
+            "jobs.view",
+            "jobs.manage",
+            "job_candidates.view",
+            "applications.move",
+            "emails.send",
+        }:
             allowed = user.role in {UserRole.admin, UserRole.lead} or (
                 user.role == UserRole.recruiter
                 and resource is not None
@@ -114,7 +120,7 @@ def authorize(
                     or (user.role == UserRole.recruiter and _has_cv_access(session, user, resource))
                 )
             )
-        elif action in {"cv_bank.search", "cv_files.upload"}:
+        elif action in {"cv_bank.search", "cv_files.upload", "jobs.create"}:
             allowed = user.role in set(UserRole)
         elif action == "reports.view":
             allowed = user.role in {UserRole.admin, UserRole.lead} or (
