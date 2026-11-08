@@ -89,14 +89,14 @@ function Sync-Main {
 function Invoke-Codex([string]$prompt) {
   Say "Codex: $prompt"
   # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
-  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Tee-Object -FilePath $log -Append
+  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Tee-Object -FilePath $log -Append | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "Codex lỗi (exit $LASTEXITCODE). Xem $log" }
 }
 
 function Invoke-ClaudeReview([string]$task) {
   Say "Claude Code: Review $task"
   claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
-    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Tee-Object -FilePath $log -Append
+    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Tee-Object -FilePath $log -Append | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "Claude Code lỗi (exit $LASTEXITCODE). Xem $log" }
   $changed = git status --porcelain | Where-Object { $_ -notmatch "tasks/reviews/$task\.md" }
   if ($changed) { throw "Reviewer đã sửa file ngoài báo cáo, dừng lại để bạn kiểm tra:`n$changed" }
