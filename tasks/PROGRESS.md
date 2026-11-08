@@ -4,10 +4,46 @@
 |---|---|---|---|
 | T01 | done | 2026-11-08 | Ba tiêu chí nghiệm thu đạt. MinIO (profile `s3`, tuỳ chọn) hoãn lại vì image không tải được; dùng `STORAGE_BACKEND=local`. Xem câu hỏi #8. |
 | T02 | done | 2026-11-08 | Review lần 2: APPROVE WITH NITS, 76 test pass trên Postgres/Redis thật (tasks/reviews/T02.md). Nhắc việc N1→T05, N2→T14, N3→T26. |
-| T03–T33 | todo | | |
+| T03 | review | 2026-11-08 | VERIFIED: khung frontend Next.js 15, sáu trang tiếng Việt, API client và bộ component; 39 test pass, lint/typecheck/build sạch, smoke Chromium 1280px đạt. Chờ review và merge. |
+| T04–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T03 · 2026-11-08 · review
+
+VERIFIED: triển khai đúng phạm vi T03 theo `tasks/_implement.md` trên nhánh `task/T03-frontend-skeleton`. T01 đã `done`, working tree sạch trước khi bắt đầu. Chờ review và merge; chưa chuyển task thành `done`.
+
+- Next.js 15.5.29 App Router, React 19, TypeScript strict, Tailwind 3.4, TanStack Query; ESLint + Prettier, Vitest + Testing Library, Playwright; lockfile npm và scripts dev/build/start/lint/typecheck/test/format. Typecheck sinh kiểu route bằng `next typegen` trước `tsc`; không commit `.next/`, `next-env.d.ts` hay cache.
+- Bộ shadcn/ui từ CLI chính thức: button, input, table, dialog, sheet (drawer), sonner (toast), badge, tabs, select, dropdown-menu. Nhãn đóng và nhãn trợ năng toast đều lấy từ `vi.ts`; bỏ dependency theme không dùng. Component chung: `AiLevelBadge` bốn mức đúng nhãn/màu, `EmptyState`, `ConfirmDialog`, `PageHeader`.
+- Thanh bên sáu mục, trạng thái đang chọn, liên kết bỏ qua điều hướng bằng bàn phím, vùng tài khoản chưa đăng nhập; sáu trang rỗng có hướng dẫn và liên kết hoạt động, loading/error/404 tiếng Việt. Chưa thêm thao tác nghiệp vụ hay dữ liệu giả làm dữ liệu thật.
+- `vi.ts` có `t()` giới hạn key bằng TypeScript; test kiểm tra key/kiểu trả về và dùng AST để phát hiện chuỗi JSX/nhãn trợ năng viết cứng. API client gửi cookie, gắn CSRF cho request thay đổi dữ liệu, giữ FormData/signal, xử lý phản hồi rỗng, lỗi và huỷ request. Không hiển thị raw message từ server, không log payload/token.
+- `ConfirmDialog` chỉ gọi thao tác sau nút xác nhận, chặn đóng/gửi lặp khi đang xử lý, giữ mở khi lỗi; focus ban đầu vào Huỷ và trả về nút mở khi đóng. Regression test tái hiện lỗi trả focus trước khi sửa.
+- Thêm job CI frontend: npm ci → lint → typecheck → test → build. README hướng dẫn dev, biến môi trường riêng của frontend, cách dùng API client và kiểm tra. Giữ Next.js 15 theo spec; override có phạm vi cho PostCSS 8 và minimatch 11 để xử lý audit dependency lồng nhau, không đổi framework.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| `npm run dev` mở các trang, điều hướng bằng thanh bên | VERIFIED — đạt | Dev server localhost:3000 chạy; Chromium click đủ sáu mục, tiêu đề/trạng thái đang chọn/trạng thái rỗng đúng, tải trực tiếp cả sáu trang HTTP 200; liên kết hành động hoạt động. Bố cục 1280×800 không tràn, skip link dùng được bằng bàn phím, 404 tiếng Việt, không lỗi JavaScript hay request ngoài localhost |
+| Lint, typecheck, test pass; có test `AiLevelBadge` và `t()` | VERIFIED — đạt | `npm run lint`, `npm run typecheck` pass; `npm test`: **39 passed**, 5 file; test đủ bốn mức AI và kiểm tra kiểu key dịch; thêm test API client và hộp xác nhận |
+| Không có chuỗi hiển thị viết cứng ngoài `vi.ts` | VERIFIED — đạt trong phạm vi frontend | Test AST `src/test/i18n-usage.test.ts` pass; tự review text/metadata/aria-label, nhãn Dialog/Sheet/Sonner, thông báo lỗi và màn hình thực tế |
+
+### Lệnh kiểm chứng
+
+- `npm ci`: pass, 536 package được cài từ lockfile, audit **0 vulnerabilities** (cho phép truy cập registry chỉ trong bước cài dependency; test không gọi mạng ngoài). Đã kiểm tra `npm ls postcss minimatch`: PostCSS 8.5.32 dùng chung, parser ESLint dùng minimatch 11.0.5, không còn dependency invalid.
+- `npm run lint`: pass, ESLint không warning; toàn bộ file khớp Prettier.
+- `npm run typecheck`: pass (`next typegen && tsc --noEmit`).
+- `npm test`: **39 passed**, không skip; fetch được mock, dữ liệu test chỉ là chuỗi/token tổng hợp, không gọi LLM/embedding hay mạng ngoài.
+- `npm run build` với `NEXT_TELEMETRY_DISABLED=1`: pass; sáu trang rỗng, 404 và icon được build tĩnh. Không cần API đang chạy hoặc API key.
+- `npm run dev` và `npm run start`: ready ở localhost:3000; smoke trình duyệt pass trên cả dev và production. `npx playwright install chromium` chuẩn bị trình duyệt; `node ../var/t03-browser-smoke.mjs` tại `frontend/`: pass các kiểm tra trình duyệt nêu trên. Đã xem ảnh 1280×800 sau khi hiệu ứng chuyển màu kết thúc: chữ tiếng Việt rõ, mục đang chọn đúng màu, không tràn. Script smoke và ảnh `var/t03-overview.png` chỉ là artifact local được gitignore; không thêm test E2E vào repo theo phạm vi T03. Các server kiểm chứng đã được dừng.
+- `git diff --check`: sạch. Tự review: không đổi API/schema/KPI, không có CV, thông tin liên hệ hay secret thật trong thay đổi; chỉ sửa frontend, CI và tài liệu liên quan.
+
+File chính: `frontend/package.json`, `package-lock.json`, `src/app/`, `src/components/`, `src/i18n/vi.ts`, `src/lib/api.ts`, các cấu hình/test frontend, `.github/workflows/ci.yml`, `.gitignore`, README, spec 08, câu hỏi mở và `tasks/PROGRESS.md`.
+
+ASSUMED: các mặc định nhỏ ghi ở câu hỏi #15–#17 (base URL/CSRF, tài khoản và trang rỗng trước T04, lựa chọn Sonner/Tailwind). Không có blocker. Auth, quyền Cài đặt và cấp/kiểm tra CSRF do T04 hoàn thiện.
+
+NOT TESTED: GitHub Actions trên remote (chưa push), E2E nghiệp vụ có backend/seed (T18). Backend test/lint/migration không áp dụng vì T03 không sửa backend hay schema. Cài dependency có cảnh báo deprecation của ESLint 9 và `whatwg-encoding` từ jsdom; không tắt cảnh báo, không nâng major ngoài bộ Next.js 15; lint/test/build đều pass.
 
 ## Bảo trì script · 2026-11-08 · cờ Codex CLI
 

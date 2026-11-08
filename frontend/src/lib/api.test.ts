@@ -1,0 +1,152 @@
+import { describe, expect, it, vi } from "vitest";
+import { api, ApiError, getCsrfToken } from "@/lib/api";
+import { t } from "@/i18n/vi";
+
+function mockResponse(body: unknown, status = 200) {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json(body, { status }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+describe("API client", () => {
+  it("uses the configured API base and always includes cookies", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:8001/api/v1/");
+    const fetchMock = mockResponse({ items: [] });
+    expect(await api("/jobs?page=2")).toEqual({ items: [] });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8001/api/v1/jobs?page=2",
+      expect.objectContaining({ method: "GET", credentials: "include" }),
+    );
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("Accept")).toBe("application/json");
+  });
+
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "sends the CSRF cookie as a header on %s",
+    async (method) => {
+      document.cookie = "csrf_token=synthetic%2Bcsrf; path=/";
+      const fetchMock = mockResponse({});
+      await api("/jobs", { method, body: JSON.stringify({}) });
+      const headers = new Headers(fetchMock.mock.calls[0][1].headers);
+      expect(headers.get("X-CSRF-Token")).toBe("synthetic+csrf");
+      expect(headers.get("Content-Type")).toBe("application/json");
+    },
+  );
+
+  it.each(["GET", "HEAD", "OPTIONS"])("does not add a CSRF header on %s", async (method) => {
+    document.cookie = "csrf_token=synthetic-csrf; path=/";
+    const fetchMock = mockResponse({});
+    await api("/jobs", { method });
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).has("X-CSRF-Token")).toBe(false);
+  });
+
+  it("accepts an explicit CSRF token without persisting it", async () => {
+    const fetchMock = mockResponse({});
+    await api("/jobs", { method: "POST", csrfToken: "synthetic-explicit" });
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).get("X-CSRF-Token")).toBe(
+      "synthetic-explicit",
+    );
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("csrfToken");
+    expect(document.cookie).not.toContain("synthetic-explicit");
+  });
+
+  it("allows login without a CSRF cookie and handles malformed cookie encoding", async () => {
+    document.cookie = "csrf_token=%broken; path=/";
+    expect(getCsrfToken()).toBeUndefined();
+    const fetchMock = mockResponse({});
+    await api("/auth/login", { method: "POST" });
+    expect(new Headers(fetchMock.mock.calls[0][1].headers).has("X-CSRF-Token")).toBe(false);
+  });
+
+  it("preserves custom headers, FormData boundaries and cancellation signals", async () => {
+    const fetchMock = mockResponse({});
+    const body = new FormData();
+    const controller = new AbortController();
+    await api("/cv-files", {
+      method: "POST",
+      body,
+      headers: { "X-Test": "synthetic" },
+      signal: controller.signal,
+    });
+    const request = fetchMock.mock.calls[0][1];
+    expect(request.body).toBe(body);
+    expect(request.signal).toBe(controller.signal);
+    expect(new Headers(request.headers).get("X-Test")).toBe("synthetic");
+    expect(new Headers(request.headers).has("Content-Type")).toBe(false);
+  });
+
+  it.each([204, 205])("handles an empty %s response", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status })));
+    await expect(api("/jobs", { method: "DELETE" })).resolves.toBeUndefined();
+  });
+
+  it("maps API errors to local Vietnamese text and discards raw messages", async () => {
+    mockResponse(
+      { error: { code: "VALIDATION_ERROR", message: "synthetic-internal-message" } },
+      422,
+    );
+    await expect(api("/jobs")).rejects.toMatchObject({
+      status: 422,
+      code: "VALIDATION_ERROR",
+      message: t("api.validation"),
+    });
+  });
+
+  it.each(["UNKNOWN_INTERNAL_CODE", "__proto__", "toString"])(
+    "uses the HTTP fallback for unrecognized code %s",
+    async (code) => {
+      mockResponse({ error: { code, message: "synthetic-internal-message" } }, 403);
+      await expect(api("/jobs")).rejects.toMatchObject({
+        status: 403,
+        code: "HTTP_ERROR",
+        message: t("api.forbidden"),
+      });
+    },
+  );
+
+  it("handles non-JSON error bodies without displaying them", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("synthetic-proxy-error", { status: 503 })),
+    );
+    await expect(api("/jobs")).rejects.toMatchObject({
+      status: 503,
+      message: t("api.unavailable"),
+    });
+  });
+
+  it("reports an invalid success response in Vietnamese", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("synthetic-invalid-json")));
+    await expect(api("/jobs")).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+      message: t("api.invalidResponse"),
+    });
+  });
+
+  it("reports a network failure without exposing the original error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("synthetic-network-detail")));
+    await expect(api("/jobs")).rejects.toMatchObject({
+      status: 0,
+      code: "NETWORK_ERROR",
+      message: t("api.network"),
+    });
+  });
+
+  it("preserves abort errors so callers can ignore cancelled requests", async () => {
+    const abort = new DOMException("synthetic-abort", "AbortError");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abort));
+    await expect(api("/jobs")).rejects.toBe(abort);
+  });
+
+  it.each([
+    "https://example.invalid/jobs",
+    "//example.invalid/jobs",
+    "/\\example.invalid",
+    "/jobs#fragment",
+    "jobs",
+  ])("rejects unsafe or non-relative paths: %s", async (path) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api(path)).rejects.toBeInstanceOf(ApiError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

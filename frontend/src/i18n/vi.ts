@@ -1,0 +1,83 @@
+export const vi = {
+  "app.name": "Không gian tuyển dụng",
+  "app.description": "Quản lý tuyển dụng, hồ sơ ứng viên và công việc của đội ngũ nhân sự.",
+  "nav.label": "Điều hướng chính",
+  "nav.overview": "Tổng quan",
+  "nav.jobs": "Việc tuyển dụng",
+  "nav.candidates": "Kho CV",
+  "nav.tasks": "Việc của tôi",
+  "nav.reports": "Báo cáo",
+  "nav.settings": "Cài đặt",
+  "shell.workspace": "Không gian làm việc",
+  "shell.account": "Tài khoản",
+  "shell.signedOut": "Chưa đăng nhập",
+  "shell.logout": "Đăng xuất",
+  "shell.logoutHint": "Đăng nhập để sử dụng tài khoản của bạn.",
+  "shell.skipToContent": "Đi đến nội dung chính",
+  "shell.aiNote": "AI hỗ trợ đánh giá. Bạn là người quyết định.",
+  "overview.description": "Theo dõi công việc và các hoạt động tuyển dụng trong ngày.",
+  "overview.emptyTitle": "Chưa có hoạt động tuyển dụng",
+  "overview.emptyDescription":
+    "Bắt đầu từ Việc tuyển dụng để theo dõi các vị trí và hồ sơ ứng viên.",
+  "overview.action": "Xem việc tuyển dụng",
+  "jobs.description": "Tập trung các vị trí đang tuyển và tiến độ của từng vị trí.",
+  "jobs.emptyTitle": "Chưa có việc tuyển dụng",
+  "jobs.emptyDescription":
+    "Mỗi vị trí tuyển dụng sẽ tập hợp yêu cầu, người phụ trách và các ứng viên. Bạn có thể xem hồ sơ tại Kho CV.",
+  "jobs.action": "Xem kho CV",
+  "candidates.description": "Lưu trữ và tìm kiếm hồ sơ ứng viên tại một nơi.",
+  "candidates.emptyTitle": "Kho CV chưa có hồ sơ",
+  "candidates.emptyDescription":
+    "Hồ sơ được tiếp nhận từ các việc tuyển dụng sẽ xuất hiện tại đây. Hãy chọn vị trí bạn đang phụ trách để bắt đầu.",
+  "candidates.action": "Xem việc tuyển dụng",
+  "tasks.description": "Sắp xếp công việc và theo dõi các hạn cần hoàn thành.",
+  "tasks.emptyTitle": "Chưa có việc cần làm",
+  "tasks.emptyDescription":
+    "Các việc được giao và lời nhắc sẽ xuất hiện tại đây. Xem Tổng quan để theo dõi hoạt động tuyển dụng.",
+  "tasks.action": "Xem tổng quan",
+  "reports.description": "Theo dõi kết quả tuyển dụng của bạn và đội ngũ.",
+  "reports.emptyTitle": "Chưa có dữ liệu báo cáo",
+  "reports.emptyDescription":
+    "Kết quả sẽ được tổng hợp khi có hoạt động tuyển dụng. Hãy xem danh sách vị trí để theo dõi tiến độ.",
+  "reports.action": "Xem việc tuyển dụng",
+  "settings.description": "Quản lý các thiết lập chung cho công việc tuyển dụng.",
+  "settings.emptyTitle": "Chưa có thiết lập để hiển thị",
+  "settings.emptyDescription":
+    "Các thiết lập sẽ xuất hiện theo quyền của tài khoản. Bạn có thể quay lại Tổng quan để tiếp tục.",
+  "settings.action": "Về tổng quan",
+  "ai.high": "Phù hợp cao",
+  "ai.medium": "Trung bình",
+  "ai.low": "Thấp",
+  "ai.insufficient": "Chưa đủ thông tin",
+  "common.confirm": "Xác nhận",
+  "common.cancel": "Huỷ",
+  "common.close": "Đóng",
+  "common.processing": "Đang xử lý…",
+  "common.confirmError": "Chưa thể hoàn tất thao tác. Vui lòng thử lại.",
+  "common.notifications": "Thông báo",
+  "common.loading": "Đang tải…",
+  "common.retry": "Thử lại",
+  "common.backHome": "Về tổng quan",
+  "errors.pageTitle": "Chưa thể hiển thị nội dung",
+  "errors.pageDescription": "Vui lòng thử lại hoặc quay về Tổng quan.",
+  "errors.notFoundTitle": "Không tìm thấy trang",
+  "errors.notFoundDescription":
+    "Trang bạn cần xem không còn ở địa chỉ này. Hãy quay về Tổng quan để tiếp tục.",
+  "api.network": "Không thể kết nối. Vui lòng kiểm tra kết nối mạng và thử lại.",
+  "api.unknown": "Không thể xử lý yêu cầu. Vui lòng thử lại sau.",
+  "api.invalidResponse": "Chưa thể đọc dữ liệu. Vui lòng thử lại sau.",
+  "api.unauthorized": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+  "api.forbidden": "Bạn không có quyền thực hiện thao tác này. Vui lòng liên hệ người quản trị.",
+  "api.notFound": "Không tìm thấy dữ liệu. Vui lòng tải lại trang.",
+  "api.validation": "Dữ liệu chưa hợp lệ. Vui lòng kiểm tra và thử lại.",
+  "api.conflict": "Dữ liệu đã thay đổi. Vui lòng tải lại trang trước khi tiếp tục.",
+  "api.rateLimit": "Có quá nhiều yêu cầu. Vui lòng chờ một lát rồi thử lại.",
+  "api.unavailable": "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
+  "api.csrf": "Chưa thể xác nhận phiên làm việc. Vui lòng tải lại trang rồi thử lại.",
+} as const;
+
+export type TranslationKey = keyof typeof vi;
+
+export function t<K extends TranslationKey>(key: K): (typeof vi)[K] {
+  return vi[key];
+}

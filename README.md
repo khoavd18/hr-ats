@@ -83,12 +83,38 @@ Schema test được tạo hoàn toàn bằng Alembic và được đối chiế
 
 Log HTTP giữ method, route template, status và thời gian xử lý; log exception giữ file/dòng/hàm để chẩn đoán, đồng thời bỏ exception message, source và locals.
 
+### Frontend T03
+
+Yêu cầu Node.js 22.14 trở lên (dev/CI dùng Node 22). Tại `frontend/`:
+
+```sh
+npm ci
+npm run dev
+```
+
+Mở <http://localhost:3000>. VERIFIED (phạm vi code): có thanh bên và sáu trang rỗng `/`, `/jobs`, `/candidates`, `/tasks`, `/reports`, `/settings`; mỗi trang có hướng dẫn và liên kết điều hướng. Đăng nhập, giới hạn quyền Cài đặt và đăng xuất được triển khai ở T04; khung T03 không giả lập người dùng hay dữ liệu nghiệp vụ.
+
+Next.js đọc cấu hình riêng tại `frontend/.env.local`; có thể sao chép từ `frontend/.env.example`. `NEXT_PUBLIC_API_URL` mặc định là `http://localhost:8000/api/v1`, bao gồm tiền tố API. Đây là địa chỉ công khai, không đặt secret trong biến `NEXT_PUBLIC_*`. API client gửi cookie, nhận đường dẫn như `/jobs`; body JSON dùng `JSON.stringify`, upload dùng `FormData`. Request thay đổi dữ liệu gắn `X-CSRF-Token` khi có cookie `csrf_token` hoặc `csrfToken` truyền tường minh; T04 hoàn thiện việc cấp và kiểm tra token. Không lưu token đăng nhập trong localStorage.
+
+Kiểm tra tại `frontend/`:
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+`npm run lint` kiểm tra cả ESLint và Prettier; dùng `npm run format` để format. `npm run typecheck` sinh kiểu route qua `next typegen` rồi chạy `tsc --noEmit`, chạy được ngay sau `npm ci` mà không cần build trước; `.next/` và `next-env.d.ts` là file sinh tự động, không commit. Vitest dùng jsdom, fetch được thay bằng mock và test không gọi mạng ngoài. Bộ test gồm bốn mức AI, hàm dịch có kiểm tra kiểu, API client, hộp xác nhận và kiểm tra chuỗi JSX. Playwright đã cài và cấu hình cho localhost, chưa thêm test E2E tại T03 (theo yêu cầu task).
+
+Dependency lồng nhau được ghim qua `overrides`: Next.js 15 dùng cùng PostCSS 8 đã vá với frontend, và parser ESLint dùng minimatch 11 đã vá. Giữ Next.js 15 theo spec; kiểm tra tương thích qua lint, typecheck, test và build khi cập nhật lockfile. CI frontend chạy `npm ci`, lint, typecheck, test và build; không cần API key hay backend để build các trang rỗng.
+
 Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 
 | Nhóm lệnh | Thời điểm có |
 |---|---|
 | Backend: cài gói, migration, chạy API, pytest, ruff, mypy | Có tại T02 |
-| Frontend: cài gói (`npm ci`), chạy dev, test, lint, typecheck | Có sau T03 |
+| Frontend: cài gói (`npm ci`), chạy dev, test, lint, typecheck, build | Có tại T03 |
 | Worker Celery | Có sau T02/T03, tại T07; Windows thêm `-P solo` |
 | Seed dev và E2E có dữ liệu | Có sau T02/T03, tại T18 |
 | Đánh giá AI | Có sau T02/T03, tại T31 |
