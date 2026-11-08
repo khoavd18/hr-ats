@@ -88,7 +88,8 @@ function Sync-Main {
 
 function Invoke-Codex([string]$prompt) {
   Say "Codex: $prompt"
-  $prompt | codex exec --full-auto -C $root - 2>&1 | Tee-Object -FilePath $log -Append
+  # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
+  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Tee-Object -FilePath $log -Append
   if ($LASTEXITCODE -ne 0) { throw "Codex lỗi (exit $LASTEXITCODE). Xem $log" }
 }
 

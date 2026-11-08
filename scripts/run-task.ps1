@@ -1,7 +1,7 @@
 ﻿<#
 Giao một task trong tasks/ cho Codex CLI chạy không tương tác.
 Ví dụ:  .\scripts\run-task.ps1 -Task T05
-        .\scripts\run-task.ps1 -Task T05 -FullAuto     # cho Codex tự sửa file và chạy lệnh không hỏi
+        .\scripts\run-task.ps1 -Task T05 -FullAuto     # tự sửa file/chạy lệnh, xét yêu cầu cấp quyền tự động
 Kiểm tra cờ hiện có bằng:  codex exec --help
 #>
 param(
@@ -32,6 +32,6 @@ $taskText
 
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $codexArgs = @('exec', '-C', $root)
-if ($FullAuto) { $codexArgs += '--full-auto' }
+if ($FullAuto) { $codexArgs += '--approve-for-me' }
 $codexArgs += '-'
 $prompt | & codex @codexArgs

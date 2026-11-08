@@ -9,6 +9,14 @@
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
 
+## Bảo trì script · 2026-11-08 · cờ Codex CLI
+
+VERIFIED: log `var/auto-task/run-20261108-122052.log` ghi lỗi `unexpected argument '--full-auto'`. Tái hiện trên Codex CLI npm 0.167.0: cờ cũ trả exit 2 ngay khi phân tích tham số, trước khi triển khai T03.
+
+- Đổi sang `--approve-for-me` trong `scripts/auto-task.ps1` và `scripts/run-task.ps1`; giữ tham số PowerShell `-FullAuto` của script chạy một task. Theo [OpenAI Docs](https://learn.chatgpt.com/docs/non-interactive-mode#permissions-and-safety), cờ này dùng sandbox `workspace-write` và chuyển yêu cầu cấp quyền qua bước xét duyệt tự động.
+- Kiểm chứng: parser PowerShell 5.1 đọc cả hai script không có lỗi; CLI thật chấp nhận bộ tham số tự động và mặc định với `--version`, đều exit 0; `git diff --check` sạch. Kiểm tra tham số không gọi mô hình.
+- NOT TESTED: chưa chạy lại toàn luồng triển khai, review, CI và merge. Giữ nguyên trạng thái task; chưa triển khai T03 trong lần sửa script này. Cần commit thay đổi trước khi chạy lại vì `auto-task.ps1` yêu cầu repo sạch.
+
 ## T02 · 2026-11-08 · review · Fix round 1
 
 VERIFIED: sửa F1–F7 trong `tasks/reviews/T02.md` theo `tasks/_fix.md`; giữ nhánh `task/T02-backend-skeleton`, chờ review lại trước khi merge.
