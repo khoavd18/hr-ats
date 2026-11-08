@@ -49,6 +49,23 @@ foreach ($t in $Tasks) {
   if (-not (Get-ChildItem -Path (Join-Path $root 'tasks') -Filter "$t-*.md")) { throw "Không có file task cho $t" }
 }
 
+# ---------- Kiểm tra công cụ trước khi chạy ----------
+$missing = @()
+$install = @{
+  codex  = 'winget install OpenAI.Codex   (hoặc: npm install -g @openai/codex), rồi chạy: codex login'
+  claude = 'winget install Anthropic.ClaudeCode, mở PowerShell mới, chạy: claude   (đăng nhập lần đầu)'
+  git    = 'winget install Git.Git'
+  docker = 'Cài Docker Desktop và mở nó lên'
+  uv     = 'winget install astral-sh.uv'
+}
+foreach ($tool in @('codex', 'claude', 'git', 'docker', 'uv')) {
+  if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { $missing += "  - $tool : $($install[$tool])" }
+}
+if ($missing) {
+  Write-Host "Thiếu công cụ, chưa chạy gì cả:`n$($missing -join "`n")`nCài xong thì mở PowerShell mới rồi chạy lại." -ForegroundColor Red
+  exit 3
+}
+
 $logDir = Join-Path $root 'var/auto-task'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $log = Join-Path $logDir ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
