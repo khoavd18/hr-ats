@@ -9,3 +9,6 @@ Mốc: M1 · Phụ thuộc: T12, T13 · Spec: `03` (`GET /jobs/{id}/applications
 ## Tiêu chí nghiệm thu
 - Kéo 10 CV mẫu vào Job mẫu (FakeLLM) → sau khi xử lý, bảng hiện 10 dòng sắp đúng thứ tự mức AI.
 - File lỗi hiện thông báo tiếng Việt trên đúng dòng của file đó; các file khác vẫn xử lý.
+
+## Ghi chú từ review T02
+- Polling 3 giây sẽ tạo rất nhiều dòng log HTTP: hạ mức log (DEBUG) hoặc bỏ qua log cho `/api/v1/health` và các endpoint polling trong `backend/app/core/middleware.py`.

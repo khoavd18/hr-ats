@@ -3,7 +3,7 @@
 | ID | Trạng thái | Ngày | Ghi chú |
 |---|---|---|---|
 | T01 | done | 2026-11-08 | Ba tiêu chí nghiệm thu đạt. MinIO (profile `s3`, tuỳ chọn) hoãn lại vì image không tải được; dùng `STORAGE_BACKEND=local`. Xem câu hỏi #8. |
-| T02 | review | 2026-11-08 | Fix round 1: F1–F7 đã xử lý; 76 test pass, lint/format/mypy sạch; chờ review lại. |
+| T02 | done | 2026-11-08 | Review lần 2: APPROVE WITH NITS, 76 test pass trên Postgres/Redis thật (tasks/reviews/T02.md). Nhắc việc N1→T05, N2→T14, N3→T26. |
 | T03–T33 | todo | | |
 
 ## Nhật ký

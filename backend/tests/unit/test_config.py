@@ -6,7 +6,9 @@ from pydantic import ValidationError
 from app.core.config import REPO_ROOT, Settings
 
 
-def test_example_configuration_loads() -> None:
+def test_example_configuration_loads(monkeypatch: pytest.MonkeyPatch) -> None:
+    # TZ is a common OS variable (CI, containers) and would override the example file.
+    monkeypatch.delenv("TZ", raising=False)
     settings = Settings(_env_file=REPO_ROOT / ".env.example")
     assert settings.llm_provider == settings.embedding_provider == "fake"
     assert settings.embedding_dim == 1024
