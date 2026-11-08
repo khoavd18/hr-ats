@@ -137,9 +137,10 @@ function Format-ClaudeLine([string]$text) {
 }
 function Write-ToolOutput {
   param([Parameter(ValueFromPipeline = $true)]$Line, [ValidateSet('codex', 'claude', 'plain')][string]$Kind = 'plain')
-  begin { $script:fmt.State = ''; $script:fmt.Count = 0 }
+  begin { $script:fmt.State = ''; $script:fmt.Count = 0; $script:recent = [System.Collections.Generic.List[string]]::new() }
   process {
     $text = "$Line"
+    $script:recent.Add($text); if ($script:recent.Count -gt 40) { $script:recent.RemoveAt(0) }
     Add-Content -Path $log -Value $text -Encoding utf8
     if ($Output -eq 'full') { Write-Host $text -ForegroundColor DarkGray }
     elseif ($Output -eq 'compact') {
@@ -160,19 +161,48 @@ function Sync-Main {
   Invoke-Git pull --ff-only
 }
 
+# Hết hạn mức của Codex/Claude: đọc giờ reset trong thông báo (vd. "resets 7:40pm"),
+# chờ đến lúc đó rồi chạy lại. Trả về $true nếu đã chờ.
+function Wait-IfLimited([string]$who) {
+  $tail = ($script:recent -join "`n")
+  if ($tail -notmatch '(?i)(hit your .{0,30}limit|usage limit|rate.?limit|limit reached|quota exceeded)') { return $false }
+  $wait = 15
+  if ($tail -match '(?i)resets?\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*[ap]\.?m)') {
+    try {
+      $at = [datetime]::Parse(($Matches[1] -replace '\.', '').ToUpper(), [Globalization.CultureInfo]::InvariantCulture)
+      $now = Get-Date
+      if ($at -lt $now) { $at = if (($now - $at).TotalHours -lt 12) { $now } else { $at.AddDays(1) } }
+      $wait = [math]::Ceiling(($at - $now).TotalMinutes) + 2
+    } catch { $wait = 15 }
+  }
+  $wait = [math]::Max(2, [math]::Min($wait, 6 * 60))
+  Say "$who hết hạn mức sử dụng. Chờ $wait phút (đến khoảng $((Get-Date).AddMinutes($wait).ToString('HH:mm'))) rồi chạy lại. Có thể để máy chạy, đừng tắt cửa sổ." 'Yellow'
+  Start-Sleep -Seconds ($wait * 60)
+  return $true
+}
+
 function Invoke-Codex([string]$prompt) {
   Say "Codex: $prompt"
-  # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
-  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Write-ToolOutput -Kind codex
-  if ($LASTEXITCODE -ne 0) { throw "Codex lỗi (exit $LASTEXITCODE). Xem $log" }
-  Say "  Codex xong (chi tiết trong log)." 'DarkGray'
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
+    $prompt | codex exec --approve-for-me -C $root - 2>&1 | Write-ToolOutput -Kind codex
+    if ($LASTEXITCODE -eq 0) { Say "  Codex xong (chi tiết trong log)." 'DarkGray'; return }
+    if (-not (Wait-IfLimited 'Codex')) { break }
+    Say "Codex: chạy lại sau khi hết chờ: $prompt"
+  }
+  throw "Codex lỗi (exit $LASTEXITCODE). Xem $log"
 }
 
 function Invoke-ClaudeReview([string]$task) {
   Say "Claude Code: Review $task"
-  claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
-    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Write-ToolOutput -Kind claude
-  if ($LASTEXITCODE -ne 0) { throw "Claude Code lỗi (exit $LASTEXITCODE). Xem $log" }
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
+      --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Write-ToolOutput -Kind claude
+    if ($LASTEXITCODE -eq 0) { break }
+    if (-not (Wait-IfLimited 'Claude Code')) { throw "Claude Code lỗi (exit $LASTEXITCODE). Xem $log" }
+    if ($attempt -eq 8) { throw "Claude Code vẫn hết hạn mức sau nhiều lần chờ. Xem $log" }
+    Say "Claude Code: review lại $task sau khi hết chờ"
+  }
   $changed = git status --porcelain | Where-Object { $_ -notmatch "tasks/reviews/$task\.md" }
   if ($changed) { throw "Reviewer đã sửa file ngoài báo cáo, dừng lại để bạn kiểm tra:`n$changed" }
 }
