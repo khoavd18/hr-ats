@@ -1,0 +1,12 @@
+\set ON_ERROR_STOP on
+
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
+SELECT 'CREATE DATABASE hr_ats_test OWNER hr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'hr_ats_test')
+\gexec
+
+\connect hr_ats_test
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS unaccent;

@@ -1,0 +1,21 @@
+.agents/.skills-library-txn/
+.agents/skills-library-backups/
+.probe
+
+# Cấu hình cá nhân và secret
+.env
+.env.*
+!.env.example
+*.local.*
+
+# Dữ liệu runtime, CV thật và dataset tải về
+/var/*
+!/var/.gitkeep
+
+# Dependency và cache
+node_modules/
+.venv/
+__pycache__/
+
+# Kết quả đánh giá sinh ra khi chạy
+eval/reports/*.json

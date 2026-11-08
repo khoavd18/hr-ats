@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "library": {
+    "id": "data-analyst-skills",
+    "version": "1.7.1",
+    "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+    "source_dirty": false,
+    "source_ref": "v1.7.1",
+    "source_path": "D:\\code\\ai_skills"
+  },
+  "targets": [
+    "codex",
+    "claude"
+  ],
+  "created_dirs": [
+    ".agents",
+    ".agents/skills",
+    ".claude",
+    ".claude/skills"
+  ],
+  "installed_at": "2026-11-05T15:32:18+00:00",
+  "updated_at": "2026-11-05T15:32:18+00:00",
+  "skills": {
+    "frontend-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "f810b50c6145bbba887fd7a79c830f18025bb737e96113491886aa805cd9ea3a",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "a5b6d235cd1efd3fc880a224406f08f38a2691e7ad8203897491c86ca1d2785a",
+        "references/frontend-checklist.md": "5a1779f107180725bb93ea51f4fe1fd436dcc32bbc06bf6d2025780e9972c44c"
+      }
+    },
+    "backend-api-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "9973b43b77f09eb3768aba0ce6c9421ceb880d83d6e7104b04fe675727c5b3ab",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "e1a837e885cf0db71050c4239167038e0f857b85a4dd07f99b7c943aa7a41e3c",
+        "references/api-design.md": "96598f6bcb84fec4beae9e8294489d66b97603c6d9906bd0e602c7a73f181d9f"
+      }
+    },
+    "database-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "6d436f8bc839279551e91713ae9c61f4afe5b84a023fb4db82d023401649257a",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "5d465eecbed1ae5c4dcf57b2fd9ec90e3950f8b22404b65bfa91126f5d140f5e",
+        "references/schema-and-migrations.md": "3ec2f21c4d3d47a6155713ab3a9aa89ab8eb0472631d2dd74faa56cb81d15ac9"
+      }
+    },
+    "software-testing": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "0a143e60546894a60f271df2629348c34444d7a048f5df65b2ead91c760fb07e",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "0d96da6558850ca0a487a8de2e413c289721e1306a42d1f676925ac1eb8a4f22",
+        "references/engineering-quality-contract.md": "68ba425a7d1b369548ff107981e1df5f972dfde9d396ce422d9d529beb11dc9e",
+        "references/testing-strategy.md": "dabcfb571cf3cd0522a894d0876f18d0a8e63524fb6b976682e054a785b66fec"
+      }
+    },
+    "secure-code-review": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "8bb4bd4fc5dd2067b7ce9d7111d501de93d9704f290c13b31061def2bec4cc4a",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "581b3b5c4826840a82fb5d65a2402f0b44de46b8ed6fe3a153c9fcb6514e09ae",
+        "references/review-checklist.md": "103132eb86d6bc850f6c6dda71e59379ff6ef860cc3abbae8093840192b4afd6"
+      }
+    },
+    "llm-app-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "0c1e8634dac1dc23aa5c83e16df60daa53ecb2e898f107275f2379001b27ea04",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "c83b0fa9c7b17835e37a1621680d5470b6c369af7b3a92e812987badcc0886ac",
+        "references/llm-safety-checklist.md": "fcedb8a4a60ff6435a0b876f138d5726504bc5152727f823483561ac8b87850e",
+        "references/prompt-and-tooling.md": "86a7f292c92e0317e2a727c50cdef0216edf435af6cfca199660a83fc32b9c24"
+      }
+    },
+    "rag-pipeline-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "040acbaaf749492111b4d5cdba9fe6bd829e307ac6fac5ef0857bbc71e48058c",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "a2eb7c3b38ae0ceb45cef7938b9ab6fc9ff8be0aac48ec0793f273e33faf4375",
+        "references/retrieval-design.md": "dee03addefc442e72fdf261cc61a2a626e60ab7473c3df37e6dbe279dabd73a7"
+      }
+    },
+    "llm-evaluation": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "1d90503754e44fba85ce08030e0ed6efae87262d3b6420c923b4ee177009d081",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "ca0b91b92b150219ffa3a28106c7d8f63cd4253f503a1e18c61ba1ad8fcc0668",
+        "references/eval-design.md": "9d3cd1dd3012b87257c7c867e5b078c02c2e9cd9605ab35bffb63d4a752c6a14"
+      }
+    },
+    "kpi-metrics-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "0e946f32c463d0e6c6c1cd5ca30bfc9cc9247ea3b89a6c57a69f29a50e9de7af",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "1a0741f885569953d0c132f99c260c04017716737a5362e833d344ae7b6c21b9",
+        "references/aggregation-rules.md": "53c652733b4a198716d0855c632084f21597e209d9d2b3f24ce5b270ecf498f2",
+        "references/metric-contract-template.md": "729afcbadce94f40471aa2a66f664b0b71a7c13cfde8512f243eb4ff3ab4b5fd"
+      }
+    },
+    "container-platform-engineer": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "5cf0bd6d41b41682fbfb7bf7d79beff71284ccd2c97afa8cde79c3d88ffd9e92",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "7ec9367270f0865da694582ee9fcd93a66f0b00f891735a9ead38f41c9474a9f",
+        "references/container-checklist.md": "5b0c1683d8eb2d5c098f74bba14f511f8d69fc1b59430264aee16d48aaa46a8f"
+      }
+    },
+    "ml-model-evaluation": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "19349f00d1928b9d89e2f23b05bc7d443f2dfa7a4bbff36fbb1f36168845ceef",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "b1ea762cceb5646235b18c105e64b15102be135b5144a72e26182f3e6bacda57",
+        "references/cv-metrics.md": "825e1516da907730454ae51c3dc8f3977a7b14b1dd36e75d10e696584f6575a6",
+        "references/evaluation-report-template.md": "4072fe151d4b197457c13f2722172467d09dff8c005ba03fbada4590b8b42478",
+        "references/ml-quality-contract.md": "52ea5895eda29d52aa8668764d194f4d5eeb13864821f0e57d60b2efacd42185",
+        "references/tabular-metrics.md": "55f83221783d6feec6b5a9bcf3901a6b5f38831fb760a4e9373c0382d861c7af"
+      }
+    },
+    "infrastructure-as-code": {
+      "library_version": "1.7.1",
+      "source_revision": "c0f6e9ffd5b8dfccce60a201ab8eb6f405386b8d",
+      "content_hash": "d93c840ef5b158cf01455f83dd22a9c7a08f3463acc2aee8869972a8ba4c6595",
+      "installed_at": "2026-11-05T15:32:18+00:00",
+      "updated_at": "2026-11-05T15:32:18+00:00",
+      "files": {
+        "SKILL.md": "5c80171f056c867a7249dee2e074913c9eba432f734be7d336dd3b2967e926f3",
+        "references/iac-practices.md": "212e4010bc85c1c7751e3f408d5be8f386a27147b48fcfb8f635db67d3e684d7",
+        "references/ops-safety-contract.md": "c3e352170e3db7fe251a646f09a40208fc3b839c5ed4046c8c1e95841a7ea533"
+      }
+    }
+  },
+  "instructions": {
+    "AGENTS.md": {
+      "mode": "block",
+      "sha256": "65142d976c0e499b8ab0f422ceed8ea1417b17c6a16fb17d339f3da292b6b44c",
+      "created_file": true
+    },
+    "CLAUDE.md": {
+      "mode": "block",
+      "sha256": "83a3d0bd6d230e7410b46d65d813a5149e8e1d899cbec7637e359d23221a914d",
+      "created_file": true
+    }
+  },
+  "roles": {
+    "fullstack-developer": [
+      "frontend-engineer",
+      "backend-api-engineer",
+      "database-engineer",
+      "software-testing",
+      "secure-code-review"
+    ]
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "c9f4ea2fa3a91289442602033a2fcbb7de51da6372d638949ca6ac14ead877fb"
+  }
+}
