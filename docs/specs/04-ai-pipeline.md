@@ -104,19 +104,67 @@ retry ở tầng parse; một phần lỗi thì không trả kết quả thiếu
   null, Candidate dùng nhãn "Chưa xác định" vì cột full_name bắt buộc.
 - `anonymize_and_embed(session, candidate, text)` và
   `create_and_score_application(session, candidate, cv_file)` là hook rỗng cho
-  T11/T12; T10 không tạo embedding/application/điểm hay đổi stage/gửi email.
+  T11/T12 tại T10; T11 đã nối hook đầu, hook application/chấm điểm vẫn chờ T12.
+  Không đổi stage/gửi email.
   ASSUMED (#44): chỉ tìm nghi trùng khi CV không có liên hệ và sau hook có vector
   khác zero. Tên bỏ dấu/đ/hoa thường và gộp khoảng trắng; cosine > 0.95, chọn
   gần nhất, hoà thì theo ID. Chỉ ghi UUID `possible_duplicate_of` vào parsed_json
   của file mới, không gộp Candidate. Thiếu embedding thì chưa có kết luận nghi
-  trùng; T11 nối hook sẽ bật bước này.
+  trùng; T11 đã nối hook và bật bước này.
 
 ## 5. Ẩn danh (`ai/anonymize.py`)
 Tạo `anonymized_text` từ text đã che: thay họ tên (cả dạng có dấu, không dấu, viết hoa) bằng `[TÊN]`; xoá dòng ngày sinh/tuổi, giới tính ("Nam", "Nữ", "Giới tính"), tình trạng hôn nhân, địa chỉ nhà, link mạng xã hội cá nhân. Có test với ít nhất 15 mẫu CV giả.
 **Chỉ `anonymized_text` được dùng cho embedding và chấm điểm.**
 
+T11: `anonymize(text, full_name) -> str` chạy cục bộ, NFC, gọi lại redaction liên
+hệ để bảo vệ cả caller ngoài pipeline. Thay tên theo ranh giới từ, bỏ dấu/đ/hoa
+thường khi so khớp nhưng giữ nguyên dấu trong nội dung nghề nghiệp. Thu thập thêm
+tên từ dòng có nhãn; nếu không che được tên thì che dòng đầu chỉ gồm 2–6 từ chữ
+cái như một header có thể chứa tên, không lưu tên suy đoán. Xoá cả dòng metadata
+VI/EN về ngày/năm sinh, tuổi, giới tính, hôn nhân, địa chỉ; nhãn riêng một dòng
+thì bỏ thêm dòng giá trị kế tiếp. Bỏ link mạng xã hội/profile cá nhân phổ biến
+(gồm GitHub/GitLab); giữ link tài liệu kỹ thuật. Ảnh không vào text từ extraction;
+bỏ thêm markup ảnh Markdown/HTML nếu có trong text. ASSUMED (#46): heuristic này
+không phải NER đầy đủ, có thể bỏ header nghề nghiệp khi parse không nhận ra tên;
+không bảo đảm phát hiện PII bị OCR sai hoặc không có nhãn trong mọi CV thực tế.
+Test dùng 50 CV kỹ thuật số giả, không phải đánh giá chất lượng trên CV thật.
+
 ## 6. Embedding (`ai/embed.py`)
 Interface `Embedder.embed(texts) -> list[list[float]]`; bản `LocalEmbedder` (sentence-transformers, chuẩn hoá L2) và `FakeEmbedder` (hash tất định, cho test). Embedding cho Job lấy từ `title + description + must_have + nice_to_have`.
+
+T11: `get_embedder(settings=None)` chọn đúng provider, không tự fallback. Fake
+dùng SHA-256 từng từ Unicode NFC/casefold, cộng vào chiều và dấu tất định rồi L2;
+text rỗng dùng vector đơn vị, batch rỗng trả []. Fake chỉ phục vụ kiểm thử chức
+năng, không thể chứng minh chất lượng tìm kiếm ngữ nghĩa. Local lazy-load và
+cache một model trong process, cache trọng số tại `var/models`,
+`trust_remote_code=False`, chỉ safetensors, tắt progress bar. APP_ENV=test chỉ
+đọc model local; unit test thay boundary thư viện, không tải trọng số/mạng ngoài.
+Mọi kết quả phải đủ batch, đúng EMBEDDING_DIM, hữu hạn, khác zero và L2 chuẩn hoá;
+sai trả `EmbeddingError` cố định, không log/lưu text hay exception gốc.
+
+`services/embeddings.embed_candidate` chỉ truyền kết quả `anonymize` cho adapter;
+ghi `anonymized_text` và vector sau khi thành công, cùng savepoint pipeline T10.
+`embed_job(job, ...)` lấy bốn trường trên theo thứ tự, phân cách xuống dòng;
+T13 gọi sau khi gán trường lúc tạo/sửa và trước commit, không dùng ORM event hay
+tự commit. API tìm kiếm/quyền/filter top-50 vẫn thuộc T16, T11 chỉ kiểm truy vấn
+cosine PostgreSQL qua test. Không đổi schema/dimension vector.
+
+ASSUMED (#47): dependency local nặng nằm trong extra `local-embedding`,
+`uv sync` mặc định vẫn đủ chạy fake/CI. Với local dùng
+`uv sync --extra local-embedding` và cùng extra cho các lệnh uv run. Lần dùng local đầu tiên tải
+model cấu hình; không tải model trong test. Tham khảo tham số chính thức:
+[SentenceTransformer](https://sbert.net/docs/package_reference/sentence_transformer/model.html).
+
+ASSUMED (#48): `uv run python -m app.scripts.reembed --all` tính lại toàn bộ
+ứng viên chưa xoá/chưa gộp/còn hạn lưu từ `anonymized_text` đã lưu (che lại cục
+bộ), cùng tất cả Job. Xoá vector cũ của ứng viên không còn hợp lệ, không đọc CV
+gốc/không gọi parse. Thiếu text đã ẩn danh, sai chiều hoặc lỗi bất kỳ → rollback
+toàn lượt; không bỏ qua rồi trộn hai không gian vector. CLI chỉ in số lượng và
+mã lỗi. Dừng mọi writer và chức năng tìm kiếm trước khi đổi model/provider và
+chạy lại; chỉ bật lại sau khi command commit thành công. Metadata model theo
+cấu hình triển khai, không thêm cột ngoài schema spec. Đổi dimension vẫn cần
+migration riêng theo spec 01/README, CLI không tự thay schema. Chưa benchmark
+transaction toàn bộ kho ở quy mô production.
 
 ## 8. Chấm theo tiêu chí (`ai/score.py`, prompt `prompts/score_cv/v1.md`)
 Đầu vào: `anonymized_text`, danh sách `must_have`, `nice_to_have`, tiêu đề và mô tả Job.

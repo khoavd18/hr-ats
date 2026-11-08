@@ -158,7 +158,7 @@ Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 
 Lệnh chính xác nằm trong `docs/specs/08-testing-quality.md`. Test dùng adapter giả và không gọi mạng bên ngoài.
 
-### Upload và worker T07/T10
+### Upload và worker T07/T10/T11
 
 Tại `backend/`, chạy worker bên cạnh API (cùng `.env`, DB và storage):
 
@@ -172,11 +172,61 @@ uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P so
 
 Mặc định `STORAGE_BACKEND=local` lưu tại `var/storage` ở gốc repo, key ngẫu nhiên. GET trạng thái và download qua API có kiểm quyền/audit; storage không public. S3 dùng boto3 với `S3_BUCKET` có sẵn, endpoint/credential từ biến S3; không cần bật MinIO để dùng/test M1. Các test S3 dùng Stubber offline; runtime S3 được hoãn theo câu hỏi #8.
 
-Worker T10 đọc storage → trích text → che email/SĐT → gọi ba phần parse song song → tạo/cập nhật ứng viên → `done`; lỗi từng file chuyển `failed` với thông báo tiếng Việt. Mỗi kết quả có model/version; email lowercase và SĐT canonical lấy cục bộ. Hai CV khác định dạng cùng email/SĐT gắn cùng ứng viên; thời hạn lưu cộng `DATA_RETENTION_MONTHS` tháng lịch theo `TZ`, không tự sinh bằng chứng đồng ý. Bước ẩn danh/embedding/application/chấm điểm có hook cho T11/T12; nghi trùng theo tên/cosine chỉ có khi hook cung cấp embedding.
+Worker đọc storage → trích text → che email/SĐT → gọi ba phần parse song song → tạo/cập nhật ứng viên → ẩn danh cục bộ → embedding → `done`; lỗi từng file chuyển `failed` với thông báo tiếng Việt. Mỗi kết quả parse có model/version; email lowercase và SĐT canonical lấy cục bộ. Hai CV khác định dạng cùng email/SĐT gắn cùng ứng viên; thời hạn lưu cộng `DATA_RETENTION_MONTHS` tháng lịch theo `TZ`, không tự sinh bằng chứng đồng ý. CV không có liên hệ, tên chuẩn hoá trùng và cosine > 0.95 chỉ có gợi ý `possible_duplicate_of`, không tự gộp. Application/chấm điểm chờ T12.
 
 Upload mới trả snapshot `pending`, GET `/api/v1/cv-files/{id}` phản ánh trạng thái hiện tại; download thêm `/download`. Worker giữ transaction đến cuối nên trạng thái có thể vẫn `pending` trong khi đang xử lý. SHA-256 trùng trả cùng ID sau kiểm quyền, không đổi Job/uploader và không tạo thêm file/activity. Nếu publish Redis lỗi, record chuyển `failed`; upload lại cùng file để thử xếp hàng lại. Lỗi parse không tự được xếp hàng lại khi upload cùng hash. Crash đúng khoảng giữa commit và publish có thể để file ở `pending`; chưa có outbox/reconciliation, cần kiểm tra vận hành trước production. Dev/test dùng CV giả; điều kiện dữ liệu thật/provider ở câu hỏi #40 chưa được chốt.
 
 `APP_ENV=test` cấu hình eager/memory theo [Celery configuration](https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-always-eager); suite vẫn kiểm worker trên kết nối PostgreSQL riêng và upload đồng thời. T07 không đổi schema; rollback code cần dừng API/worker, giữ DB và storage, không xoá file đã nhận. Chờ review độc lập và CI xanh trước merge.
+
+### Ẩn danh và embedding T11
+
+`app.ai.anonymize.anonymize(text, full_name)` che tên có/không dấu, hoa/thường,
+liên hệ; bỏ dòng ngày sinh/tuổi/giới tính/hôn nhân/địa chỉ, link profile cá nhân
+và markup ảnh. Chỉ `candidates.anonymized_text` đi vào embedder. Đây là heuristic
+đã kiểm trên 50 CV giả; chưa bảo đảm mọi CV thực tế/OCR sai (câu hỏi #46).
+Pipeline lưu text và vector cùng transaction, lỗi không để bản cập nhật dở.
+
+Dev/test giữ `EMBEDDING_PROVIDER=fake`: vector SHA-256 tất định, L2, đúng
+`EMBEDDING_DIM`; không dùng fake để đánh giá chất lượng tìm kiếm ngữ nghĩa.
+Local dùng sentence-transformers theo extra tuỳ chọn:
+
+```sh
+# Tại backend/, chỉ cài khi cần chạy local
+uv sync --extra local-embedding
+uv run --extra local-embedding celery -A app.workers.celery_app worker -Q ai,email,default -l info
+# Windows thêm -P solo
+```
+
+Đặt `EMBEDDING_PROVIDER=local`, `EMBEDDING_MODEL=BAAI/bge-m3`,
+`EMBEDDING_DIM=1024`. Lần dùng đầu tải trọng số về `var/models` (gitignore),
+các lần sau dùng cache; model được giữ trong process. Không bật remote code,
+chỉ nạp safetensors; cấu hình sai/thiếu extra/model/sai chiều trả lỗi an toàn,
+không tự đổi sang fake. Tham số cache/encode theo
+[SentenceTransformer](https://sbert.net/docs/package_reference/sentence_transformer/model.html).
+Model local thật và chất lượng retrieval: NOT TESTED trong bộ nghiệm thu offline.
+
+Khi đổi model/provider **cùng số chiều**, dừng API/worker và các writer/tìm kiếm,
+sao lưu, cập nhật cùng cấu hình cho CLI/API/worker rồi chạy tại `backend/`:
+
+```sh
+uv run python -m app.scripts.reembed --all
+# Nếu dùng local
+uv run --extra local-embedding python -m app.scripts.reembed --all
+```
+
+CLI chỉ dùng `anonymized_text` đã lưu, không gửi/đọc lại CV gốc hay gọi LLM.
+Một transaction thay vector ứng viên chưa xoá/chưa gộp/còn hạn và mọi Job;
+clear vector ứng viên không còn hợp lệ. Thiếu text đã ẩn danh (ví dụ dữ liệu
+trước T11) hoặc bất kỳ lỗi nào làm rollback toàn lượt, exit 1 và mã lỗi cố định;
+cần bổ sung text qua pipeline đã duyệt trước khi chạy lại. Thành công exit 0,
+in số lượng và mới bật lại API/worker cùng cấu hình. Nếu lỗi, giữ tắt writer và
+khôi phục cấu hình model cũ trước khi phục vụ lại. Không trộn model trong cùng
+kho vector. Đổi dimension cần migration riêng theo hướng dẫn T05 ở trên; CLI
+không tự đổi cột/index. Chưa benchmark rebuild toàn kho production.
+
+T13 dùng `app.services.embeddings.embed_job(job)` sau khi gán title/description/
+must_have/nice_to_have khi tạo/sửa Job và trước commit. Hook không tự commit;
+T11 không mở endpoint Job/tìm kiếm trước T13/T16.
 
 ### Trích CV và OCR T08
 
