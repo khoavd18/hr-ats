@@ -73,6 +73,10 @@ Dev có thể chạy `db redis mailpit` bằng Docker và chạy `api`, `worker`
 
 Mọi job phải **idempotent** (chạy lại không tạo bản ghi trùng) và cập nhật trạng thái (`*_status`, `*_error`) để UI hiển thị.
 
+T07: `app.workers.celery_app` khai báo đủ ba queue, mặc định `default`; route các task AI vào `ai`, task email vào `email`. Chỉ nhận/serialize JSON; payload xử lý CV chỉ có UUID file. `APP_ENV=test` dùng eager và broker/backend trong bộ nhớ; dev/prod dùng `REDIS_URL`. Worker dùng session DB riêng, log qua bộ lọc PII chung. Task `process_cv_file` hiện chỉ đặt file `pending` chưa xoá thành `done`; T10 thay bằng pipeline thật. Không ghi đè file đã `done`/`running`/`failed`, chạy lại an toàn.
+
+Storage T07 dùng key UUID hex ngẫu nhiên (32 ký tự), không chứa tên gốc/đuôi. `Storage.put(data: bytes, mime: str) -> str`, `get(key) -> bytes`, `delete(key) -> None`; delete không lỗi nếu key hợp lệ đã không còn. LocalStorage lưu ngoài web root tại `STORAGE_LOCAL_DIR`, từ chối traversal/symlink; S3Storage dùng boto3, bucket private có sẵn, không tạo bucket hay public URL. S3 dùng `S3_ENDPOINT` nếu có, ngược lại endpoint AWS mặc định; credential cấu hình hoặc chuỗi credential chuẩn boto3. Không bật profile MinIO để kiểm nghiệm thu M1 theo quyết định #8.
+
 ## Cấu hình (`.env.example`)
 ```
 APP_ENV=dev                         # dev | test | prod

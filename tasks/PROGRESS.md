@@ -8,10 +8,44 @@
 | T04 | done | 2026-11-08 | VERIFIED: auth cookie JWT/CSRF, Argon2id, khoá đăng nhập, CLI admin và quản lý người dùng; 152 test backend, 47 test frontend, 2 E2E pass. Chờ Review T04 và merge. |
 | T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
-| T07–T33 | todo | | |
+| T07 | review | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
+| T08–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T07 · 2026-11-08 · review
+
+VERIFIED: triển khai T07 theo `tasks/_implement.md` trên nhánh `task/T07-storage-upload-celery`; T05 đã `done`, working tree sạch trước khi bắt đầu. Giữ trạng thái `review` đến khi được duyệt và merge vào main.
+
+- Thêm interface `Storage`, LocalStorage và S3Storage (boto3). Key UUID hex ngẫu nhiên không chứa tên gốc; local chặn traversal/symlink và tạo file riêng, S3 không cấp public URL. S3 có timeout/retry hữu hạn, đóng stream đọc, lỗi storage chung không lộ path/credential/provider. Thêm đúng dependency boto3 theo task cùng lockfile; metadata license mới là Apache-2.0/MIT.
+- API multipart nhận 1–50 file, tối đa 10 MiB/file; magic bytes PDF/DOCX/JPEG/PNG, kiểm content type Word/macro/VBA, từ chối ZIP mã hoá/traversal/trùng entry/quá giới hạn giải nén. Trả kết quả từng index và lỗi tiếng Việt riêng, không phản chiếu tên/nội dung file lỗi. Tên gốc chỉ là metadata đã bỏ path/control; storage/header tải về dùng UUID.
+- SHA-256 unique và advisory transaction lock chống trùng cả khi upload đồng thời. Kiểm quyền bản ghi cũ trước trả duplicate; không đổi uploader/Job, không thêm object/activity/task, không phục hồi soft delete. File mới và activity `cv_uploaded` commit chung, cleanup object mới khi transaction lỗi. Không tạo Candidate/Application, parse hay chấm điểm trong T07.
+- GET trạng thái/download kiểm quyền ở service qua `authorize`; recruiter theo Job upload hoặc application còn hiệu lực, file chưa gắn Job/Candidate chỉ uploader/admin/lead. Thu hồi membership không bị uploader vượt quyền. Soft delete file/ứng viên trả 404, thiếu quyền trả 403; không trả storage key, text, parsed JSON hay lỗi provider. Audit `view`/`download` chỉ định danh/IP kết nối hợp lệ; download commit audit sau đọc storage, trước trả byte. Attachment tên UUID, nosniff và no-store.
+- Celery có ba exchange/routing key riêng `ai`, `email`, `default`, JSON-only; test eager/memory, dev/prod Redis. Publish sau commit, task chỉ nhận UUID và dùng session riêng để đổi pending → done idempotent. Lỗi publish đặt failed bằng UPDATE có điều kiện, không ghi đè done; upload lại cùng file retry được lỗi publish này, giữ ID/activity. Worker dùng logging PII chung. Smoke phát hiện binding mặc định chung; đã sửa và bổ sung test gửi thông điệp thật qua memory broker để chứng minh AI chỉ tới queue ai.
+- Cập nhật README, spec 01/03/07/08, mặc định #30–#33. Không đổi schema DB/KPI/UI, migration head vẫn `0003_core_data_model`; không sửa skill thư viện, không thêm service, không gửi email hay gọi AI/provider bên ngoài.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Upload 3 file hợp lệ + executable đổi đuôi PDF → 3 tạo, 1 lỗi tiếng Việt | VERIFIED — đạt | `test_mixed_upload_duplicate_status_download_and_audit`: PDF/DOCX/PNG giả hợp lệ, MZ giả bị từ chối; ba snapshot pending, GET eager done, đúng ba activity/object/record. Có test JPEG, 10 MiB, 50/51 file, DOCM và macro đổi đuôi |
+| Upload lại cùng file không tạo bản ghi mới | VERIFIED — đạt | Test mixed upload kiểm cùng ID, ba record/object/activity sau upload lại; `test_concurrent_upload_publishes_after_commit_and_worker_uses_own_connection` chạy hai upload đồng thời trên DB tạm, một record/object/activity, worker kết nối riêng thấy record đã commit |
+| Recruiter không có quyền download → 403 | VERIFIED — đạt | `test_unauthorized_recruiter_cannot_read_download_or_probe_duplicate`, test thu hồi membership/uploader/owner, quyền Candidate qua Application và soft delete; duplicate không lộ ID/metadata |
+| Audit có bản ghi download | VERIFIED — đạt | Test mixed upload đối chiếu action/entity/file/actor cho cả ba download; lỗi storage/không có quyền không ghi audit download; GET metadata có audit view |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, dùng dịch vụ local có sẵn, giữ volume/dữ liệu dev.
+- `uv sync`: pass, 74 package resolve/73 package kiểm tra. `uv run alembic upgrade head`: pass; `uv run alembic current`: `0003_core_data_model (head)`. Test migration DB trống/rollback cũ vẫn pass.
+- `uv run pytest`: lượt chốt **298 passed, 1 warning**, không skip; gồm **50 test T07** và toàn bộ 248 test cũ. PostgreSQL localhost thật, Celery eager/memory; S3 Stubber và bộ chặn mạng ngoài của fixture chung. Các lượt theo phần: 29 test storage/validation, 44 rồi 47 test T07; sau sửa binding, 50 test T07 pass và full suite chạy lại pass.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 78 file đã format. `uv run mypy app`: pass, 48 source file. `uv run ruff check ../eval`, `uv run ruff format --check ../eval`: pass, 4 file.
+- Với `APP_ENV=test`, `uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P solo`: worker ready, đăng ký `process_cv_file`, ba binding riêng ai/ai, email/email, default/default. Dừng bằng Ctrl+C sau smoke; không đọc queue dev, không gọi provider. Đây là smoke memory; chưa kiểm worker Redis bằng subprocess.
+- `git diff --check`: sạch. Tự review theo secure-code-review: quyền/CSRF ở cả endpoint và service, duplicate có kiểm quyền, file không public, log không có CV/tên gốc/PII, lỗi không lộ provider; sửa race trạng thái publish và binding queue, có test hồi quy. Không còn finding đã xác nhận chưa xử lý. Kiểm metadata license của năm package mới: Apache-2.0/MIT; `pip-audit` chưa có trong môi trường nên không khẳng định đã quét lỗ hổng dependency.
+
+File chính: `backend/app/{storage/*,workers/*,api/cv_files.py,services/cv_files.py,services/cv_validation.py,schemas/cv_files.py,core/permissions.py,main.py}`, `backend/tests/{api/test_cv_files.py,api/test_cv_worker.py,unit/test_storage.py,unit/test_cv_validation.py,unit/test_celery_app.py,cv_helpers.py}`, manifest/lockfile, README, spec và PROGRESS.
+
+ASSUMED: mặc định #30–#33 đã ghi rõ, không có blocker. NOT TESTED: CI remote (chưa push), review độc lập, S3/MinIO runtime (hoãn theo quyết định #8), worker Redis trong process thật, benchmark production và automated dependency vulnerability audit. Frontend/E2E không bị ảnh hưởng nên không chạy lại. Khoảng crash giữa commit DB và publish chưa có outbox/reconciliation trong phạm vi T07; xem #33 trước production. Pipeline CV thật thuộc T10. Chờ `Review T07`, CI xanh và merge; chưa chuyển sang `done`.
 
 ## T06 · 2026-11-08 · review
 
