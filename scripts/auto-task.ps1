@@ -14,6 +14,9 @@ Ví dụ:
   - Task blocked, kiểm tra lỗi, CI đỏ, hoặc hết số vòng sửa: dừng ngay.
   Bỏ qua các điểm dừng mốc bằng -IgnoreMilestones (không bỏ qua được task nhạy cảm).
 
+Màn hình chỉ hiện các dòng trạng thái; toàn bộ output của Codex/Claude nằm trong file log
+(var/auto-task/). Muốn xem trực tiếp khi chạy, thêm -ShowAgentOutput.
+
 Yêu cầu: codex và claude CLI đã đăng nhập; Docker đang chạy; repo sạch.
 Khuyên dùng GitHub CLI để đợi CI:  winget install GitHub.cli ; gh auth login
 Kiểm tra cờ CLI trên máy bạn:  codex exec --help ; claude --help
@@ -25,7 +28,8 @@ param(
   [int]$MaxRounds = 3,
   [switch]$NoMerge,
   [switch]$SkipImplement,
-  [switch]$IgnoreMilestones
+  [switch]$IgnoreMilestones,
+  [switch]$ShowAgentOutput
 )
 # 'Continue': git/gh ghi tiến trình ra stderr; Windows PowerShell 5.1 coi đó là lỗi nếu đặt 'Stop'.
 # Mọi lỗi thật được kiểm tra bằng `$LASTEXITCODE và dừng bằng throw.
@@ -74,7 +78,17 @@ function Say($msg, $color = 'Cyan') {
   Write-Host $line -ForegroundColor $color
   Add-Content -Path $log -Value $line -Encoding utf8
 }
-function Invoke-Git { git @args 2>&1 | Tee-Object -FilePath $log -Append | Out-Null; if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') lỗi. Xem $log" } }
+# Ghi output của lệnh ngoài vào log (dạng chữ thường, không có "RemoteException"),
+# chỉ in ra màn hình khi có -ShowAgentOutput.
+function Write-ToolOutput {
+  param([Parameter(ValueFromPipeline = $true)]$Line)
+  process {
+    $text = "$Line"
+    Add-Content -Path $log -Value $text -Encoding utf8
+    if ($ShowAgentOutput) { Write-Host $text -ForegroundColor DarkGray }
+  }
+}
+function Invoke-Git { git @args 2>&1 | ForEach-Object { Add-Content -Path $log -Value "$_" -Encoding utf8 }; if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') lỗi. Xem $log" } }
 
 function Assert-Clean([string]$why) {
   $dirty = git status --porcelain
@@ -89,14 +103,15 @@ function Sync-Main {
 function Invoke-Codex([string]$prompt) {
   Say "Codex: $prompt"
   # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
-  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Tee-Object -FilePath $log -Append | Out-Host
+  $prompt | codex exec --approve-for-me -C $root - 2>&1 | Write-ToolOutput
   if ($LASTEXITCODE -ne 0) { throw "Codex lỗi (exit $LASTEXITCODE). Xem $log" }
+  Say "  Codex xong (chi tiết trong log)." 'DarkGray'
 }
 
 function Invoke-ClaudeReview([string]$task) {
   Say "Claude Code: Review $task"
   claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
-    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Tee-Object -FilePath $log -Append | Out-Host
+    --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Write-ToolOutput
   if ($LASTEXITCODE -ne 0) { throw "Claude Code lỗi (exit $LASTEXITCODE). Xem $log" }
   $changed = git status --porcelain | Where-Object { $_ -notmatch "tasks/reviews/$task\.md" }
   if ($changed) { throw "Reviewer đã sửa file ngoài báo cáo, dừng lại để bạn kiểm tra:`n$changed" }
@@ -137,7 +152,7 @@ function Invoke-Checks {
   foreach ($g in $groups) {
     Push-Location $g[0]
     foreach ($cmd in $g[1]) {
-      Invoke-Expression "$cmd 2>&1" | Tee-Object -FilePath $log -Append | Out-Null
+      Invoke-Expression "$cmd 2>&1" | ForEach-Object { Add-Content -Path $log -Value "$_" -Encoding utf8 }
       if ($LASTEXITCODE -ne 0) { Say "  LỖI: $($g[0]) > $cmd" 'Red'; $ok = $false } else { Say "  ok: $($g[0]) > $cmd" 'DarkGray' }
     }
     Pop-Location
@@ -160,7 +175,7 @@ function Wait-CI([string]$branch) {
     $runId = ($runs | Where-Object { $_.headSha -eq $sha } | Select-Object -First 1).databaseId
   }
   if (-not $runId) { Say 'Không thấy lần chạy CI nào sau 5 phút.' 'Red'; return $false }
-  gh run watch $runId --exit-status --interval 15 2>&1 | Tee-Object -FilePath $log -Append | Out-Null
+  gh run watch $runId --exit-status --interval 15 2>&1 | ForEach-Object { Add-Content -Path $log -Value "$_" -Encoding utf8 }
   return ($LASTEXITCODE -eq 0)
 }
 
