@@ -49,12 +49,43 @@ describe("API client", () => {
     expect(document.cookie).not.toContain("synthetic-explicit");
   });
 
-  it("allows login without a CSRF cookie and handles malformed cookie encoding", async () => {
+  it("handles malformed cookie encoding without inventing a CSRF value", async () => {
     document.cookie = "csrf_token=%broken; path=/";
     expect(getCsrfToken()).toBeUndefined();
     const fetchMock = mockResponse({});
     await api("/auth/login", { method: "POST" });
     expect(new Headers(fetchMock.mock.calls[0][1].headers).has("X-CSRF-Token")).toBe(false);
+  });
+
+  it("refreshes once for concurrent 401s and retries with the rotated CSRF", async () => {
+    document.cookie = "csrf_token=synthetic-before; path=/";
+    let count = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith("/auth/refresh")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        document.cookie = "csrf_token=synthetic-after; path=/";
+        return Response.json({});
+      }
+      count += 1;
+      return count <= 2 ? Response.json({}, { status: 401 }) : Response.json({ ok: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await Promise.all([api("/jobs", { method: "POST" }), api("/jobs", { method: "POST" })]);
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/auth/refresh"))).toHaveLength(1);
+    expect(new Headers(fetchMock.mock.calls.at(-1)![1].headers).get("X-CSRF-Token")).toBe(
+      "synthetic-after",
+    );
+  });
+
+  it("reports revoked sessions and never loops refreshing", async () => {
+    document.cookie = "csrf_token=synthetic-csrf; path=/";
+    const expired = vi.fn();
+    window.addEventListener("auth:unauthorized", expired);
+    const fetchMock = mockResponse({}, 401);
+    await expect(api("/jobs")).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(expired).toHaveBeenCalledOnce();
+    window.removeEventListener("auth:unauthorized", expired);
   });
 
   it("preserves custom headers, FormData boundaries and cancellation signals", async () => {

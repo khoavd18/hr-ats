@@ -1,6 +1,6 @@
 # 03 · API
 
-Base `/api/v1`. JSON, xác thực bằng cookie HttpOnly chứa JWT (access 30 phút, refresh 7 ngày). Mọi endpoint (trừ login, health) yêu cầu đăng nhập. Quyền theo `07-security-privacy.md`. OpenAPI tự sinh tại `/docs` (chỉ bật khi `APP_ENV != prod`).
+Base `/api/v1`. JSON, xác thực bằng cookie HttpOnly chứa JWT (access 30 phút, refresh 7 ngày). Mọi endpoint yêu cầu đăng nhập, trừ health, login và bước lấy CSRF trước đăng nhập; refresh/logout xác thực bằng refresh cookie. Quyền theo `07-security-privacy.md`. OpenAPI tự sinh tại `/docs` (chỉ bật khi `APP_ENV != prod`).
 
 ## Hệ thống
 - `GET /health` → HTTP 200 `{"status":"ok","db":"ok","redis":"ok"}` khi truy vấn DB và Redis ping đều thành công. Nếu một trong hai không khả dụng: HTTP 503 `{"error":{"code":"SERVICE_UNAVAILABLE","message":"Dịch vụ tạm thời không khả dụng."}}`; không trả lỗi kết nối nội bộ.
@@ -14,6 +14,19 @@ Các lỗi dùng `{"error":{"code":"...","message":"<tiếng Việt>"}}`: `AppEr
 - `POST /auth/login` {email, password} · `POST /auth/logout` · `POST /auth/refresh` · `GET /auth/me`
 - `POST /auth/change-password`
 - `GET/POST /users`, `PATCH /users/{id}` (admin): tạo, đổi vai trò, khoá
+
+### Contract chi tiết T04
+
+- `GET /auth/csrf` → 204, cấp/giữ cookie đọc được `csrf_token` trước đăng nhập. Mọi POST/PATCH/PUT/DELETE, kể cả login, cần header `X-CSRF-Token` trùng cookie có chữ ký hợp lệ. Có header `Origin` thì phải đúng `FRONTEND_ORIGIN`.
+- Login nhận `{email, password}`, chuẩn hoá email trim/lowercase; thành công 200 trả user public và cấp `access_token`, `refresh_token`, `csrf_token`. Refresh cũng trả user và xoay cả ba cookie; token cũ bị thu hồi. Me trả user public. Cookie host-only, `Path=/`, `SameSite=Lax`, `Secure` khi prod; access/refresh có `HttpOnly`. Phản hồi xác thực dùng `Cache-Control: no-store`.
+- User public: `{id, email, full_name, role, is_active, last_login_at, created_at, updated_at}`. Không trả `password_hash`, số lần sai, thời điểm khoá tạm hoặc phiên bản xác thực.
+- Đăng nhập sai/tài khoản không tồn tại/bị vô hiệu hoá → 401 `INVALID_CREDENTIALS` cùng thông báo; lần sai thứ 5 và trong 15 phút khoá → 423 `ACCOUNT_LOCKED`. Đăng nhập đúng sau thời gian khoá hoặc trước lần sai thứ 5 đặt bộ đếm về 0. Lỗi JWT/phiên bị thu hồi → 401 `UNAUTHORIZED`; thiếu/sai CSRF → 403 `CSRF_INVALID`.
+- `POST /auth/change-password` nhận `{current_password, new_password}`. Sai mật khẩu hiện tại → 400 `INVALID_CREDENTIALS`; thành công → 204, thu hồi phiên và xoá cookie. Logout → 204, thu hồi phiên và xoá cookie; vẫn dùng được khi access đã hết hạn.
+- `GET /users?page=1&page_size=20` (tối đa 100) → 200 `{items: [user], total}` theo created_at/id, gồm cả tài khoản bị khoá. `POST /users` nhận `{email, full_name, role, password}` → 201 user; trùng email → 409 `EMAIL_EXISTS`.
+- `PATCH /users/{id}` nhận các trường `role`, `is_active` → 200 user; không nhận null/trường khác. Không có xoá user. Không cho admin tự bỏ quyền admin hoặc tự khoá → 409 `SELF_LOCKOUT`. Không tìm thấy → 404. Lead/recruiter quản lý user → 403 `FORBIDDEN`.
+- Mật khẩu mới/tạo mới: 12–128 ký tự, tên 1–200 ký tự sau trim, email tối đa 254 ký tự. Input không đúng schema → 422 `VALIDATION_ERROR` không phản chiếu dữ liệu đầu vào.
+
+Các mặc định kỹ thuật trên được ghi ở câu hỏi #18–#20; không bổ sung membership Job trước T05.
 
 ## Đơn vị tuyển
 - `GET/POST /hiring-units`, `PATCH /hiring-units/{id}` (admin, lead)

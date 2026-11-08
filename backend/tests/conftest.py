@@ -29,15 +29,18 @@ os.environ.update(
     APP_ENV="test",
     DATABASE_URL=TEST_URL.render_as_string(hide_password=False),
     REDIS_URL="redis://localhost:6379/15",
-    SECRET_KEY="t02-synthetic-signing-key",
+    SECRET_KEY="t04-synthetic-signing-key-for-tests-only",
     LLM_PROVIDER="fake",
     EMBEDDING_PROVIDER="fake",
     UV_OFFLINE="1",
 )
 get_settings.cache_clear()
 
+from app.core import security  # noqa: E402
 from app.core.db import build_engine, get_session  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.models.users import User, UserRole  # noqa: E402
+from tests.auth_helpers import PASSWORD  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -197,3 +200,16 @@ def empty_engine(admin_connection: psycopg.Connection) -> Iterator[Engine]:
     finally:
         engine.dispose()
         admin_connection.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+
+
+@pytest.fixture
+def account(db_session: Session) -> User:
+    user = User(
+        email="auth-user@example.invalid",
+        full_name="Tài khoản giả",
+        role=UserRole.admin,
+        password_hash=security.hash_password(PASSWORD),
+    )
+    db_session.add(user)
+    db_session.commit()
+    return user

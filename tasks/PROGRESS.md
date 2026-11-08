@@ -5,10 +5,46 @@
 | T01 | done | 2026-11-08 | Ba tiêu chí nghiệm thu đạt. MinIO (profile `s3`, tuỳ chọn) hoãn lại vì image không tải được; dùng `STORAGE_BACKEND=local`. Xem câu hỏi #8. |
 | T02 | done | 2026-11-08 | Review lần 2: APPROVE WITH NITS, 76 test pass trên Postgres/Redis thật (tasks/reviews/T02.md). Nhắc việc N1→T05, N2→T14, N3→T26. |
 | T03 | done | 2026-11-08 | VERIFIED: khung frontend Next.js 15, sáu trang tiếng Việt, API client và bộ component; 39 test pass, lint/typecheck/build sạch, smoke Chromium 1280px đạt. Chờ review và merge. |
-| T04–T33 | todo | | |
+| T04 | review | 2026-11-08 | VERIFIED: auth cookie JWT/CSRF, Argon2id, khoá đăng nhập, CLI admin và quản lý người dùng; 152 test backend, 47 test frontend, 2 E2E pass. Chờ Review T04 và merge. |
+| T05–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T04 · 2026-11-08 · review
+
+VERIFIED: triển khai T04 theo `tasks/_implement.md` trên nhánh `task/T04-auth-users-permissions`. T02/T03 đã `done`, working tree sạch trước khi bắt đầu. Hoàn thành triển khai, giữ trạng thái `review` cho đến khi được duyệt và merge vào main.
+
+- Model/migration `users`: UUID, enum role, email lowercase unique/CHECK, Argon2id, trạng thái hoạt động, thời gian đăng nhập, bộ đếm sai, khoá tạm và phiên bản thu hồi token. Chỉ bổ sung chi tiết kỹ thuật phục vụ auth, chưa tạo bảng nghiệp vụ T05.
+- API login/me/refresh/logout/change-password, bootstrap CSRF và list/create/patch users. JWT HS256 access 30 phút/refresh 7 ngày, cookie HttpOnly/SameSite=Lax/Secure khi prod; CSRF double-submit có chữ ký và gắn với phiên. Thu hồi token đã sao chép khi logout/đổi quyền/khoá/đổi mật khẩu; refresh chống replay. Khoá 15 phút sau 5 lần sai, cập nhật có row lock. Phiên bản cấp JWT được chụp trước commit để tránh nhận nhầm phiên đồng thời.
+- `authorize(user, action, resource)` kiểm ma trận vai trò, mặc định từ chối; interface owner/member cho T05. Admin quản lý user, không cho tự khoá/tự bỏ quyền; CLI tạo admin hỏi mật khẩu hai lần, không in thông tin đăng nhập. Quản lý user có advisory transaction lock trước row lock actor để tránh deadlock khi hai admin sửa nhau.
+- UI `/login`, bảo vệ route, hiển thị tên/đăng xuất, admin quản lý user tại `/settings` (phân trang, tạo, đổi vai trò, khoá/mở khoá có xác nhận). Recruiter không thấy Cài đặt và bị chuyển về Tổng quan khi mở URL trực tiếp; lead không có màn Người dùng. Tất cả chuỗi mới ở `vi.ts`; lỗi không phản chiếu message server. API client gộp refresh trong cùng tab và thử lại một lần; xoá query cache khi đổi tài khoản/đăng xuất.
+- Cập nhật contract/spec 02/03/05/07/08, câu hỏi #18–#20, hướng dẫn CLI và nghiệm thu bằng DB tạm trong README. Không thêm dependency, không đổi stack, không sửa skill thư viện.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| API đăng nhập đúng/sai, khoá sau 5 lần, refresh, logout, recruiter `/users` 403, thiếu CSRF 403 | VERIFIED — đạt | `uv run pytest`: **152 passed**, gồm auth/users/concurrency; thêm bảng quyền, CLI, JWT hết hạn/sai loại/sai chữ ký, CSRF giả/khác phiên và thu hồi token |
+| Đăng nhập UI vào được các trang; recruiter không thấy Cài đặt | VERIFIED — đạt | `npx playwright test`: **2 passed**, Chromium 1280×800 với API/Postgres thật trên DB tạm; admin đi đủ các trang, tạo/đổi quyền/khoá/mở khoá; recruiter `/users` 403, URL Cài đặt chuyển về Tổng quan; access mất được refresh, logout chặn truy cập lại |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ các dịch vụ dev sẵn có.
+- `uv sync`: pass, lockfile/dependency không thay đổi.
+- `uv run alembic upgrade head`: pass trên DB dev, head `0002_users`. Pytest còn kiểm chứng upgrade → downgrade → upgrade từ DB trống, giữ extension và model khớp schema.
+- `uv run pytest`: **152 passed, 1 warning**; không skip. Test khoá đăng nhập 5 request đồng thời không mất bộ đếm; 2 refresh cùng token chỉ 1 thành công. Dữ liệu giả, chỉ mạng localhost, không gọi LLM/embedding hay API bên ngoài.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass (50 file). `uv run mypy app`: pass (29 file).
+- `npm ci`: pass, 536 package, **0 vulnerabilities**; giữ cảnh báo deprecation upstream của ESLint/whatwg-encoding.
+- `npm run lint`, `npm run typecheck`: pass. `npm test`: **47 passed**; có guard, ẩn quyền Cài đặt, refresh đồng thời, lỗi thu hồi phiên và kiểm chuỗi JSX/i18n.
+- `npm run build` với `NEXT_TELEMETRY_DISABLED=1`: pass, gồm `/login` và `/settings` mới.
+- `uv run python -m tests.auth_browser_server`, `npm run dev`, `npx playwright test`: **2 passed**; server fixture migrate/seed tài khoản giả trên DB `hr_ats_test_t04_<uuid>`, API localhost:8000, frontend localhost:3000. Đã xem ảnh `var/t04-users.png`: tiếng Việt rõ, bảng 5 cột, đúng trạng thái/quyền, không tràn ở 1280px. Artifact nằm ngoài git.
+- Sau nghiệm thu đã dừng đúng hai server kiểm thử và xoá duy nhất DB tạm T04 đã xác minh; kiểm tra DB `hr_ats`/`hr_ats_test` vẫn còn. Dịch vụ Docker dev được giữ lại.
+- `git diff --check`: sạch. Tự review theo checklist `secure-code-review`: kiểm quyền tại service, validation input, cookie/JWT/CSRF, replay, transaction đồng thời, không log body/token/email/mật khẩu, không có PII/secret thật trong thay đổi. Regression test cho CSRF không hợp lệ và phiên bản JWT khi có phiên mới xen giữa; không còn finding đã xác nhận chưa xử lý trong phạm vi T04. Không thêm dependency; backend dependency audit riêng chưa chạy (không có công cụ audit trong manifest).
+
+ASSUMED: mặc định kỹ thuật #18–#20: một phiên hoạt động/tài khoản, refresh có thời hạn 7 ngày kể từ lần cấp gần nhất, password mới 12–128 ký tự, web/API cùng hostname, không tự khoá/bỏ quyền admin, chưa ghi audit nghiệp vụ trước T17. Không có blocker.
+
+NOT TESTED: GitHub Actions remote (chưa push), review độc lập, production HTTPS/reverse proxy và các luồng nghiệp vụ sau T04. Cảnh báo upstream Starlette TestClient/httpx vẫn giữ nguyên như T02, không tắt cảnh báo. Membership truy vấn DB thuộc T05; seed toàn hệ thống/E2E nghiệp vụ thuộc T18. Chờ `Review T04`, CI xanh và merge; không tự merge/push task nhạy cảm.
 
 ## T03 · 2026-11-08 · review
 

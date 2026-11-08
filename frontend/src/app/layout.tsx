@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { AppShell } from "@/components/app-shell";
+import { AuthGate } from "@/components/auth-gate";
 import { Providers } from "@/components/providers";
 import { t } from "@/i18n/vi";
 import "./globals.css";
@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="vi">
       <body>
         <Providers>
-          <AppShell>{children}</AppShell>
+          <AuthGate>{children}</AuthGate>
         </Providers>
       </body>
     </html>

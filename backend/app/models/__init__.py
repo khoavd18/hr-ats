@@ -1,5 +1,4 @@
-from sqlalchemy.orm import DeclarativeBase
+from app.models.base import Base
+from app.models.users import User, UserRole
 
-
-class Base(DeclarativeBase):
-    pass
+__all__ = ["Base", "User", "UserRole"]

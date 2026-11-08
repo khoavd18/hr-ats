@@ -83,6 +83,35 @@ Schema test được tạo hoàn toàn bằng Alembic và được đối chiế
 
 Log HTTP giữ method, route template, status và thời gian xử lý; log exception giữ file/dòng/hàm để chẩn đoán, đồng thời bỏ exception message, source và locals.
 
+### Đăng nhập và người dùng T04
+
+Tạo admin đầu tiên tại `backend/` sau khi chạy migration:
+
+```sh
+uv run python -m app.scripts.create_admin --email admin@example.invalid
+```
+
+Thay email mẫu bằng tài khoản nội bộ của bạn. CLI hỏi mật khẩu hai lần qua stdin ẩn ký tự; mật khẩu mới có 12–128 ký tự. Không truyền mật khẩu trong tham số lệnh. CLI không ghi email/mật khẩu ra log và không ghi đè tài khoản đã tồn tại.
+
+Mở <http://localhost:3000/login>, đăng nhập bằng tài khoản vừa tạo. Admin quản lý người dùng tại Cài đặt: tạo tài khoản, đổi vai trò, khoá/mở khoá với xác nhận. Lead không có quyền quản lý người dùng; recruiter không thấy Cài đặt. Không thể tự khoá hoặc tự bỏ quyền admin.
+
+Access/refresh JWT nằm trong cookie HttpOnly; không lưu trong localStorage. Mỗi tài khoản có một phiên hoạt động: đăng nhập mới, logout, đổi mật khẩu hoặc đổi quyền thu hồi phiên cũ; refresh xoay token. Khoá tạm 15 phút sau 5 lần sai. API client tự thử refresh một lần khi access hết hạn. `/config/public` cũng cần đăng nhập từ T04. Contract, giới hạn input và CSRF ở spec 03/07.
+
+Dev chạy web/API bằng cùng hostname `localhost` (khác cổng được); production dùng cùng hostname qua reverse proxy, `APP_ENV=prod` và HTTPS để cookie Secure hoạt động. Cấu hình `FRONTEND_ORIGIN` đúng origin của web.
+
+Nghiệm thu trình duyệt với DB tạm và tài khoản giả riêng, không dùng dữ liệu dev (cần dừng API ở cổng 8000 trước):
+
+```sh
+# Terminal 1, backend/
+uv run python -m tests.auth_browser_server
+# Terminal 2, frontend/
+npm run dev
+# Terminal 3, frontend/
+npx playwright test
+```
+
+Nếu chưa có Chromium: `npx playwright install chromium` (bước chuẩn bị môi trường, trước khi chạy test). Server kiểm thử chỉ bind localhost, tạo DB `hr_ats_test_t04_<uuid>` từ DB trống, migrate và seed tài khoản giả. Ctrl+C tại terminal server dừng API và xoá đúng DB tạm vừa tạo; giữ nguyên `hr_ats`/`hr_ats_test`. Không triển khai module kiểm thử này lên production. Playwright kiểm tra đăng nhập sai/đúng, điều hướng, quản lý người dùng, quyền recruiter, refresh và logout; chặn request trình duyệt ngoài localhost. Seed và E2E nghiệp vụ đầy đủ vẫn thuộc T18.
+
 ### Frontend T03
 
 Yêu cầu Node.js 22.14 trở lên (dev/CI dùng Node 22). Tại `frontend/`:
@@ -92,9 +121,9 @@ npm ci
 npm run dev
 ```
 
-Mở <http://localhost:3000>. VERIFIED (phạm vi code): có thanh bên và sáu trang rỗng `/`, `/jobs`, `/candidates`, `/tasks`, `/reports`, `/settings`; mỗi trang có hướng dẫn và liên kết điều hướng. Đăng nhập, giới hạn quyền Cài đặt và đăng xuất được triển khai ở T04; khung T03 không giả lập người dùng hay dữ liệu nghiệp vụ.
+Mở <http://localhost:3000>. VERIFIED (phạm vi code): có thanh bên và các trang `/`, `/jobs`, `/candidates`, `/tasks`, `/reports`, `/settings`. Các màn nghiệp vụ chưa triển khai có hướng dẫn và liên kết điều hướng; T04 thêm đăng nhập, quyền Cài đặt và quản lý người dùng như trên.
 
-Next.js đọc cấu hình riêng tại `frontend/.env.local`; có thể sao chép từ `frontend/.env.example`. `NEXT_PUBLIC_API_URL` mặc định là `http://localhost:8000/api/v1`, bao gồm tiền tố API. Đây là địa chỉ công khai, không đặt secret trong biến `NEXT_PUBLIC_*`. API client gửi cookie, nhận đường dẫn như `/jobs`; body JSON dùng `JSON.stringify`, upload dùng `FormData`. Request thay đổi dữ liệu gắn `X-CSRF-Token` khi có cookie `csrf_token` hoặc `csrfToken` truyền tường minh; T04 hoàn thiện việc cấp và kiểm tra token. Không lưu token đăng nhập trong localStorage.
+Next.js đọc cấu hình riêng tại `frontend/.env.local`; có thể sao chép từ `frontend/.env.example`. `NEXT_PUBLIC_API_URL` mặc định là `http://localhost:8000/api/v1`, bao gồm tiền tố API. Đây là địa chỉ công khai, không đặt secret trong biến `NEXT_PUBLIC_*`. API client gửi cookie, nhận đường dẫn như `/jobs`; body JSON dùng `JSON.stringify`, upload dùng `FormData`. Request thay đổi dữ liệu gắn `X-CSRF-Token` từ cookie `csrf_token` hoặc `csrfToken` truyền tường minh; màn đăng nhập lấy CSRF trước khi gửi mật khẩu. Không lưu token đăng nhập trong localStorage.
 
 Kiểm tra tại `frontend/`:
 

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.system import router
+from app.api import auth, system, users
 from app.core.config import Settings, get_settings
 from app.core.cors import ApiCORSMiddleware
 from app.core.errors import ErrorResponse, register_error_handlers
@@ -16,7 +16,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url="/docs" if settings.app_env != "prod" else None,
         redoc_url=None,
         openapi_url="/openapi.json" if settings.app_env != "prod" else None,
-        responses={status: {"model": ErrorResponse} for status in (404, 405, 422, 500)},
+        responses={
+            status: {"model": ErrorResponse} for status in (401, 403, 404, 405, 409, 422, 423, 500)
+        },
     )
     application.state.frontend_origin = settings.frontend_origin
     application.add_middleware(
@@ -29,7 +31,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(application)
     application.add_middleware(RequestLoggingMiddleware)
     application.dependency_overrides[get_settings] = lambda: settings
-    application.include_router(router, prefix="/api/v1")
+    for router in (system.router, auth.router, users.router):
+        application.include_router(router, prefix="/api/v1")
     return application
 
 

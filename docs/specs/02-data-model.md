@@ -36,6 +36,8 @@ Chuyển stage hợp lệ: từ bất kỳ stage "mở" (`new`→`offer`) sang s
 ### users
 `email (unique, lowercase)`, `full_name`, `role user_role`, `password_hash` (argon2), `is_active bool`, `last_login_at`.
 
+Chi tiết kỹ thuật T04: `failed_login_attempts int default 0` (không âm), `locked_until timestamptz null`, `auth_version int default 0` (không âm). `auth_version` dùng thu hồi cả access/refresh khi đăng nhập mới, refresh, logout, đổi mật khẩu, khoá sau 5 lần sai hoặc đổi role/is_active. Không có bảng session riêng; mỗi tài khoản có một phiên hoạt động. `email` unique và có CHECK lowercase; trường public không chứa hash hoặc trạng thái bảo mật nội bộ.
+
 ### hiring_units
 `name`, `kind hiring_unit_kind`, `contact_name`, `contact_email`, `notes`, `is_active`.
 
