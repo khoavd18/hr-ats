@@ -115,7 +115,7 @@ uv run python -m tests.auth_browser_server
 # Terminal 2, frontend/
 npm run dev
 # Terminal 3, frontend/
-npx playwright test
+npx playwright test e2e/auth.spec.ts
 ```
 
 Nếu chưa có Chromium: `npx playwright install chromium` (bước chuẩn bị môi trường, trước khi chạy test). Server kiểm thử chỉ bind localhost, tạo DB `hr_ats_test_t04_<uuid>` từ DB trống, migrate và seed tài khoản giả. Ctrl+C tại terminal server dừng API và xoá đúng DB tạm vừa tạo; giữ nguyên `hr_ats`/`hr_ats_test`. Không triển khai module kiểm thử này lên production. Playwright kiểm tra đăng nhập sai/đúng, điều hướng, quản lý người dùng, quyền recruiter, refresh và logout; chặn request trình duyệt ngoài localhost. Seed và E2E nghiệp vụ đầy đủ vẫn thuộc T18.
@@ -367,7 +367,28 @@ Khi sửa yêu cầu của việc đã có hồ sơ, hệ thống hỏi **Chấm
 sau khi lưu. Chỉ xác nhận mới xếp hàng chấm lại qua Celery T12; huỷ giữ kết quả
 hiện tại. Tạo vector dùng provider T11 đã cấu hình, mặc định fake trong dev/test.
 Xem contract và giới hạn input tại [spec 03](docs/specs/03-api.md).
-Chi tiết Job, tải CV và bảng xếp hạng được triển khai ở T14.
+Tên Job mở chi tiết; nút Sửa giữ form một trang.
+
+### Tải CV và xem xếp hạng (T14)
+
+Mở **Việc tuyển dụng → tên vị trí → Ứng viên**, kéo thả hoặc chọn tối đa 50 CV
+(PDF/DOCX/JPG/PNG, 10 MB mỗi file). Mỗi file có dòng tiến trình/lỗi riêng. Bảng
+tự cập nhật mỗi 3 giây, sắp theo mức AI rồi điểm nội bộ, chỉ hiện nhãn phù hợp;
+có tìm tên/chức danh/kỹ năng, lọc mức AI/bước và phân trang. File lỗi không cản
+file khác; file trùng không tạo thêm dữ liệu. File đã thuộc Job khác được thông
+báo chưa thêm vào vị trí này theo contract T07, không tự gắn lại.
+
+Nhấn tên hoặc dòng ứng viên mở drawer khung (chi tiết/feedback T15); Quy trình
+là khung chờ T20, Thông tin đọc yêu cầu và có link Sửa. Danh sách Job hiển thị
+số ứng viên từng mức. Thêm từ kho/Xuất Excel thuộc T16/T17.
+
+Kiểm E2E local với dữ liệu giả, không cần seed T18/API key: tại backend chạy
+`uv run python -m tests.ranking_browser_server`, tại frontend `npm run dev`, rồi
+`npx playwright test`. Fixture tạo DB/storage riêng, fake provider/eager Celery;
+bài T14 thực sự kéo 10 CV mẫu kèm hai file lỗi. Tạo file `var/t14-browser.stop`
+để dừng API graceful và dọn đúng DB/storage tạm; giữ DB dev/test và volume.
+Contract/filter/sort/quyền: [spec 03](docs/specs/03-api.md); các lệnh và phạm vi
+kiểm thử: [spec 08](docs/specs/08-testing-quality.md).
 
 ### Dữ liệu trong repo
 

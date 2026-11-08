@@ -93,6 +93,43 @@ Các mặc định kỹ thuật trên được ghi ở câu hỏi #18–#20; kh�
 
 ASSUMED: chi tiết chưa chốt được ghi ở câu hỏi #52–#54; không đổi schema DB/KPI.
 
+### Contract bảng xếp hạng T14
+
+- `GET /jobs/{id}/applications?page=1&page_size=20&stage=&ai_level=&q=&sort=ai_score`
+  cần đăng nhập, kiểm owner/member Job từ DB (admin/lead toàn bộ), kể cả danh sách
+  rỗng. Job thiếu → 404, ngoài quyền → 403, input sai → 422. `Cache-Control: no-store`.
+- Trả `{items, total, ai_counts}`. Mỗi item chỉ có `id`, `candidate_id`,
+  `candidate_name`, `skills`, `years_experience` (decimal dạng chuỗi hoặc null),
+  `stage`, `created_at`, `ai_status`, `ai_level`. Không trả liên hệ, text CV,
+  vector, điểm số, tiêu chí hay metadata provider trên bảng tóm tắt.
+- Chỉ lấy Application chưa xoá và Candidate chưa xoá/gộp/hết hạn (ngày theo TZ).
+  `stage`/`ai_level` theo enum; lọc mức AI chỉ lấy `ai_status=done`. q trim tối đa
+  200 ký tự, substring không phân biệt hoa thường trong tên/chức danh/kỹ năng;
+  `%`/`_` là ký tự thường, chưa bỏ dấu. `total` tính sau lọc, trước phân trang.
+- Sắp mặc định: các hồ sơ AI done theo high → medium → low → insufficient, rồi
+  hồ sơ chưa đánh giá/đánh giá lỗi; trong mỗi nhóm `ai_score DESC NULLS LAST`,
+  `created_at DESC`, `id ASC`. `sort=created_at` chỉ dùng hai khoá cuối.
+  page ≥1, page_size 1–100; sort khác bị từ chối. Phân trang offset có thể dịch
+  khi worker hoàn thành, thứ tự ổn định khi dữ liệu không đổi.
+- `ai_counts` luôn đủ bảy khoá `high, medium, low, insufficient, pending, running,
+  failed`, giá trị nguyên không âm, tính toàn Job trước bộ lọc/phân trang. Chỉ
+  done tính theo mức (done thiếu mức tính insufficient), trạng thái khác tính
+  theo ai_status. GET `/jobs` và mọi JobResponse bổ sung cùng `ai_counts`;
+  danh sách Job dùng một truy vấn nhóm cho cả trang theo scope T13.
+- GET `/cv-files/{id}` giữ metadata/quyền/audit T07, bổ sung `processing_error`
+  (null hoặc `{code: CV_PROCESSING_FAILED, message: <câu Việt cố định>}`),
+  `application_id`, `ai_status`. Hai trường Application chỉ có khi file gắn Job,
+  ứng viên còn hợp lệ và caller cũng có quyền Job gốc; quyền file thông qua Job
+  khác không tiết lộ Application của Job gốc. Không trả cột error thô từ DB.
+- Upload trùng SHA giữ contract T07, không tự gắn sang Job khác. UI thông báo
+  file đã có trong kho/chưa thêm vào vị trí này; không polling vô hạn hoặc báo
+  đã thêm thành công. Các thao tác thêm từ kho thuộc T16.
+- Log HTTP thành công cho GET health, trạng thái file và bảng xếp hạng ở DEBUG;
+  lỗi vẫn INFO. Khớp route template có hoặc không có tiền tố `/api/v1`, không
+  ghi tên file, raw path/query hoặc nội dung CV.
+
+ASSUMED: mặc định T14 ở câu hỏi #55–#57; không đổi schema DB hoặc công thức AI.
+
 ## CV & ứng viên
 - `POST /cv-files` multipart, nhiều file (PDF, DOCX, JPG, PNG; tối đa 10 MB/file, 50 file/lần), tuỳ chọn `job_id` → trả kết quả từng file theo contract T07 dưới đây
 - `GET /cv-files/{id}` (trạng thái xử lý) · `GET /cv-files/{id}/download` (ghi audit)

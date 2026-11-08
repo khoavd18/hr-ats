@@ -28,6 +28,7 @@ from app.schemas.jobs import (
     JobResponse,
 )
 from app.services.embeddings import embed_job
+from app.services.ranking import counts_for_jobs
 
 
 def list_units(session: Session, actor: User, page: int, page_size: int) -> HiringUnitList:
@@ -105,6 +106,7 @@ def response(session: Session, job: Job, *, needs_rescore: bool = False) -> JobR
             )
         ),
         needs_rescore=needs_rescore,
+        ai_counts=counts_for_jobs(session, [job.id])[job.id],
     )
 
 
@@ -151,6 +153,7 @@ def list_jobs(
         for row in session.scalars(select(User).where(User.id.in_({job.owner_id for job in rows})))
     }
     members: dict[UUID, list[UUID]] = {job.id: [] for job in rows}
+    counts = counts_for_jobs(session, [job.id for job in rows])
     for member in session.scalars(
         select(JobMember).where(JobMember.job_id.in_(members)).order_by(JobMember.user_id)
     ):
@@ -162,6 +165,7 @@ def list_jobs(
                 hiring_unit_name=units[job.hiring_unit_id],
                 owner_name=owners[job.owner_id],
                 member_ids=members[job.id],
+                ai_counts=counts[job.id],
             )
             for job in rows
         ],

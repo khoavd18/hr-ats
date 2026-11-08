@@ -5,22 +5,51 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.core.errors import AppError
+from app.core.errors import AppError, ErrorDetail
 from app.core.permissions import authorize
 from app.models.activity import AuditLog
+from app.models.applications import Application
 from app.models.candidates import Candidate, CvFile
 from app.models.enums import ActivityType, ProcessingStatus
 from app.models.jobs import Job
 from app.models.users import User
 from app.schemas.core import CvFileRead
-from app.schemas.cv_files import CvUploadResult
+from app.schemas.cv_files import CvFileStatusRead, CvUploadResult
 from app.services.activity import log_activity
 from app.services.cv_validation import validate_file
+from app.services.ranking import visible_applications
 from app.storage import Storage, StorageError
 from app.workers.tasks import process_cv_file
 
 logger = logging.getLogger(__name__)
 QUEUE_ERROR = "Không thể xếp hàng xử lý. Vui lòng tải lại tệp."
+
+
+def status_snapshot(session: Session, actor: User, cv_file: CvFile) -> CvFileStatusRead:
+    """Called only after get_file authorization; stored errors never cross this boundary."""
+    snapshot = CvFileStatusRead(**CvFileRead.model_validate(cv_file).model_dump())
+    if cv_file.status == ProcessingStatus.failed:
+        snapshot.processing_error = ErrorDetail(
+            code="CV_PROCESSING_FAILED",
+            message="Không thể đọc CV. Vui lòng kiểm tra tệp và tải lại.",
+        )
+    if cv_file.job_id is not None and cv_file.candidate_id is not None:
+        # File access through another Job must not disclose this Job's Application.
+        try:
+            check_upload_scope(session, actor, cv_file.job_id)
+        except AppError:
+            return snapshot
+        row = session.execute(
+            visible_applications()
+            .where(
+                Application.job_id == cv_file.job_id,
+                Application.candidate_id == cv_file.candidate_id,
+            )
+            .with_only_columns(Application.id, Application.ai_status)
+        ).one_or_none()
+        if row is not None:
+            snapshot.application_id, snapshot.ai_status = row
+    return snapshot
 
 
 def check_upload_scope(session: Session, actor: User, job_id: UUID | None) -> None:

@@ -1,3 +1,5 @@
+import type { AiCounts } from "@/lib/ranking-types";
+
 export const jobStatuses = ["draft", "open", "on_hold", "closed"] as const;
 export type JobStatus = (typeof jobStatuses)[number];
 
@@ -24,6 +26,7 @@ export type Job = {
   opened_at: string | null;
   closed_at: string | null;
   needs_rescore: boolean;
+  ai_counts?: AiCounts;
 };
 
 export type HiringUnit = {

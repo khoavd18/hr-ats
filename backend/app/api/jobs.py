@@ -1,10 +1,10 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.dependencies import DB, Config, CurrentUser
-from app.models.enums import JobStatus
+from app.models.enums import AiLevel, ApplicationStage, JobStatus
 from app.schemas.core import HiringUnitRead
 from app.schemas.jobs import (
     HiringUnitCreate,
@@ -17,7 +17,8 @@ from app.schemas.jobs import (
     JobPatch,
     JobResponse,
 )
-from app.services import jobs
+from app.schemas.ranking import ApplicationRanking
+from app.services import jobs, ranking
 
 
 def no_store(response: Response) -> None:
@@ -70,6 +71,23 @@ def create_job(data: JobCreate, session: DB, actor: CurrentUser, settings: Confi
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 def get_job(job_id: UUID, session: DB, actor: CurrentUser):
     return jobs.response(session, jobs.get_job(session, actor, job_id))
+
+
+@router.get("/jobs/{job_id}/applications", response_model=ApplicationRanking)
+def list_applications(
+    job_id: UUID,
+    session: DB,
+    actor: CurrentUser,
+    page: Page = 1,
+    page_size: PageSize = 20,
+    stage: ApplicationStage | None = None,
+    ai_level: AiLevel | None = None,
+    q: Annotated[str, Query(max_length=200)] = "",
+    sort: Literal["ai_score", "created_at"] = "ai_score",
+):
+    return ranking.list_applications(
+        session, actor, job_id, page, page_size, stage, ai_level, q, sort
+    )
 
 
 @router.patch("/jobs/{job_id}", response_model=JobResponse)

@@ -115,7 +115,34 @@ ngoài hoặc đổi schema/dependency. Có thể dùng browser fixture T04 đ�
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.
 
+## Kiểm thử T14
+
+T14 thêm `tests/api/test_ranking.py` trong `uv run pytest`: quyền owner/member/
+thu hồi membership kể cả danh sách rỗng, input/phân trang/q literal/filter/sort,
+thống kê đồng nhất với danh sách Job, bỏ hồ sơ đã xoá/gộp/hết hạn, snapshot file
+không lộ lỗi DB hoặc trạng thái Application khác quyền. Batch 10 PDF/DOCX giả từ
+bộ T06 qua storage/extract/parse/ẩn danh/embedding/score FakeLLM, kèm executable
+và PDF hỏng: bảng đúng 10 dòng (3 high, 1 medium, 6 low), file lỗi riêng
+và file sau vẫn hoàn tất. Kiểm log polling thành công DEBUG, lỗi INFO.
+
+Vitest `job-detail.test.tsx` kiểm bảng sáu cột, filter, drawer/Escape/trả focus,
+upload FormData/index, lỗi Việt đúng tên file, polling thật mỗi 3 giây qua ba
+trạng thái, retry lỗi trạng thái riêng, trùng Job khác và giới hạn 50 file.
+HTTP boundary được mock, không mạng ngoài. E2E `job-ranking.spec.ts` kéo thả
+10 CV giả và hai file lỗi bằng DataTransfer trên API thật/FakeLLM, kiểm thứ tự,
+filter/rỗng/drawer/counts ở 1280px; giữ E2E auth T04, tài khoản ranking riêng.
+
+Để chạy toàn bộ E2E trước seed T18: tại backend dùng
+`uv run python -m tests.ranking_browser_server`, tại frontend `npm run dev`, rồi
+lệnh chuẩn `npx playwright test`. Fixture chỉ dùng PostgreSQL localhost, tạo DB
+`hr_ats_test_t14_<uuid>` và storage tạm, migrate bằng Alembic, eager Celery và fake
+provider, chặn request browser ngoài localhost. Tạo file `var/t14-browser.stop`
+ở repo root để dừng graceful và tự dọn đúng DB/storage của lượt chạy; giữ DB dev,
+DB test và volume. `tests.auth_browser_server` T04 vẫn dùng riêng cho auth E2E;
+fixture T14 hỗ trợ cả ba bài. Không đổi schema, dependency hay ngoại lệ OCR.
+
 ## Definition of Done cho mỗi task
+
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.
 2. Có test cho logic mới (unit cho services/ai, API test cho endpoint); test cũ vẫn pass.
 3. Lint và typecheck sạch.
