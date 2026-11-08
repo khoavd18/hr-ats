@@ -9,10 +9,64 @@
 | T05 | done | 2026-11-08 | VERIFIED: 10 bảng lõi, migration/rollback, full-text không dấu, HNSW cosine, schema đọc, quyền DB owner/member, activity và che PII. 225 test backend pass; Ruff/mypy sạch. Chờ Review T05 và merge. |
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
 | T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
-| T08–T33 | todo | | |
+| T08 | review | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
+| T09–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T08 · 2026-11-08 · review · Fix round 1
+
+VERIFIED: đọc `tasks/reviews/T08.md` (APPROVE), thực hiện `tasks/_fix.md` trên nhánh
+T08. `gh run view 42471694355 --log-failed` phát hiện attempt 1 lỗi HTTP 504 khi tải
+uv; chạy lại job bằng `gh run rerun 42471694355 --failed` qua setup nhưng attempt 2
+lộ lỗi mypy Linux: `subprocess.CREATE_NO_WINDOW` không có trên nền tảng đó.
+
+Sửa `backend/app/ai/extract.py` dùng nhánh `if sys.platform == "win32"` được mypy
+nhận diện, giữ cửa sổ OCR ẩn trên Windows và `creationflags=0` trên Linux. Tái hiện
+lỗi bằng mypy Linux offline trước sửa; sau sửa mypy Linux/Windows đều pass 51 file.
+Không bỏ kiểm tra type hay thay test. `uv sync --frozen`, migration và Ruff cho
+backend/eval pass; backend Windows **407 passed/12 skipped** (không có Tesseract), chạy
+lại test T08 sau sửa **109 passed/12 skipped**. Container offline có Tesseract thật
+chạy **121 passed/0 skipped** sau sửa. Cảnh báo Starlette/httpx #13 giữ nguyên.
+
+VERIFIED: [CI commit 7308023](https://github.com/khoavd18/hr-ats/actions/runs/42472261837)
+đã xanh cả backend/frontend. Backend **419 passed/0 skipped**, gồm OCR thật;
+lint/typecheck/migration pass. Frontend lint/typecheck/test/build pass. Chi tiết
+CI-1/CI-2 và quyết định từng finding F1/F2, lệnh kiểm chứng, ngoại lệ cache Windows:
+`tasks/reviews/T08.md`, mục Fix round 1. Giữ trạng thái `review` vì chưa merge.
+
+## T08 · 2026-11-08 · review
+
+VERIFIED: triển khai đúng T08 theo `tasks/_implement.md` trên nhánh `task/T08-text-extraction-redaction`; T02/T06 đã `done`, working tree sạch trước khi bắt đầu. Hoàn thành phần triển khai, giữ `review` đến khi được duyệt và merge vào main.
+
+- Thêm `app/ai/extract.py`: `ExtractResult(text, method, page_count)` dùng enum DB sẵn có. PDF lấy block/line/span bằng PyMuPDF, tìm gutter hình học trái → phải, giữ heading/footer bắc cột và tách block bị MuPDF gộp giữa cột. DOCX giữ thứ tự paragraph/bảng, gồm bảng lồng, ô merge không lặp và header/footer. Chuẩn hoá NFC, gộp khoảng trắng, giữ xuống dòng. DOCX không có bộ phân trang nên trả page_count=None, PDF số trang thật, ảnh 1.
+- Trang PDF dưới 50 ký tự render 300 DPI; ảnh JPEG/PNG dùng OCR local, xoay EXIF và flatten alpha lên nền trắng. Grayscale + median 3×3 giảm nhiễu scan. Tesseract nhận PNG qua stdin, trả text qua stdout; argv không có CV, không shell/file CV tạm, không log text/stderr, timeout hữu hạn. Thiếu executable báo đúng "Máy chủ chưa cài OCR"; OCR tắt/timeout/lỗi ngôn ngữ/file hỏng/rỗng có lỗi tiếng Việt bắt được. Caller T10 lưu trạng thái failed; chưa nối pipeline vào worker placeholder T07.
+- Tái sử dụng validation magic/MIME, giới hạn 10 MiB và kiểm ZIP/macro của T07 trước parse. Giới hạn 100 trang PDF/25 triệu pixel cho ảnh hoặc trang OCR, từ chối PDF mã hoá. Các lỗi parser/OCR không phản chiếu exception gốc; text không xuất trong repr của kết quả.
+- Thêm `app/ai/redact.py`: thay mọi email/SĐT bằng `[EMAIL]`/`[PHONE]`, trả email nguyên dạng và phone canonical theo thứ tự đầu tiên, bỏ trùng trong danh sách. Nhận 0/+84/0084, trunk 0, dấu cách/chấm/gạch/ngoặc, số quốc tế +/00; VN chuẩn hoá +84. Giữ ngày/tháng, số ngắn, phiên bản kỹ năng, không nối số qua xuống dòng. Chỉ che liên hệ; ẩn danh đầy đủ thuộc T11.
+- README có cài Tesseract Windows UB Mannheim + vie/eng, PATH và Docker apt; CI cài engine/vie (eng là dependency) trước pytest. Cập nhật spec 04/08 và mặc định #34–#36; không thêm dependency Python, schema/migration/API/UI/KPI hoặc dịch vụ mới, không sửa skill thư viện.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| CV hai cột không trộn dòng, DOCX bảng lấy được kỹ năng, scan trích email khi có Tesseract | VERIFIED — đạt | `test_extract_committed_digital_cvs_against_labels` trên toàn bộ 50 CV kỹ thuật số: nội dung và liên hệ/kỹ năng đúng nhãn; hai cột theo thứ tự email → skills → profile → experience → education. Test heading/footer và thứ tự insert xáo trộn bắt lỗi MuPDF gộp block. 10 PDF scan cùng hai ảnh PNG/JPEG trích đúng email nhãn bằng Tesseract 5.3.0 vie+eng trong container Linux tắt mạng, không skip |
+| Redact ít nhất 12 dạng SĐT/email, không còn chuỗi gốc | VERIFIED — đạt | 21 dạng SĐT + 8 dạng email trong `test_redact.py`, thêm bỏ trùng/idempotence/ngày/phiên bản/ranh giới và liên hệ liền nhau. So toàn bộ 50 CV kỹ thuật số extract → redact với email/phone nhãn; 10 scan cũng kiểm email đã che. Phone Việt Nam canonical +84, quốc tế giữ country code |
+
+### Lệnh kiểm chứng
+
+- `docker compose up -d db redis mailpit`: pass, giữ các dịch vụ/volume dev sẵn có.
+- `uv sync` tại backend: pass, 74 package resolve/73 package kiểm tra, không đổi manifest/lockfile. `uv run alembic upgrade head`: pass; không đổi migration, head vẫn `0003_core_data_model`. Bộ migration trên DB trống/schema comparison trong pytest vẫn pass.
+- `uv run pytest`: **407 passed, 12 skipped, 1 warning**, 419 test thu thập. 12 skip là test OCR thật vì Windows không có executable Tesseract, đúng ngoại lệ T08; không skip/xoá test cũ. Gồm 298 test cũ vẫn pass, 109 test T08 không cần executable. PostgreSQL/Redis local thật, provider fake và fixture chặn mạng ngoài.
+- Chuẩn bị image kiểm thử `hr-ats-t08-ocr` từ image uv/Python 3.12 có sẵn, chỉ copy manifest/lockfile và cài engine vie/eng/dependency (giai đoạn chuẩn bị có mạng). Dockerfile/script thăm dò ở `var/t08-ocr-build/`, `var/t08-ocr-probe.py` được gitignore; không thêm service/image triển khai vào repo.
+- `docker run --rm --network none --mount type=bind,source=D:/code/tool/hr-ats,target=/workspace,readonly -w /workspace/backend -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/t08.coverage hr-ats-t08-ocr uv run --no-sync pytest tests/unit/test_extract.py tests/unit/test_redact.py -q -o cache_dir=/tmp/pytest-cache --cov=app.ai --cov-report=term-missing`: **121 passed, 1 warning**, không skip; Tesseract 5.3.0, Python 3.12.12, repo chỉ đọc, container không có mạng. Coverage dòng/nhánh phần mới: tổng **95%**, extract **94%**, redact **100%**; không đặt ngưỡng coverage mới.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 83 file đã format. `uv run mypy app`: pass, 51 source file. `uv run ruff check ../eval`, `uv run ruff format --check ../eval`: pass, 4 file; fixture/generator không đổi.
+- Các lượt trung gian: test mới phát hiện MuPDF gộp cột, đã sửa và giữ regression; kỳ vọng pixel ban đầu dùng round đã chỉnh thành ceil theo kích thước raster 300 DPI. OCR thật đầu tiên có ba email không khớp do nhiễu; thử các tiền xử lý ảnh local trên scan giả, median 3×3 giải quyết cả ba. Không thay nhãn, giảm điều kiện so email, bỏ test hoặc đoán ký tự từ fixture; bộ 121 test trên pass sau sửa.
+- Tự review diff theo `secure-code-review`: byte từ caller qua validation → parser → text cục bộ hoặc stdin OCR; không gửi mạng, truy vấn DB hay ghi file CV tạm. Ngôn ngữ dùng danh sách argv và regex giới hạn, lỗi/provider stderr được thay thông báo cố định, xử lý từng file không giữ lỗi thô. Toàn bộ dữ liệu test là giả. Không còn finding đã xác nhận chưa xử lý trong phạm vi T08; không thêm dependency nên không đổi bề mặt license. Audit lỗ hổng dependency riêng chưa chạy (chưa có pip-audit trong manifest).
+
+File chính: `backend/app/ai/{__init__,extract,redact}.py`, `backend/tests/unit/test_{extract,redact}.py`, `.github/workflows/ci.yml`, README, spec 04/08, open-questions, PROGRESS.
+
+ASSUMED: các mặc định #34–#36 đã ghi rõ, không có blocker. NOT TESTED: CI remote (chưa push), review độc lập, installer Windows, mọi bố cục/ngôn ngữ ngoài bộ giả và OCR production. Regex chưa hỗ trợ email quốc tế hoá hoặc email bị OCR tách; heuristic cột chưa bảo đảm mọi CV thực tế. Không đổi frontend nên không chạy lại frontend/E2E. Cảnh báo upstream Starlette/httpx giữ nguyên theo #13, không tắt. Chờ `Review T08`, CI xanh và merge; chưa chuyển task sang `done`.
 
 ## T07 · 2026-11-08 · review
 
