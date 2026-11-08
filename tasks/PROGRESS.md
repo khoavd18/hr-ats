@@ -10,7 +10,7 @@
 | T06 | done | 2026-11-08 | VERIFIED: bộ sinh offline theo seed, 60 CV giả/60 nhãn, 5 Job/300 nhãn phù hợp, 6 nghề/6 bố cục; 9,76 MB. Backend 248 test pass, Ruff/mypy sạch; 22 test dữ liệu pass trên Linux, byte khớp Windows. Chờ Review T06 và merge. |
 | T07 | done | 2026-11-08 | VERIFIED: storage local/S3, upload theo lô/chống trùng, quyền đọc/download/audit, ba queue Celery và worker tạm. 298 test backend pass (50 test T07), Ruff/mypy sạch; chờ Review T07, CI và merge. |
 | T08 | done | 2026-11-08 | VERIFIED: review APPROVE; Fix round 1 sửa mypy Linux ở nhánh CREATE_NO_WINDOW bằng sys.platform. CI commit 7308023 xanh cả backend/frontend (run 42472261837), 419 test backend pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ merge. |
-| T09 | review | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
+| T09 | done | 2026-11-08 | VERIFIED: bốn adapter JSON, schema parse/score, bốn prompt v1 tiếng Việt và CLI smoke; 136 test T09 pass, backend 543 pass/12 skip OCR Windows, Linux offline 257 pass/0 skip gồm OCR thật; Ruff/mypy/migration sạch. Chờ Review T09, CI và merge. |
 | T10–T33 | todo | | |
 
 ## Nhật ký
