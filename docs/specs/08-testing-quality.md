@@ -53,6 +53,22 @@ log không có input/output/key giả kể cả chưa có filter. CLI smoke test
 và Anthropic HTTP mock; provider thật chỉ chạy thủ công theo README. Không gọi
 mạng ngoài/key thật; không đổi schema DB/API/UI.
 
+T10 thêm `tests/unit/test_parse.py`, `test_cv_retention.py`,
+`tests/api/test_dedupe.py`, `test_cv_pipeline.py` và mở rộng `test_cv_worker.py`
+trong `uv run pytest`: ba lời gọi parse đồng thời bằng barrier, gộp output và
+schema sai retry đúng một lần; tháng lịch/cuối tháng/năm nhuận/cấu hình dương;
+email/SĐT/identity conflict/soft delete/tên + cosine PostgreSQL; upload 10 CV giả
+theo nhãn qua HTTP → storage thật → extract thật → FakeLLM → Candidate. Cùng lô
+có PDF hỏng, thêm CV khác định dạng cùng email, SHA-256 lặp và delivery lặp;
+kiểm mọi bước lỗi an toàn, rollback candidate update/DB constraint, hook nghi
+trùng không tự gộp, không sinh consent/application và không log/gửi liên hệ.
+Test quyền file riêng sau parse không mở file khác cùng người. DB tạm qua
+`empty_engine` kiểm commit trước publish, hai file khác hash cùng liên hệ, hai
+delivery cùng pending ID và crash/redelivery trên kết nối PostgreSQL độc lập.
+Các test upload/quyền T07 dùng kết quả extract giả rõ ràng cho fixture ảnh trắng/
+PDF ngắn; test T10 dùng file PDF/DOCX thật từ bộ giả đã commit, không mock extract.
+Không thay đổi migration, dependency, frontend hoặc điều kiện skip OCR của T08.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.

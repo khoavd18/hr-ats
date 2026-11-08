@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     imap_password: SecretStr = SecretStr("")
     imap_folder: str = "INBOX"
     hiring_unit_label: str = "Đơn vị tuyển"
-    data_retention_months: int = 24
+    data_retention_months: int = Field(default=24, ge=1)
     frontend_origin: str = "http://localhost:3000"
     tz: str = "Asia/Ho_Chi_Minh"
 

@@ -63,10 +63,53 @@ Gửi text đã che ở bước 2. Tách thành 3 lời gọi song song (theo pa
 
 Mỗi lời gọi trả JSON theo schema Pydantic trong `ai/schemas.py`; validate, nếu sai thì gọi lại một lần kèm thông báo lỗi validate; vẫn sai thì `failed`. Ngày tháng dạng `YYYY-MM` hoặc `null`; không bịa thông tin không có trong CV (prompt yêu cầu trả `null`).
 
+T10: `parse_cv(text, client=None, version=1)` trả `ParseResult(parsed: ParsedCV,
+model, prompt_version)`. `ParsedCV` gộp ba schema T09, không có email/phone;
+`ParseResult` không hiện dữ liệu parse trong repr. Ba prompt riêng T09 dùng cùng
+version, render trước rồi gọi qua `ThreadPoolExecutor(max_workers=3)`, không truyền
+session DB vào thread. Retry/validate do adapter T09 đảm nhiệm, không nhân thêm
+retry ở tầng parse; một phần lỗi thì không trả kết quả thiếu phần.
+
 ## 4. Chống trùng (`services/dedupe.py`)
 - Khớp tuyệt đối: cùng email hoặc cùng phone chuẩn hoá → gắn file vào ứng viên cũ, cập nhật thông tin mới nhất.
 - Không có email/phone: cosine embedding > 0.95 **và** tên chuẩn hoá (bỏ dấu, chữ thường) trùng → đánh dấu "có thể trùng" để người dùng gộp, không tự gộp.
 - Cùng `sha256` file → không xử lý lại, trả về bản ghi cũ.
+
+### Contract triển khai T10
+
+- SHA-256 vẫn xử lý tại upload T07, kiểm quyền trước khi trả record cũ, không gọi
+  lại parse. Worker khoá hàng `cv_files` đến cuối transaction; `done`/`failed` là
+  trạng thái kết thúc, delivery lặp không ghi lại. `pending`/`running` được xử lý.
+  ASSUMED (#43): `running` chỉ flush trong transaction nên bên đọc có thể vẫn thấy
+  `pending` đến khi commit. Crash rollback về trạng thái trước; delivery lại có
+  thể xử lý tiếp. Một savepoint bao toàn pipeline; lỗi rollback mọi thay đổi file/
+  Candidate dở dang rồi lưu riêng `failed` và lỗi tiếng Việt cố định của bước.
+  Không lưu/log exception gốc; lỗi OCR local giữ thông báo an toàn T08. DB mất
+  kết nối hoàn toàn vẫn cần phục hồi DB trước khi ghi được trạng thái.
+- File thành công lưu text gốc trích cục bộ, method/page_count, parsed_json không
+  liên hệ, parse_model và parse_prompt_version. Chỉ text đã che email/SĐT được
+  đưa vào cả ba prompt. Email lowercase, phone canonical từ bước 2 được ghi thẳng
+  Candidate; không lấy liên hệ do LLM sinh.
+- `match_candidate` xét mọi liên hệ trích được, bỏ Candidate đã xoá/đã gộp.
+  Một advisory transaction lock chung trong namespace riêng nối khâu tìm và ghi
+  Candidate để hai file khác hash đến đồng thời không tạo hai người cùng liên hệ.
+  Đây là mặc định đơn giản cho M1, chưa benchmark tải production. ASSUMED (#41):
+  khớp nhiều Candidate khác nhau → file failed để HR kiểm tra, không tự chọn/gộp.
+  Liên hệ đầu tiên là liên hệ chính khi cập nhật; trường null/mảng rỗng nghĩa là
+  chưa biết, giữ thông tin cũ; giá trị mới có dữ liệu thay thông tin cũ.
+- ASSUMED (#42): ngày nhận tính theo `TZ`; `retention_until` bằng ngày đó cộng
+  `DATA_RETENTION_MONTHS` tháng lịch (số dương, mặc định 24), cuối tháng giới hạn
+  về ngày cuối tháng đích. CV mới cùng người cập nhật lại thời hạn; không tự tạo
+  bằng chứng đồng ý, giữ consent đã có. Khi không trích được tên, parsed_json vẫn
+  null, Candidate dùng nhãn "Chưa xác định" vì cột full_name bắt buộc.
+- `anonymize_and_embed(session, candidate, text)` và
+  `create_and_score_application(session, candidate, cv_file)` là hook rỗng cho
+  T11/T12; T10 không tạo embedding/application/điểm hay đổi stage/gửi email.
+  ASSUMED (#44): chỉ tìm nghi trùng khi CV không có liên hệ và sau hook có vector
+  khác zero. Tên bỏ dấu/đ/hoa thường và gộp khoảng trắng; cosine > 0.95, chọn
+  gần nhất, hoà thì theo ID. Chỉ ghi UUID `possible_duplicate_of` vào parsed_json
+  của file mới, không gộp Candidate. Thiếu embedding thì chưa có kết luận nghi
+  trùng; T11 nối hook sẽ bật bước này.
 
 ## 5. Ẩn danh (`ai/anonymize.py`)
 Tạo `anonymized_text` từ text đã che: thay họ tên (cả dạng có dấu, không dấu, viết hoa) bằng `[TÊN]`; xoá dòng ngày sinh/tuổi, giới tính ("Nam", "Nữ", "Giới tính"), tình trạng hôn nhân, địa chỉ nhà, link mạng xã hội cá nhân. Có test với ít nhất 15 mẫu CV giả.

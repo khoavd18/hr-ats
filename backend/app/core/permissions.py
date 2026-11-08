@@ -70,7 +70,10 @@ def _has_cv_access(session: Session, user: User, resource: CvFile) -> bool:
             session, user, Candidate(id=candidate_id), "job_candidates.view"
         ):
             return True
-        return job_id is None and candidate_id is None and uploaded_by == user.id
+        # Parsing attaches a candidate even for a private, unassigned upload.
+        # Preserve the uploader's access to that file, without granting access
+        # to other files of the candidate or overriding an assigned Job's scope.
+        return job_id is None and uploaded_by == user.id
 
 
 def authorize(

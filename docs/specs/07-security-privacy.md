@@ -37,6 +37,7 @@ Kiểm tra quyền ở tầng service (hàm `authorize(user, action, resource)`)
 - CORS chỉ `FRONTEND_ORIGIN`.
 - Upload: kiểm MIME thật (magic bytes), giới hạn kích thước, từ chối file thực thi/macro (`.docm`).
 - T07: cả upload trùng, GET trạng thái và download đều kiểm quyền trong service qua `authorize`; kho CV tóm tắt không cấp quyền file gốc. File chưa gắn Job/Candidate chỉ uploader/admin/lead truy cập; file có Job/Candidate theo quyền Job upload hoặc application còn hiệu lực của ứng viên. Thu hồi membership không bị quyền uploader vượt qua. Không trả metadata bản ghi trùng nếu caller không có quyền, không phục hồi bản ghi soft delete.
+- T10 (#45): khi parse gắn Candidate vào file chưa có Job, uploader vẫn đọc đúng file đã tải. Không cấp quyền đọc các file khác cùng Candidate, chi tiết Candidate, đổi stage hay email; file có Job vẫn kiểm scope Job/application như trước. Candidate/file đã xoá vẫn bị chặn trong service. Test hai recruiter cùng email ứng viên chứng minh mỗi người chỉ đọc được file riêng khi chưa có Job.
 - T07: tên gốc chỉ lưu metadata (bỏ đường dẫn/ký tự điều khiển, tối đa 255 ký tự), không dùng cho path/header download hoặc log. Download dùng attachment tên theo UUID, nosniff, no-store; chỉ ghi audit sau khi đọc storage thành công và commit audit trước khi trả byte. GET metadata cũng có audit. DOCX kiểm content types và VBA, giới hạn cấu trúc/giải nén trước đọc ZIP; không extract ra filesystem. Chi tiết contract tại spec 03.
 - Render email: Jinja2 sandbox, escape HTML.
 - Không có secret trong repo; `.env` nằm trong `.gitignore`.
