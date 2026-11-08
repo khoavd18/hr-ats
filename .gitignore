@@ -16,6 +16,11 @@
 node_modules/
 .venv/
 __pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
 # Kết quả đánh giá sinh ra khi chạy
 eval/reports/*.json

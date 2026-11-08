@@ -1,0 +1,57 @@
+[project]
+name = "hr-ats-backend"
+version = "0.1.0"
+description = "Backend API for hr-ats"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "pydantic>=2,<3",
+  "pydantic-settings>=2,<3",
+  "sqlalchemy>=2.0,<2.1",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.13,<2",
+  "pgvector>=0.3,<1",
+  "celery>=5.4,<6",
+  "redis>=5,<8",
+  "httpx>=0.27,<1",
+  "python-multipart>=0.0.18,<1",
+  "argon2-cffi>=23,<26",
+  "pyjwt>=2.9,<3",
+  "jinja2>=3.1,<4",
+  "openpyxl>=3.1,<4",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8,<10",
+  "pytest-cov>=5,<8",
+  "ruff>=0.8,<1",
+  "mypy>=1.13,<2",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+source = ["app"]
+branch = true

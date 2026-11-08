@@ -55,11 +55,33 @@ Console: <http://localhost:9001>; S3 endpoint: <http://localhost:9000>. ASSUMED 
 
 ### Lệnh ứng dụng theo spec 08
 
-Khung backend/frontend có sau T02/T03. Các nhóm lệnh dưới đây được bổ sung theo task tương ứng; T01 chỉ triển khai hạ tầng:
+Backend T02 dùng Python 3.12 và `uv` (cần có lệnh `uv` trên `PATH`). Từ thư mục gốc repo, chạy:
+
+```sh
+cd backend
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+```
+
+API health: <http://localhost:8000/api/v1/health>; cấu hình nhãn: <http://localhost:8000/api/v1/config/public>; tài liệu API ở <http://localhost:8000/docs> khi `APP_ENV != prod`. Settings đọc `.env` tại gốc repo; đường dẫn storage tương đối cũng tính từ gốc repo. Downgrade migration nền giữ lại các extension đã được T01 cấp sẵn.
+
+Kiểm tra backend trong terminal khác, tại `backend/`:
+
+```sh
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy app
+```
+
+Test tự tạo schema trên DB local `hr_ats_test`, rollback từng test, dùng provider AI giả và chặn mạng ngoài. Test migration tạo/xoá DB tạm của riêng fixture để kiểm chứng trạng thái DB trống. Celery eager dùng broker trong bộ nhớ; test không cần API key thật.
+
+Các nhóm lệnh còn lại được bổ sung theo task tương ứng:
 
 | Nhóm lệnh | Thời điểm có |
 |---|---|
-| Backend: cài gói (`uv sync`), migration, chạy API, pytest, ruff, mypy | Có sau T02 |
+| Backend: cài gói, migration, chạy API, pytest, ruff, mypy | Có tại T02 |
 | Frontend: cài gói (`npm ci`), chạy dev, test, lint, typecheck | Có sau T03 |
 | Worker Celery | Có sau T02/T03, tại T07; Windows thêm `-P solo` |
 | Seed dev và E2E có dữ liệu | Có sau T02/T03, tại T18 |
