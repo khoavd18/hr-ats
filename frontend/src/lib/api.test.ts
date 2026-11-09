@@ -134,6 +134,20 @@ describe("API client", () => {
     });
   });
 
+  it.each([
+    ["INVALID_STAGE_TRANSITION", 409, "pipeline.invalidTransition"],
+    ["UNDO_NOT_AVAILABLE", 409, "pipeline.undoUnavailable"],
+    ["UNDO_FORBIDDEN", 403, "pipeline.undoForbidden"],
+    ["UNDO_EXPIRED", 409, "pipeline.undoExpired"],
+  ] as const)("translates pipeline error %s without raw server text", async (code, status, key) => {
+    mockResponse({ error: { code, message: "SYNTHETIC_PRIVATE_ERROR" } }, status);
+    await expect(api("/applications/fake/move", { method: "POST" })).rejects.toMatchObject({
+      status,
+      code,
+      message: t(key),
+    });
+  });
+
   it.each(["UNKNOWN_INTERNAL_CODE", "__proto__", "toString"])(
     "uses the HTTP fallback for unrecognized code %s",
     async (code) => {

@@ -24,6 +24,10 @@ const errorKeys: Record<string, TranslationKey> = {
   APPLICATION_EXISTS: "bank.alreadyAdded",
   INVALID_MERGE: "api.validation",
   EMBEDDING_FAILED: "api.unavailable",
+  INVALID_STAGE_TRANSITION: "pipeline.invalidTransition",
+  UNDO_NOT_AVAILABLE: "pipeline.undoUnavailable",
+  UNDO_FORBIDDEN: "pipeline.undoForbidden",
+  UNDO_EXPIRED: "pipeline.undoExpired",
 };
 
 const statusKeys: Record<number, TranslationKey> = {

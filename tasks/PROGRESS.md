@@ -21,10 +21,87 @@
 | T17 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1–F3; giữ cách escape an toàn của F4 theo review. Test export/migration PostgreSQL 8 pass, frontend 86 pass; lint/typecheck sạch. Xem nhật ký fix và tasks/reviews/T17.md. |
 | T18 | done | 2026-11-09 | VERIFIED: seed dev idempotent chạy pipeline thật/FakeLLM, README Demo nhanh, M1 smoke với Celery/Redis thật và 6 E2E pass. Backend 908 pass/12 skip OCR sẵn có, frontend 86 pass; lint/typecheck/build sạch. M1 hoàn thành về chức năng; chờ review, CI và merge. |
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
-| T20–T33 | todo | | |
+| T20 | review | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
+| T21–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T20 · 2026-11-09 · review
+
+VERIFIED: T19 đã done, working tree sạch khi bắt đầu và nhánh có sẵn là
+`task/T20-kanban-ui`. Triển khai đúng T20 theo `_implement.md`; giữ review cho
+đến khi được duyệt và merge main.
+
+- Tab Quy trình dùng `@dnd-kit/core` (đã chỉ định trong spec 01/T20). Bảy cột
+  mặc định, withdrawn trong Xem thêm, cuộn ngang riêng ở 1280px. Thẻ hiện tên,
+  mức/trạng thái AI, số ngày ở bước và tooltip thời điểm Việt Nam; nhấn tên mở
+  drawer T15, đóng trả focus. Tay nắm dùng chuột hoặc Space/Enter và mũi tên;
+  toàn bộ hướng dẫn/nhãn trình đọc màn hình và chuỗi mới nằm trong vi.ts.
+- Move cập nhật thẻ/count/timestamp trước response; lỗi khôi phục snapshot và
+  báo tiếng Việt. Khoá thao tác ghi/polling trong lúc chờ, cùng cột/Escape/thả
+  ngoài cột không gọi API. Rejected bắt chọn một trong sáu lý do T19, huỷ không
+  gửi; đang lưu không đóng/bấm lặp, lỗi giữ lý do. Không kéo tiếp từ stage kết
+  thúc; API T19 vẫn là nơi kiểm quyền và quy tắc chuyển bước.
+- Toast thành công có Hoàn tác POST /undo, cập nhật từ response và làm mới
+  pipeline/xếp hạng/lịch sử. Giữ board sau khi mở tab lần đầu để undo vẫn hoạt
+  động khi đổi tab; tab ẩn dừng polling. Mỗi hồ sơ chỉ giữ toast lần chuyển mới
+  nhất. Dọn toast có tên khi rời trang; response về sau unmount không khôi phục
+  dữ liệu cache hay hiển thị tên sau khi đăng xuất. Có test hồi quy.
+- Email slot chỉ mở dialog khi suggested_email khác null, giữ payload opaque
+  vì T19 chưa có contract nháp. Không render payload hoặc gửi email; form sửa
+  và xác nhận gửi thuộc T23. Cập nhật spec 05/08 và câu hỏi #72–#73, không đổi
+  schema, endpoint hoặc backend runtime.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Kéo thẻ gọi API đúng | VERIFIED — đạt | pipeline-board.test.tsx dùng DndContext/KeyboardSensor thật, kiểm POST/body một lần và thẻ đổi cột khi response còn chờ; E2E chuột trên API thật |
+| Lỗi API → thẻ về cột cũ và thông báo | VERIFIED — đạt | Test request chờ rồi reject kiểm tên/count/timestamp cũ, không lộ exception; E2E new→submitted nhận 409 và hiển thị lỗi Việt |
+| Hoàn tác hoạt động | VERIFIED — đạt | Component test POST undo và cập nhật cột/lịch sử, lỗi 24h không đổi thẻ; E2E đổi tab rồi undo, từ chối có lý do rồi undo/reload vẫn đúng |
+
+### Lệnh và kết quả
+
+- `npm install @dnd-kit/core`: lần đầu ENOTCACHED do cache-only sandbox; chạy
+  với quyền mạng và `--offline=false` thành công. Dependency thêm chỉ core và
+  hai dependency MIT của dnd-kit. `npm ci`: pass, 539 package; audit **0 lỗ hổng**.
+  Giữ warning deprecation có sẵn của whatwg-encoding/eslint, không đổi stack.
+- `npm test`: **101 passed / 12 files**, gồm 11 test board mới và 4 test dịch
+  mã lỗi pipeline. Vitest ban đầu bị sandbox Windows chặn spawn EPERM; chạy
+  với quyền tạo tiến trình thì pass. Giữ DndContext/sensor/Sonner thật; mock
+  API boundary, geometry và pointer capture còn thiếu của jsdom.
+- Lượt test đầu phát hiện toast undone dùng lại ID toast vừa bị Sonner đóng;
+  sửa code dùng ID mới, không nới assertion. Bài regression undo pass cùng bộ
+  cũ. `npm run lint`, `npm run typecheck`, `npm run build`: **pass**.
+- `docker compose up -d db redis`: pass sau khi cấp quyền Docker pipe.
+  `uv run python -m tests.ranking_browser_server`: pass trên DB/storage tạm,
+  migrate từ trống qua revision 0004, FakeLLM/FakeEmbedder/eager worker.
+- `npx playwright test pipeline.spec.ts`: **1 passed**, kiểm chuột/bàn phím,
+  reject/undo/rollback, menu/drawer/focus và không tràn trang. Lượt chuẩn bị đầu
+  sửa locator Playwright, rồi thay CV scan 0042 bằng DOCX giả 0043 vì Windows
+  thiếu OCR; không đổi điều kiện skip, dữ liệu gốc hoặc tiêu chí của test cũ.
+- `npx playwright test` với dev server: **4 passed / 3 failed** ở timeout điều
+  hướng các bài cũ. Log Next.js xác nhận compile lạnh route mất 6–8 giây, quá
+  assertion 5 giây. Dừng dev, `npm ci` và `npm run build`, chạy `npm run start`
+  rồi tạo lại fixture sạch: lệnh chuẩn `npx playwright test` **7 passed** với
+  6 worker trong 25,2 giây. Không tăng timeout, sửa hoặc bỏ bài test cũ.
+- Đã xem ảnh var/t20-pipeline.png và var/t20-rejection.png ở 1280px. Tự review
+  theo secure-code-review: giữ cookie/CSRF client, không log dữ liệu, render text
+  escape, không gửi email, dọn dữ liệu khi rời trang; audit dependency không có
+  finding. Ảnh/trace/runtime không track trong repo.
+- `git diff --check`: pass. `git add` bị từ chối tạo .git/index.lock do sandbox
+  chỉ đọc .git; theo ngoại lệ `_implement.md`, giữ nguyên nhánh và mọi thay đổi
+  trong working tree để runner commit. Chưa push/merge, chưa có kết quả CI/review
+  độc lập. Backend test/lint/mypy không chạy lại vì không sửa backend/schema;
+  migration và API thật được kiểm qua fixture E2E.
+
+### Câu hỏi / việc còn lại
+
+- ASSUMED #72: ngày tròn mỗi 24 giờ, cột withdrawn bật trong menu và thao tác
+  bàn phím; #73: slot giữ bản nháp opaque đến contract T23.
+- Chờ Review T20, CI và merge; runner cần commit `T20: implement pipeline kanban`.
+  Không có tiêu chí nghiệm thu T20 bị chặn.
 
 ## T19 · 2026-11-09 · review
 
