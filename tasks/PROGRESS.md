@@ -23,7 +23,7 @@
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
 | T21 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
-| T22 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
+| T22 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
 | T23–T33 | todo | | |
 
 ## Nhật ký
