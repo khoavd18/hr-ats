@@ -317,6 +317,35 @@ overflow; ảnh var/t21-recruitment.png không track. Chạy `npx playwright tes
 cùng các bài cũ, không request ngoài localhost. Dừng fixture bằng
 var/t14-browser.stop, chỉ dọn DB/storage do chính fixture vừa tạo.
 
+## Kiểm thử T22
+
+`tests/unit/test_email_render.py` kiểm đủ 10 biến, từng biến thiếu/null/trắng
+có lỗi Việt nêu tên, StrictUndefined/SandboxedEnvironment, script/HTML và giá
+trị biến được escape/không render lại, cú pháp nguy hiểm/call/filter/loop/include,
+giới hạn đầu vào/đầu ra/header, Markdown và năm mẫu/notice xử lý dữ liệu.
+`tests/api/test_email_templates.py` kiểm PostgreSQL, seed lặp giữ chỉnh sửa HR,
+hai vai trò quản lý/recruiter bị từ chối, auth/CSRF, CRUD ngừng dùng, unique key/
+confirmation CHECK, pagination, context giờ Việt Nam/lương 0, preview bản chưa
+lưu, eligibility/selector và không ghi message/đổi stage/gửi thư. Test migration
+T02 mở rộng head 0006, giữ upgrade→downgrade base→upgrade, offline SQL và
+compare_metadata không khác biệt. Tất cả trong lệnh chuẩn `uv run pytest`.
+
+Vitest `email-templates-settings.test.tsx` kiểm chèn ở vùng chọn/caret cả hai ô,
+tạo/lưu/ngừng dùng, validation/focus, preview chưa lưu, sandbox/CSP iframe,
+thiếu biến/retry giữ input, pending chặn đóng/bấm lặp, response muộn/unmount,
+trạng thái rỗng/lỗi/quyền. API client kiểm mã lỗi email thành câu Việt, bỏ
+raw server message. Chạy npm test/lint/typecheck/build theo lệnh chuẩn.
+
+E2E `email-templates.spec.ts` dùng API fixture
+`uv run python -m tests.ranking_browser_server`, production web `npm run start`
+sau build, tài khoản lead riêng browser-email-templates@example.invalid. Tạo
+Job/upload DOCX giả, mở tab mẫu, tạo/lưu/chèn biến, tìm/chọn đúng Application,
+kiểm iframe hiện script như text và lỗi thiếu lịch, đóng/mở giữ bản đã lưu,
+không đổi stage hoặc gọi endpoint message. Kiểm 1280px/overflow/lỗi JS, ảnh
+var/t22-email-templates.png gitignored; chạy cùng bộ cũ bằng
+`npx playwright test`. Chặn HTTP ngoài localhost; dừng fixture qua
+var/t14-browser.stop để chỉ dọn DB/storage của lượt kiểm thử.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.

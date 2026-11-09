@@ -23,10 +23,123 @@
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
 | T21 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
-| T22–T33 | todo | | |
+| T22 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
+| T23–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T22 · 2026-11-09 · review (Fix round 1 — CI)
+
+VERIFIED: theo `tasks/_fix.md`; review APPROVE WITH NITS, không có BLOCKER/MAJOR.
+Run GitHub CI `42591794171` tại `dd9829e` chỉ lỗi frontend Tests; backend đã xanh.
+Callback requestAnimationFrame của lần chèn nội dung có thể chạy sau lúc HR
+chuyển sang tiêu đề, kéo lại focus và khiến biến tiếp theo chèn sai ô. Lưu ô/
+caret bằng ref và khôi phục trong useLayoutEffect ngay sau commit draft.
+
+- VERIFIED: thêm regression giữ animation frame, tái hiện lỗi focus trước sửa;
+  sau sửa pass, gồm chuyển ô, bàn phím/Enter và gõ tiếp đúng caret. Test cũ giữ
+  nguyên, không đổi timeout, skip hoặc cấu hình CI.
+- VERIFIED: `npx vitest run src/components/email-templates-settings.test.tsx`:
+  **6 passed**; `npm test`: **116 passed / 14 files**, không skip.
+- VERIFIED: `npm run lint`, `npm run typecheck`, `npm run build` và
+  `git diff --check` đều pass. Chỉ sửa hai file component/test frontend.
+- VERIFIED: API fixture `uv run python -m tests.ranking_browser_server` migrate
+  DB tạm trống tới 0006, PostgreSQL thật/dữ liệu giả/FakeLLM; production web
+  `npm run start` và `npx playwright test email-templates.spec.ts`: **1 passed**.
+  Kiểm 1280px/script escape/lỗi Việt/không gửi thư/không đổi stage; đã xem ảnh
+  var/t22-email-templates.png. Không tràn ngang hoặc lỗi JS.
+- VERIFIED: F1 giữ Markdown đã được review chấp thuận theo spec 06; F2 giữ cách
+  lấy cùng get_settings vì chỉ khác phong cách. Chi tiết và bằng chứng trong
+  `tasks/reviews/T22.md`, mục Fix round 1. Không đổi contract/spec hoặc dependency.
+- VERIFIED: git add bị sandbox chặn `.git/index.lock`; theo ngoại lệ workflow
+  giữ thay đổi trong working tree để runner commit `T22: fix review findings`.
+  NOT TESTED: CI trên bản sửa chưa chạy vì chưa commit/push được. Giữ trạng thái
+  review tới khi CI xanh và merge, không đánh dấu done sớm.
+
+## T22 · 2026-11-09 · review
+
+VERIFIED: theo `tasks/_implement.md`; T19 đã done, working tree sạch khi bắt
+đầu và đang ở nhánh `task/T22-email-templates`. Thử git switch bị sandbox chặn
+`.git/index.lock`; tiếp tục trên nhánh hiện tại theo ngoại lệ workflow. Giữ
+trạng thái review cho tới khi được duyệt và merge.
+
+- VERIFIED: thêm EmailTemplate/EmailMessage và migration 0006 với enum/default/
+  FK/index/soft delete cho message, unique key và CHECK xác nhận. Migration
+  seed đúng năm mẫu mặc định; seed_catalog bổ sung bằng ON CONFLICT DO NOTHING,
+  giữ mọi chỉnh sửa/ngừng dùng của HR. cv_received có thông báo xử lý dữ liệu,
+  cách yêu cầu xoá và không thay thế bằng chứng đồng ý.
+- VERIFIED: render Jinja2 SandboxedEnvironment + StrictUndefined, chỉ 10 biến
+  chuỗi; chặn attribute/call/filter/loop/include và cú pháp tính toán trước
+  parse, không truyền ORM/callable/globals. Thiếu/null/trắng báo tên biến Việt;
+  kiểm giới hạn trước render và chặn xuống dòng tiêu đề. Markdown escape trước
+  HTML, chỉ p/br/strong/em/ul/li, không link/ảnh/raw HTML và không render lại
+  nội dung biến. Không có provider hoặc mạng bên ngoài trong kiểm thử.
+- VERIFIED: API GET/POST/PATCH và preview chỉ admin/lead, kiểm CSRF/Origin,
+  pagination/no-store, input whitelist và unique conflict. Ngừng dùng bằng
+  is_active=false, key bất biến; không xoá cứng. Selector chỉ tên/vị trí còn
+  hiệu lực; preview nhận bản đang soạn, kiểm Job/eligibility, không lưu message,
+  đổi stage hoặc gửi thư. Context dùng owner hồ sơ, lịch/offer mới nhất và
+  tên hiển thị SMTP_FROM; không điền thông tin giả còn thiếu.
+- VERIFIED: tab Mẫu email, hộp soạn tiếng Việt, tên/bước/tiêu đề/nội dung/tình
+  trạng; mã mới tự sinh. Mười nút chèn đúng selection/caret ở cả hai ô, tìm và
+  phân trang chọn hồ sơ preview. Iframe sandbox/CSP không quyền; lỗi giữ input,
+  khoá thao tác/đóng khi pending và huỷ/bỏ qua response muộn khi unmount.
+  Mọi chuỗi mới ở vi.ts, mã lỗi ánh xạ cục bộ không dùng raw server message.
+- VERIFIED: tự rà theo secure-code-review về quyền, CSRF, template injection,
+  output encoding, giới hạn tài nguyên, log/PII và phạm vi; đã bổ sung giới hạn
+  trước parse/render và dùng closeDisabled cho nút Đóng của Dialog. Không thêm
+  dependency hoặc service. NOT TESTED: review độc lập/CI và tải production.
+- ASSUMED: mặc định và giới hạn ở câu hỏi #78–#81; cập nhật spec 02/03/05/06/08.
+  Giữ whitelist 10 biến khi mẫu cần người phỏng vấn/hạn phản hồi/link cụ thể;
+  HR bổ sung nội dung, không tự bịa người/ngày/link. Gửi thư/đính kèm thuộc T23.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Render đủ biến | VERIFIED — đạt | test_all_ten_variables_and_plain_subject_markdown_body; test_context_uses_application_owner_real_business_fields_and_missing_values; năm mẫu render được |
+| Thiếu biến có lỗi Việt nêu tên | VERIFIED — đạt | test_missing_or_blank_variables_are_named_in_vietnamese: đủ 10 biến × missing/blank/null; API và E2E kiểm thiếu interview_time/offer_salary |
+| Nội dung có script bị escape | VERIFIED — đạt | test_scripts_and_context_values_are_escaped_and_never_rerendered; API preview và E2E iframe hiện script như text, không tạo script node |
+| Sandbox chặn thuộc tính nguy hiểm | VERIFIED — đạt | test_sandbox_rejects_attribute_calls_filters_code_and_unknown_variables: __class__/__mro__/call/filter/include/loop/computed syntax; API từ chối mẫu sai khi lưu |
+
+### Lệnh và kết quả
+
+- VERIFIED: `uv run pytest tests/unit/test_email_render.py tests/api/test_email_templates.py tests/api/test_database.py -q`:
+  **76 pass** trước khi nối UI; gồm upgrade→downgrade base→upgrade, SQL offline
+  và compare_metadata trên PostgreSQL thật. Cảnh báo cache pytest do sandbox.
+- VERIFIED: `uv run pytest`: **1121 passed, 12 skipped, 1 warning / 1133 collected**
+  trong 496,84 giây. Chỉ skip OCR T08 vì chưa cài Tesseract; cảnh báo Starlette/
+  httpx có sẵn. Không thêm skip, xoá test hoặc nới tiêu chí. Chạy với quyền được
+  duyệt để tránh khoá thư mục tạm Windows; cache uv ở var/uv-cache, offline.
+- VERIFIED: `uv run ruff check .`, `uv run ruff format --check .` (153 file),
+  `uv run mypy app` (92 file) pass; `uv run alembic upgrade head` nâng DB dev
+  0005→0006 thành công. Model/schema so khớp trong test migration.
+- VERIFIED: `npm test`: **115 pass / 14 file**; `npm run lint`,
+  `npm run typecheck`, `npm run build` pass. Lượt Vitest mặc định bị sandbox
+  chặn spawn EPERM; chạy lại với quyền được duyệt. Sửa lỗi import type và
+  assertion chọn nhiều nút Đóng; giữ kiểm tất cả nút đều disabled khi pending.
+- VERIFIED: `npx playwright test` lượt 8 worker: 6 pass, 3 timeout ở bài cũ
+  auth/profile/recruitment, T22 pass. Kiểm snapshot cho thấy request còn pending;
+  không đổi assertion/timeout. Khởi tạo lại fixture sạch, chạy
+  `npx playwright test --workers=1`: **9 pass / 1,4 phút**. T22 pass cả hai lượt.
+  Đã xem ảnh var/t22-email-templates.png ở 1280px; không overflow/lỗi JS.
+- VERIFIED: fixture API chạy bằng `uv run python -m tests.ranking_browser_server`,
+  web bằng `npm run start`; đã dừng cả hai, fixture tự xoá đúng DB/storage do
+  lượt chạy tạo, giữ DB dev/test và volume.
+- VERIFIED: `docker compose up -d db redis mailpit` xác nhận DB/Redis Running;
+  Mailpit lỗi bind 1025 do Windows giữ cổng (vấn đề có sẵn từ T21).
+  NOT TESTED: Mailpit runtime, không thuộc tiêu chí T22; test dùng outbox bộ nhớ.
+- VERIFIED: `git diff --check` sạch; thay đổi chỉ thuộc T22 và tài liệu contract.
+
+### Bàn giao
+
+VERIFIED: chức năng và tiêu chí đạt; còn review độc lập, CI và merge. Chỉ sau
+khi merge main mới đổi trạng thái done. `git add` và `git commit -m
+"T22: implement safe email templates and preview"` đều bị chặn tạo
+`.git/index.lock` (Permission denied). Theo ngoại lệ workflow, giữ toàn bộ
+thay đổi trong working tree trên `task/T22-email-templates`; runner cần stage
+và commit với thông điệp trên. Không sửa metadata Git hoặc push/merge.
 
 ## T21 · 2026-11-09 · fix round 1 · review
 

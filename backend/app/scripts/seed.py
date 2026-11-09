@@ -68,6 +68,9 @@ def eager_workers():
 def seed_catalog(session: Session) -> tuple[dict[str, User], list[Job]]:
     """Also used by the disposable E2E server, without importing any sample CVs."""
     require_local_demo(get_settings())
+    from app.services.email_templates import seed_templates
+
+    seed_templates(session)
     users = {}
     for login, role in DEV_USERS:
         email = f"dev-{login}@example.invalid"

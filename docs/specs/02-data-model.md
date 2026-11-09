@@ -147,6 +147,28 @@ upsert cùng transaction với activity. Contract chi tiết tại spec 03/T15.
 ### email_messages
 `application_id null`, `template_id null`, `to_email`, `cc jsonb`, `subject`, `body_html`, `status email_status`, `scheduled_for null`, `sent_at`, `error`, `created_by`, `message_id` (header SMTP).
 
+### Chi tiết triển khai T22
+
+Migration `0006_email_templates` thêm hai bảng trên và enum `email_status`.
+Template có RecordMixin, key unique tối đa 64 ký tự, name 200, subject 500,
+body text; stage dùng enum hiện có và nullable. Mặc định is_active=true,
+requires_confirmation=true; CHECK chỉ key=cv_received được phép có
+requires_confirmation=false. Key không đổi qua API; ngừng sử dụng bằng
+is_active=false, không xoá cứng. Mẫu không có dữ liệu ứng viên nên không thêm
+deleted_at; email_messages có deleted_at, cc mặc định [], CHECK JSONB array,
+status mặc định draft. Các FK không cascade; index application_id/template_id/
+created_by phục vụ lịch sử và lookup. Không mở endpoint ghi/gửi message ở T22.
+
+Migration seed năm mẫu với nội dung tiếng Việt được đóng băng trong revision;
+seed_catalog cũng thêm mẫu còn thiếu theo key (ON CONFLICT DO NOTHING), giữ
+nguyên mọi sửa đổi hoặc trạng thái ngừng sử dụng của HR. Chỉ cv_received mặc
+định không cần xác nhận; thông báo xử lý dữ liệu không tự sinh consent.
+
+Rollout: chạy `uv run alembic upgrade head` trước phiên bản mới; chỉ thêm bảng,
+không thay đổi dữ liệu nghiệp vụ cũ. Rollback chỉ sau khi dừng writer và backup
+hai bảng; downgrade xoá hai bảng/enum email_status và chỉ được kiểm trên DB tạm.
+Thời gian migration và tải production: NOT TESTED, chưa có quy mô được duyệt.
+
 ### inbound_emails
 `message_id unique`, `from_email`, `subject`, `received_at`, `attachment_count`, `processed_at`, `status`, `error`. Không lưu thân mail.
 

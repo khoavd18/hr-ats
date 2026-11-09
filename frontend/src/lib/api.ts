@@ -30,6 +30,19 @@ const errorKeys: Record<string, TranslationKey> = {
   UNDO_EXPIRED: "pipeline.undoExpired",
   PLACEMENT_EXISTS: "recruitment.placementExists",
   INVALID_OFFER_STATUS: "recruitment.invalidOfferStatus",
+  EMAIL_TEMPLATE_EXISTS: "emailTemplates.exists",
+  EMAIL_TEMPLATE_INVALID: "emailTemplates.invalid",
+  EMAIL_VARIABLE_UNKNOWN: "emailTemplates.unknownVariable",
+  EMAIL_MISSING_CANDIDATE_NAME: "emailTemplates.missing.candidate_name",
+  EMAIL_MISSING_JOB_TITLE: "emailTemplates.missing.job_title",
+  EMAIL_MISSING_HIRING_UNIT_NAME: "emailTemplates.missing.hiring_unit_name",
+  EMAIL_MISSING_INTERVIEW_TIME: "emailTemplates.missing.interview_time",
+  EMAIL_MISSING_INTERVIEW_LOCATION: "emailTemplates.missing.interview_location",
+  EMAIL_MISSING_OFFER_SALARY: "emailTemplates.missing.offer_salary",
+  EMAIL_MISSING_OFFER_START_DATE: "emailTemplates.missing.offer_start_date",
+  EMAIL_MISSING_RECRUITER_NAME: "emailTemplates.missing.recruiter_name",
+  EMAIL_MISSING_RECRUITER_EMAIL: "emailTemplates.missing.recruiter_email",
+  EMAIL_MISSING_COMPANY_NAME: "emailTemplates.missing.company_name",
 };
 
 const statusKeys: Record<number, TranslationKey> = {

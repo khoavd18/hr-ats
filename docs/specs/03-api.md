@@ -410,6 +410,40 @@ ASSUMED: các mặc định T21 tại câu hỏi #74–#77; không thay ma trậ
 - `POST /email-messages/{id}/send` → `queued` (đây là bước "xác nhận")
 - `POST /email-messages/{id}/cancel` · `GET /email-messages?application_id=`
 
+### Contract mẫu email T22
+
+- Tất cả endpoint `/email-templates` chỉ admin/lead, kiểm tại service bằng
+  `email_templates.manage`; recruiter kể cả owner Job không được quản lý/xem
+  trước ở Cài đặt. Mutation và preview kiểm CSRF/Origin theo T04; response
+  thành công có Cache-Control: no-store. Gửi email cho recruiter thuộc T23.
+- GET `?page=1&page_size=20` (tối đa 100) trả `{items,total}`, gồm mẫu ngừng dùng,
+  thứ tự created_at/id. Item gồm id/key/name/stage/subject/body/is_active/
+  requires_confirmation/created_at/updated_at. POST → 201, PATCH `/{id}` → 200.
+  Input POST: key, name, subject, body bắt buộc; stage=null, is_active=true,
+  requires_confirmation=true mặc định. Key `[a-z][a-z0-9_]{0,63}` bất biến;
+  name trim 1–200, subject trim 1–500 và một dòng, body trim 1–20000 ký tự.
+  PATCH chỉ sửa trường gửi lên, stage cho null, các trường còn lại không null;
+  field thừa bị từ chối. Chỉ cv_received được không yêu cầu xác nhận. Trùng key
+  → 409 EMAIL_TEMPLATE_EXISTS; thiếu ID → 404; input sai → 422. Không DELETE;
+  ngừng dùng bằng PATCH is_active=false. Nội dung sai cú pháp bị từ chối khi lưu.
+- GET `/email-templates/preview-options?page=&page_size=&q=` trả `{items,total}`,
+  mỗi item `{id: application_id,candidate_name,job_title}`. Chỉ hồ sơ/ứng viên
+  chưa xoá/gộp/hết hạn; q trim tối đa 200, substring tên/vị trí không phân biệt
+  hoa thường, wildcard là ký tự thường, xếp candidate_name/application_id.
+  Không trả liên hệ hoặc CV. Admin/lead vốn có scope toàn bộ Job.
+- POST `/{id}/preview` nhận `{application_id,subject?,body?}`; hai nội dung tuỳ
+  chọn cho xem trước bản đang soạn, bỏ/null dùng nội dung đã lưu. Trả
+  `{subject,body,body_html}`; body là text sau thay biến, body_html an toàn.
+  Kiểm Job và eligibility trước dựng context; mẫu ngừng dùng vẫn xem trước được
+  để sửa. Không lưu bản nháp, ghi nội dung vào log, gọi provider hoặc đổi stage.
+- Render chỉ nhận 10 biến spec 06; lỗi thiếu/blank → 422
+  `EMAIL_MISSING_<TÊN_BIẾN_UPPERCASE>`, thông báo Việt nêu tên biến. Biến ngoài
+  danh sách → EMAIL_VARIABLE_UNKNOWN; thuộc tính/call/filter/loop/include/cú pháp
+  tính toán, tiêu đề xuống dòng hoặc vượt giới hạn → EMAIL_TEMPLATE_INVALID.
+  UI ánh xạ mã lỗi sang nhãn Việt cục bộ, không hiển thị raw server message.
+
+ASSUMED: mặc định T22 tại câu hỏi #78–#81; chưa triển khai các endpoint message.
+
 ## Task & hoạt động
 - `GET /tasks?mine=true&status=&due_before=` · `POST /tasks` · `PATCH /tasks/{id}`
 - `GET /activities?job_id=&application_id=&actor_id=&from=&to=`
