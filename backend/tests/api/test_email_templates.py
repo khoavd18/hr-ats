@@ -187,7 +187,7 @@ def test_input_validation_and_sandbox_on_write(client, account, changes):
     assert "PII sentinel" not in response.text
 
 
-def test_auth_csrf_forbidden_recruiter_and_no_message_endpoints(
+def test_auth_csrf_forbidden_recruiter_and_invalid_message_input(
     client, account, records, db_session
 ):
     assert client.get(BASE).status_code == 401
@@ -215,7 +215,7 @@ def test_auth_csrf_forbidden_recruiter_and_no_message_endpoints(
         assert result.status_code == 403
     assert (
         client.post("/api/v1/email-messages", json={}, headers=csrf_headers(client)).status_code
-        == 404
+        == 422  # T23 now owns the message endpoint; malformed input still cannot send.
     )
 
 

@@ -12,6 +12,24 @@ export type EmailTemplate = {
 };
 
 export type EmailPreview = { subject: string; body: string; body_html: string };
+export type EmailDraft = EmailPreview & {
+  application_id: string;
+  template_id: string | null;
+  to_email: string;
+  has_calendar: boolean;
+};
+export type EmailMessage = {
+  id: string;
+  application_id: string;
+  template_id: string | null;
+  to_email: string;
+  subject: string;
+  body_html: string;
+  status: "draft" | "queued" | "sent" | "failed" | "cancelled";
+  sent_at: string | null;
+  scheduled_for: string | null;
+  created_at: string;
+};
 export type PreviewOption = { id: string; candidate_name: string; job_title: string };
 
 export const emailVariables = [

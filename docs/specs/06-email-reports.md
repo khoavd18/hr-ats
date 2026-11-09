@@ -45,6 +45,48 @@ dung cụ thể; không tự bịa người/ngày/link. Đính kèm ICS và gử
 4. Ghi activity `email_sent`.
 Giới hạn: tối đa 200 email/giờ (cấu hình được) để tránh bị đánh dấu spam.
 
+### Gửi và xác nhận T23
+
+Worker ở queue `email`, payload chỉ UUID message, ID lượt gửi, mốc scheduled_for
+và số retry; không có địa chỉ/nội dung/lịch trong Celery args hoặc log. Worker
+chỉ nhận queued hoặc failed còn lịch retry, ID lượt gửi và mốc hẹn phải khớp DB.
+Huỷ/gửi lại làm job cũ mất hiệu lực; delivery lặp sau sent không có tác dụng.
+Trước SMTP, kiểm lại user đang hoạt động, quyền Job và eligibility ứng viên.
+Không dùng AI hay tự đổi stage/offer status khi gửi thư.
+
+SMTP smtplib có timeout 15 giây, STARTTLS với context xác minh chứng chỉ khi
+SMTP_TLS=true, login chỉ khi có SMTP_USER. MIME có text và HTML an toàn; lưu
+Message-ID/sent_at, activity email_sent chỉ email_message_id và ID liên quan.
+Exception SMTP không được lưu/log; UI dùng thông báo Việt cố định. SMTP thất
+bại → failed, scheduled_for hẹn 60/300/900 giây; hết ba retry thì null. Hẹn retry
+qua Celery sau commit, không sleep worker; eager test lưu trạng thái, các test
+retry điều khiển trực tiếp task và kiểm countdown (không chờ 21 phút).
+
+Giới hạn toàn hệ thống `EMAIL_RATE_LIMIT_PER_HOUR=200` (số nguyên dương): đếm
+thư đã được SMTP chấp nhận trong một giờ trượt, kể cả message sau này bị ẩn.
+Advisory transaction lock PostgreSQL dùng chung các worker, giữ qua gửi/commit;
+đủ hạn mức thì giữ queued, hẹn tới khi thư cũ nhất ra khỏi cửa sổ. Không tiêu
+hao lượt retry SMTP khi chờ hạn mức. Ở quy mô 200/giờ, chọn tuần tự hoá delivery
+để không thêm bảng đếm/service/dependency.
+
+Interview invite gắn lịch chưa xoá mới nhất theo scheduled_at/id như context
+T22, dùng calendar_file T21 (TZID/UID/thời lượng/địa điểm, không attendee/CV).
+Kiểm có lịch khi preview/tạo nháp/send; sinh ICS từ thông tin hiện tại ngay
+trước SMTP và kiểm lại quyền. UI nói rõ lịch dùng thông tin hiện tại khi gửi;
+không tạo lịch giả nếu thiếu. Body/recipient đã HR duyệt được giữ nguyên.
+
+Dialog cho sửa người nhận/tiêu đề/nội dung, Gửi mới tạo draft rồi send, Không
+gửi/Escape trước lưu không tạo message. Sau lỗi send giữ draft ID, khoá sửa
+để retry không tạo thêm nháp; Không gửi lúc này huỷ nháp đã lưu. Drawer có mục
+Email: lịch sử phân trang/polling, xem thư trong iframe sandbox/CSP, trạng thái
+và huỷ/gửi lại, soạn tự do hoặc render mẫu đang bật. Mỗi nút Gửi/Gửi lại đều
+là hành động HR sau xem trước; không có luồng auto-send cho bốn mẫu cần duyệt.
+
+Giới hạn SMTP: nếu server đã nhận thư nhưng kết nối/tiến trình mất trước khi
+ghi sent vào DB, không thể bảo đảm exactly-once chỉ bằng SMTP. Retry giữ cùng
+Message-ID trong một lượt xác nhận để hỗ trợ đối chiếu; không tuyên bố server
+nhận thư sẽ tự chống trùng. Không tự retry lỗi DB sau khi SMTP đã trả thành công.
+
 ## Nhận CV từ hộp mail (`poll_inbox`, mỗi 5 phút khi bật)
 - Đọc mail chưa xử lý trong `IMAP_FOLDER`, lấy file đính kèm PDF/DOCX/ảnh, tạo `cv_files` với `source=email`.
 - Nếu tiêu đề có mã Job dạng `[JOB-xxxx]` hoặc trùng tên Job đang mở → gắn `job_id`.

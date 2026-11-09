@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Response
 
 from app.api.cv_files import client_ip
-from app.api.dependencies import DB, CurrentUser
+from app.api.dependencies import DB, Config, CurrentUser
 from app.schemas.applications import ApplicationCreate
 from app.schemas.core import AiFeedbackRead, ApplicationRead, CandidateRead
 from app.schemas.pipeline import MoveInput, MoveResponse
@@ -14,19 +14,27 @@ from app.schemas.profile import (
     NoteInput,
     ProfileActivity,
 )
-from app.services import applications, pipeline, profile
+from app.services import applications, email_messages, pipeline, profile
 
 router = APIRouter(tags=["applications"])
 
 
 @router.post("/applications/{application_id}/move", response_model=MoveResponse)
 def move(
-    application_id: UUID, body: MoveInput, response: Response, session: DB, actor: CurrentUser
+    application_id: UUID,
+    body: MoveInput,
+    response: Response,
+    session: DB,
+    actor: CurrentUser,
+    settings: Config,
 ):
     response.headers["Cache-Control"] = "no-store"
-    return MoveResponse(
-        application=pipeline.move(session, actor, application_id, **body.model_dump())
+    application = pipeline.move(session, actor, application_id, **body.model_dump(), commit=False)
+    draft, notice = email_messages.suggestion(
+        session, actor, application_id, body.to_stage, settings
     )
+    session.commit()
+    return MoveResponse(application=application, suggested_email=draft, email_notice=notice)
 
 
 @router.post("/applications/{application_id}/undo", response_model=ApplicationRead)

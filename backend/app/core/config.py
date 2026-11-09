@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     smtp_password: SecretStr = SecretStr("")
     smtp_from: str = "Tuyển dụng <tuyendung@example.com>"
     smtp_tls: bool = False
+    email_rate_limit_per_hour: int = Field(default=200, ge=1)
     imap_enabled: bool = False
     imap_host: str = ""
     imap_user: str = ""

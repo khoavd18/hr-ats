@@ -12,7 +12,7 @@ def create_celery_app(settings: Settings) -> Celery:
         "hr_ats",
         broker="memory://" if testing else settings.redis_url,
         backend="cache+memory://" if testing else settings.redis_url,
-        include=["app.workers.tasks"],
+        include=["app.workers.tasks", "app.workers.email"],
     )
     application.conf.update(
         task_queues=tuple(

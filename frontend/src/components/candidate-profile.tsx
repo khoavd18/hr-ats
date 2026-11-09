@@ -6,6 +6,7 @@ import { CvPreview } from "@/components/cv-preview";
 import { ProfileInfo } from "@/components/profile-info";
 import { ProfileAI } from "@/components/profile-ai";
 import { ProfileRecruitment } from "@/components/profile-recruitment";
+import { ProfileEmail } from "@/components/profile-email";
 import { QueryFeedback } from "@/components/query-feedback";
 import { Button } from "@/components/ui/button";
 import { api, ApiError } from "@/lib/api";
@@ -138,6 +139,7 @@ export function CandidateProfile({ applicationId }: { applicationId: string }) {
               records={detail.data}
             />
             <History activities={detail.data.activities} />
+            <ProfileEmail applicationId={applicationId} email={detail.data.candidate.email} />
             <form
               className="space-y-3 border-t pt-5"
               onSubmit={(event) => {

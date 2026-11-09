@@ -5,6 +5,7 @@ from app.api import (
     auth,
     cv_bank,
     cv_files,
+    email_messages,
     email_templates,
     jobs,
     recruitment,
@@ -52,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         cv_bank.router,
         recruitment.router,
         email_templates.router,
+        email_messages.router,
     ):
         application.include_router(router, prefix="/api/v1")
     return application
