@@ -25,10 +25,71 @@
 | T21 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
 | T22 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
 | T23 | done | 2026-11-09 | VERIFIED: nháp theo stage, xác nhận/huỷ/gửi lại, worker SMTP + ICS/retry/hạn mức toàn hệ thống và mục Email trong drawer; tiêu chí đạt với SMTP giả/Mailpit thật. Backend 1142 pass/12 skip OCR cũ, frontend 122 pass, 10 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T23, CI và merge. |
-| T24–T33 | todo | | |
+| T24 | review | 2026-11-09 | VERIFIED: nhận CV qua IMAP giả/TLS, chống trùng, gắn Job, receipt tự động riêng cv_received, trạng thái hộp mail và mã Job. T24 24 pass; toàn backend 1160 pass/12 skip OCR cũ, frontend 127 pass, 11 E2E pass (2 workers); lint/typecheck/build/migration sạch. Chờ Review T24, CI và merge; sandbox chặn ghi .git. |
+| T25–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T24 · 2026-11-09 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md`; T23 done và working tree sạch
+lúc bắt đầu trên `task/T24-imap-inbound-cv`. Git switch bị sandbox chặn
+`.git/index.lock`, giữ nhánh có sẵn theo ngoại lệ workflow. Chưa chuyển done
+trước review và merge. Áp dụng backend-api-engineer, frontend-engineer,
+database-engineer, software-testing và tự rà soát bằng secure-code-review.
+
+- VERIFIED: IMAP4_SSL xác minh chứng chỉ/timeout, UID SEARCH UNSEEN,
+  RFC822.SIZE/BODY.PEEK[], chỉ Seen sau commit; Beat mỗi 300 giây khi enabled,
+  queue email, không chứa PII trong Celery args/log. Validator/storage/pipeline
+  hiện có; nguồn email, uploaded_by null; Candidate mới kế thừa nguồn, không
+  tạo consent hoặc đổi stage. Tệp lỗi không chặn tệp hợp lệ cùng thư.
+- VERIFIED: migration 0007 thêm inbound_emails theo spec và cv_files.source
+  task yêu cầu, default upload/enum cũ. Marker/file commit nguyên tử, khoá theo
+  Message-ID và hash (sort), hai kết nối nhận cùng thư chỉ một marker/hai file.
+  Không body email trong DB; thiếu Message-ID dùng SHA-256 MIME. Không trùng
+  file đã upload, không tự thay Job/quyền của record cũ. Lỗi storage rollback;
+  poll sau phục hồi pending parse/queued receipt khi publish lỗi.
+- VERIFIED: gắn Job open duy nhất qua mã 8 hex đầu UUID hoặc toàn tên chuẩn hoá;
+  không rõ/trùng thì vào kho chung. UI hiển thị mã; tab Cài đặt → Kết nối hộp
+  mail chỉ admin/lead đọc enabled/thời điểm/mã lỗi an toàn từ Redis; không trả
+  cấu hình bí mật. Chuỗi mới ở vi.ts, có trạng thái lỗi/retry và giờ Việt Nam.
+- VERIFIED: sau parse done tạo duy nhất receipt/file có email từ CV; chỉ mẫu
+  cv_received đang bật/không yêu cầu duyệt, worker kiểm lại nguồn/eligibility/
+  địa chỉ/feature flag. Dùng SMTP/rate limit/retry T23; actor activity null,
+  không thay luồng duyệt offer/từ chối. Tests chặn gửi khi xoá Candidate, đổi
+  email/nguồn/mẫu sang offer hoặc tắt IMAP. Không tạo bằng chứng đồng ý.
+- VERIFIED: tiêu chí T24 qua mock imaplib + MIME/DOCX giả, storage/extract/parse/
+  PostgreSQL thật, FakeLLM/FakeEmbedder, SMTP bộ nhớ: hai attachment → hai file;
+  đọc lại không tăng record/receipt; thư không attachment → ignored/count=0.
+  Tổng bộ T24 cuối **24 passed** (bao gồm 6 case bổ sung sau lượt full).
+- VERIFIED: lệnh chuẩn `uv run pytest` **1160 passed, 12 skipped**, warning
+  Starlette/httpx đã có; skip OCR T08 do thiếu Tesseract. `uv run ruff check .`,
+  `uv run ruff format --check .` (163 file), `uv run mypy app` (97 source),
+  `uv run alembic upgrade head` pass. Test database bao gồm schema comparison
+  và upgrade/downgrade/upgrade DB trống tới 0007; không downgrade DB dev.
+- VERIFIED: `npm test` **127 passed**, `npm run lint`, `npm run typecheck`,
+  `npm run build` pass. `npx playwright test --workers=2` **11 passed** trên
+  fixture DB/storage mới, production web, Mailpit local 11025/18025; không sửa
+  assertion/timeout. Đã xem ảnh var/t24-mailbox.png và t24-job-code.png ở 1280px,
+  kiểm không overflow/lỗi JS. Lượt mặc định 8 workers trước đó 8 pass/3 fail ở
+  bài cũ; cả ba pass trên fixture mới với 2 workers. INFERRED: tranh chấp tài
+  nguyên khi chạy cùng full pytest, không tái hiện khi giảm concurrency.
+- VERIFIED: tự rà diff về quyền endpoint, TLS, tệp/magic bytes/macro/path,
+  rollback/concurrency, duplicate/receipt, luồng xác nhận và PII. Không thêm
+  dependency/dịch vụ triển khai, không sửa stack, fixture hoàn toàn giả.
+  Cập nhật spec 02/03/04/06/08 và README; mặc định chưa rõ ghi #86–#89.
+
+Môi trường: UV cache và pytest temp mặc định bị chặn quyền, Vitest spawn EPERM;
+đã chạy kiểm thử với quyền môi trường phù hợp và giữ kiểm soát chặn mạng ngoài.
+Đã dọn đúng ba thư mục scratch tạo nhầm do lượt pytest sandbox. Compose DB/Redis
+đang chạy; Mailpit mặc định cổng 1025 không bind được nên dùng container tạm
+hr-ats-t24-mailpit cho E2E, dọn cùng API/DB/storage fixture và web sau kiểm tra.
+
+NOT TESTED: IMAP/tài khoản/provider thật, hiệu năng production và audit dependency
+qua mạng (không thay lockfile/dependency). SMTP giữ giới hạn exactly-once T23.
+Chờ Review T24/CI/merge; Git không ghi được `.git` trong sandbox, thay đổi để
+trong working tree cho runner commit. Không có acceptance criterion còn thiếu.
 
 ## T23 · 2026-11-09 · review
 

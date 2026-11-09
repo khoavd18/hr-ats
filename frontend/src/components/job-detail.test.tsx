@@ -74,6 +74,26 @@ it("renders ten ranked rows, six columns, no numeric scores and an accessible dr
   expect(screen.getByText("Mô tả giả")).toBeVisible();
 });
 
+it("displays a stable Job code for email applications", async () => {
+  const jobId = "12345678-abcd-4abc-8abc-123456789abc";
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path === `/jobs/${jobId}`)
+      return {
+        id: jobId,
+        title: "Job giả",
+        hiring_unit_name: "Đơn vị giả",
+        owner_name: "HR giả",
+        description: "Mô tả giả",
+        must_have: [],
+        nice_to_have: [],
+      };
+    return ranking;
+  });
+  show(<JobDetail jobId={jobId} />);
+  expect(await screen.findByText("[JOB-12345678]")).toBeVisible();
+  expect(screen.getByText(t("jobs.inboundHint"))).toBeVisible();
+});
+
 it("confirms the personal data warning before downloading the Job workbook", async () => {
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
   const downloads: string[] = [];

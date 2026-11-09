@@ -92,6 +92,48 @@ nhận thư sẽ tự chống trùng. Không tự retry lỗi DB sau khi SMTP đ
 - Nếu tiêu đề có mã Job dạng `[JOB-xxxx]` hoặc trùng tên Job đang mở → gắn `job_id`.
 - Lưu `inbound_emails` theo `message_id` để không xử lý lặp; đánh dấu mail đã đọc.
 
+### Contract triển khai T24
+
+- `app/email/inbound.py` đăng ký task poll_inbox ở queue email. Beat chỉ có lịch
+  300 giây khi IMAP_ENABLED=true; task cũng kiểm cờ trước kết nối. IMAP4_SSL
+  cổng chuẩn 993, context xác minh chứng chỉ và timeout 15 giây, login bằng biến
+  môi trường; folder được quote. UID SEARCH UNSEEN, kiểm RFC822.SIZE trước khi
+  tải BODY.PEEK[]; chỉ đánh dấu Seen sau commit DB. Không di chuyển/xoá mail.
+- ASSUMED (#86–#89): tối đa 100 mail/lượt, 50 MiB/mail, 50 attachment/mail;
+  mỗi file dùng giới hạn 10 MiB và magic-byte/macro validator T07. Tệp không hợp
+  lệ bỏ qua riêng, ghi error cố định; không có tệp hợp lệ → ignored (thư không
+  attachment có count=0), còn lại processed. File có tên nhưng inline cũng được
+  kiểm như attachment; không lưu body. Thư quá lớn giữ unread và báo lỗi trạng
+  thái để quản trị xử lý, không tải payload. Lỗi storage/DB rollback marker và
+  file, dọn object vừa ghi; thư giữ unread để lượt sau thử lại.
+- Mã Job là 8 hex đầu UUID, UI viết hoa, so không phân biệt hoa thường. Chỉ Job
+  open, duy nhất một mã khớp hoặc toàn subject trùng tên sau NFC/casefold/gộp
+  khoảng trắng. Mã không rõ/va chạm/nhiều mã hoặc tên trùng → kho CV chung,
+  không đoán Job. Không tự thêm thành viên hoặc đổi stage.
+- Message-ID thiếu dùng `sha256:` của MIME gốc; cùng ID không tiếp nhận lần hai.
+  Advisory transaction lock theo Message-ID và hash file (sort hash) chống
+  đọc đồng thời. Cùng hash có sẵn thì giữ record/quyền/Job/nguồn cũ như T10,
+  không parse lại hoặc gửi thêm receipt. Marker và tất cả file commit cùng
+  transaction. Sau đó recover_intake publish pending file; lượt poll sau còn
+  quét pending/receipt queued để phục hồi crash giữa commit và publish.
+- Hook sau commit parse thành công tạo một EmailMessage có ID bằng CvFile.id,
+  chỉ source=email và template key=cv_received đang bật, không yêu cầu xác
+  nhận. Không dùng From làm địa chỉ ứng viên. Chỉ email được trích từ CV qua
+  redaction cục bộ; Candidate mới source=email, không tự tạo consent. Context
+  có Job thì dùng Job/đơn vị/owner; không có Job dùng nhãn chung “cơ hội tuyển
+  dụng” và admin active đầu tiên theo UUID. Company từ tên SMTP_FROM. Thiếu
+  admin/email/biến mà mẫu cần hoặc template ngừng dùng → chưa tạo receipt,
+  không điền giả dữ liệu. Lượt poll sau có thể thử lại khi đã bổ sung dữ liệu.
+- Worker gửi kiểm lại feature flag, nguồn/file done/chưa xoá và eligibility,
+  email hiện tại đúng recipient, key/template vẫn bật/không yêu cầu xác nhận,
+  created_by đang active. Dùng chung SMTP, rate limit và retry T23; delivery lặp
+  sau sent không gửi lại, bốn mẫu cần người duyệt vẫn giữ luồng T23. Activity
+  chỉ ID, actor=null. Không bảo đảm exactly-once trong cửa sổ SMTP nhận thư rồi
+  tiến trình/DB lỗi trước commit, cùng giới hạn đã công bố ở T23.
+- Trạng thái lần poll gần nhất lưu Redis, lỗi chỉ mã cố định; thành công xoá mã
+  lỗi lượt trước. API admin/lead và tab Kết nối hộp mail dịch tiếng Việt, poll
+  trạng thái 30 giây. Cấu hình vẫn qua env, không trả credentials/metadata thư.
+
 ## Task và nhắc việc
 - Tạo thủ công từ màn "Việc của tôi" hoặc từ hồ sơ ứng viên.
 - Tự tạo task: khi application ở `screening` quá 3 ngày không có hoạt động → task "Liên hệ ứng viên" cho owner; khi interview kết thúc chưa có kết quả sau 1 ngày → task "Cập nhật kết quả phỏng vấn".

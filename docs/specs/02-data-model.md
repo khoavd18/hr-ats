@@ -73,7 +73,7 @@ Index: GIN trên `search_tsv`, HNSW/IVFFlat trên `embedding` (cosine).
 T05 dùng trigger BEFORE INSERT OR UPDATE (kể cả sửa trực tiếp search_tsv), ghép full_name/current_title/các phần tử skills rồi `to_tsvector('simple', public.unaccent(...))`; không gắn IMMUTABLE giả cho `unaccent`. Truy vấn chuẩn: `search_tsv @@ plainto_tsquery('simple', unaccent(:query))`, lọc `deleted_at IS NULL`. Index vector là HNSW `vector_cosine_ops`; truy vấn sắp xếp bằng khoảng cách cosine `<=>` và LIMIT. Cả Job và ứng viên lấy dimension từ `EMBEDDING_DIM` khi tạo schema; đổi cấu hình sau đó phải có migration mới và tạo lại embedding, không tự đổi schema.
 
 ### cv_files
-`candidate_id fk null` (null khi chưa parse xong), `storage_key`, `original_filename`, `mime_type`, `size_bytes`, `sha256 (unique)`, `extracted_text text`, `extraction_method`, `page_count`, `parsed_json jsonb`, `status processing_status`, `error text`, `parse_model`, `parse_prompt_version`, `uploaded_by fk users null`, `job_id fk null` (Job được chọn lúc upload, nếu có), `deleted_at`.
+`candidate_id fk null` (null khi chưa parse xong), `storage_key`, `original_filename`, `mime_type`, `size_bytes`, `sha256 (unique)`, `source candidate_source default upload` (T24), `extracted_text text`, `extraction_method`, `page_count`, `parsed_json jsonb`, `status processing_status`, `error text`, `parse_model`, `parse_prompt_version`, `uploaded_by fk users null`, `job_id fk null` (Job được chọn lúc upload/nhận mail, nếu có), `deleted_at`.
 
 ### applications
 `candidate_id fk`, `job_id fk`, unique(candidate_id, job_id) khi `deleted_at is null`, `stage application_stage`, `stage_entered_at`, `owner_id fk users`, `rejected_reason text null`,
@@ -178,6 +178,25 @@ Thời gian migration và tải production: NOT TESTED, chưa có quy mô đư�
 
 ### inbound_emails
 `message_id unique`, `from_email`, `subject`, `received_at`, `attachment_count`, `processed_at`, `status`, `error`. Không lưu thân mail.
+
+T24: migration `0007_inbound_emails` thêm bảng này (RecordMixin + deleted_at)
+và `cv_files.source` NOT NULL, dùng enum candidate_source hiện có/default upload;
+không thay nguồn của Candidate cũ. File email có source=email, uploaded_by=null;
+Candidate mới nhận nguồn từ file, bản khớp liên hệ giữ nguồn ban đầu.
+Inbound status VARCHAR/CHECK processed hoặc ignored, attachment_count >= 0;
+from_email tối đa 254, subject lưu tối đa 2000; error chỉ thông báo cố định.
+received_at lấy Date (thiếu/sai dùng thời điểm đọc), processed_at là lúc tiếp nhận
+tệp, không phải lúc AI xong. Không lưu body. UNIQUE message_id và advisory lock
+chống đọc đồng thời; SHA-256 unique dùng chung upload, kể cả bản đã ẩn.
+Không có cột/FK mới khác: EmailMessage tự động dùng cùng UUID của CvFile, một
+receipt/file, application_id có thể null khi chưa xác định Job. created_by là
+owner Job, hoặc admin đang hoạt động đầu tiên theo UUID khi không có Job;
+activity email_sent có actor null vì đây là thao tác hệ thống.
+
+Rollout: migrate trước khi chạy API/worker/Beat mới. Default upload tương thích
+file cũ, không rewrite CV hoặc backfill PII. Rollback sau khi dừng writer/Beat
+và backup inbound_emails; downgrade xoá bảng và cột nguồn nên chỉ kiểm trên DB
+tạm. Thời gian/tải production: NOT TESTED, chưa có quy mô được phê duyệt.
 
 ### audit_log
 `actor_id`, `action` (vd. `candidate.view`, `candidate.export`, `candidate.purge`, `user.role_change`), `entity`, `entity_id`, `occurred_at`, `ip`. Chỉ ghi id, không ghi nội dung.

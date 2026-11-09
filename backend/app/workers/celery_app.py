@@ -12,7 +12,7 @@ def create_celery_app(settings: Settings) -> Celery:
         "hr_ats",
         broker="memory://" if testing else settings.redis_url,
         backend="cache+memory://" if testing else settings.redis_url,
-        include=["app.workers.tasks", "app.workers.email"],
+        include=["app.workers.tasks", "app.workers.email", "app.email.inbound"],
     )
     application.conf.update(
         task_queues=tuple(
@@ -39,6 +39,9 @@ def create_celery_app(settings: Settings) -> Celery:
         worker_hijack_root_logger=False,
         timezone="UTC",
         enable_utc=True,
+        beat_schedule={"poll-inbox": {"task": "poll_inbox", "schedule": 300.0}}
+        if settings.imap_enabled
+        else {},
     )
     return application
 

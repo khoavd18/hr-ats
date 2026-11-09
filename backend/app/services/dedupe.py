@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.ai.schemas import ParsedCV
 from app.core.errors import AppError
 from app.models.candidates import Candidate
+from app.models.enums import CandidateSource
 
 
 class IdentityConflict(AppError):
@@ -58,10 +59,11 @@ def save_candidate(
     emails: list[str],
     phones: list[str],
     retention_until: date,
+    source: CandidateSource = CandidateSource.upload,
 ) -> Candidate:
     candidate = match_candidate(session, emails=emails, phones=phones)
     if candidate is None:
-        candidate = Candidate(full_name=parsed.full_name or "Chưa xác định")
+        candidate = Candidate(full_name=parsed.full_name or "Chưa xác định", source=source)
         session.add(candidate)
     # Null/empty parse fields mean unknown, not a request to erase known data.
     for name in ("full_name", "current_title", "location"):

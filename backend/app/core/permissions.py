@@ -89,7 +89,7 @@ def authorize(
             allowed = user.role == UserRole.admin
         elif action == "cv_bank.merge":
             allowed = user.role in {UserRole.admin, UserRole.lead}
-        elif action in {"email_templates.manage", "hiring_units.manage"}:
+        elif action in {"email_templates.manage", "hiring_units.manage", "mailbox.view"}:
             allowed = user.role in {UserRole.admin, UserRole.lead}
         elif action in {
             "jobs.view",

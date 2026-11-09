@@ -117,6 +117,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
               </Button>
             }
           />
+          <p className="space-x-2 rounded-lg border bg-card p-4">
+            <span>{t("jobs.inboundCode")}</span>
+            <code className="select-all font-semibold">
+              {`[JOB-${job.data.id.replaceAll("-", "").slice(0, 8).toUpperCase()}]`}
+            </code>
+            <span className="text-sm text-muted-foreground">{t("jobs.inboundHint")}</span>
+          </p>
           <Tabs
             value={activeTab}
             onValueChange={(value) => {

@@ -387,6 +387,25 @@ lượt kiểm thử. Không đổi schema/migration hoặc thêm dependency.
 
 ## Definition of Done cho mỗi task
 
+T24 bổ sung `tests/api/test_inbound_email.py` vào `uv run pytest`: mock imaplib
+đúng boundary, MIME/DOCX giả, storage/extract/parse/FakeLLM/PostgreSQL thật và
+SMTP bộ nhớ. Kiểm hai attachment, replay, no attachment/ignored, hash lặp,
+Message-ID thiếu, file hỏng/mixed, Job code/tên/closed/trùng/unknown, nguồn và
+consent, chỉ receipt sau parse thành công, template inactive/confirmation,
+candidate thiếu email, worker kiểm cờ lại, lỗi storage/publish và recover,
+TLS/timeout, lỗi IMAP an toàn/cấu hình thiếu, chặn tải mail quá lớn. DB tạm hai
+kết nối nhận đồng thời cùng thư chỉ một marker/hai file; observer độc lập kiểm
+mọi file đã commit trước publish. Test migration/schema hiện có bao revision
+0007 và upgrade/downgrade/upgrade trên DB trống. API trạng thái kiểm 401/403,
+admin/lead, Redis lỗi và không xuất credentials. Không mạng ngoài.
+
+Vitest thêm `mailbox-settings.test.tsx` và kiểm mã Job trong job-detail: bật/tắt,
+chưa đọc/giờ Việt/lỗi an toàn, retry, recruiter không fetch. E2E mailbox.spec.ts
+dùng tài khoản browser-mailbox riêng trên fixture ranking_browser_server,
+kiểm tab cài đặt và mã Job ở 1280px, overflow/lỗi JS, ảnh var/t24-*.png. Chạy
+đúng `npx playwright test` cùng bộ cũ sau API fixture/web sẵn sàng, Mailpit local
+cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên tài khoản thật.
+
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.
 2. Có test cho logic mới (unit cho services/ai, API test cho endpoint); test cũ vẫn pass.
 3. Lint và typecheck sạch.

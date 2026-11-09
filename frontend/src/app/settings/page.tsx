@@ -4,6 +4,7 @@ import { useAuth } from "@/components/auth-provider";
 import { UsersSettings } from "@/components/users-settings";
 import { HiringUnitsSettings } from "@/components/hiring-units-settings";
 import { EmailTemplatesSettings } from "@/components/email-templates-settings";
+import { MailboxSettings } from "@/components/mailbox-settings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n/vi";
 
@@ -16,6 +17,7 @@ export default function SettingsPage() {
         {user.role === "admin" && <TabsTrigger value="users">{t("users.title")}</TabsTrigger>}
         <TabsTrigger value="units">{t("units.title")}</TabsTrigger>
         <TabsTrigger value="email-templates">{t("emailTemplates.title")}</TabsTrigger>
+        <TabsTrigger value="mailbox">{t("mailbox.title")}</TabsTrigger>
       </TabsList>
       {user.role === "admin" && (
         <TabsContent value="users">
@@ -27,6 +29,9 @@ export default function SettingsPage() {
       </TabsContent>
       <TabsContent value="email-templates">
         <EmailTemplatesSettings />
+      </TabsContent>
+      <TabsContent value="mailbox">
+        <MailboxSettings />
       </TabsContent>
     </Tabs>
   );
