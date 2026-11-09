@@ -285,6 +285,15 @@ function Complete-Merge([string]$task, [string]$branch) {
   Invoke-Git push origin main
 }
 
+# Commit thay đổi Codex để lại (khi sandbox không cho Codex tự commit).
+function Save-AgentWork([string]$task, [string]$what) {
+  if (git status --porcelain) {
+    Invoke-Git add -A
+    Invoke-Git commit -m "${task}: $what"
+    Say "  Đã commit thay đổi của Codex ($what)." 'DarkGray'
+  }
+}
+
 # Trả về: merged | approval | stopped
 function Invoke-OneTask([string]$task) {
   Say "========== $task ==========" 'Magenta'
@@ -293,9 +302,15 @@ function Invoke-OneTask([string]$task) {
 
   if (-not $SkipImplement) {
     Sync-Main
+    # Script tự tạo nhánh: sandbox của Codex có thể không cho ghi vào .git.
+    $taskFile = Get-ChildItem -Path (Join-Path $root 'tasks') -Filter "$task-*.md" | Select-Object -First 1
+    $taskBranch = 'task/' + $taskFile.BaseName
+    git show-ref --verify --quiet "refs/heads/$taskBranch"
+    if ($LASTEXITCODE -eq 0) { Invoke-Git switch $taskBranch } else { Invoke-Git switch -c $taskBranch }
     Invoke-Codex "Implement $task following tasks/_implement.md exactly."
     if ((Get-Status $task) -eq 'blocked') { Say "$task bị BLOCKED. Đọc tasks/PROGRESS.md." 'Red'; return 'stopped' }
-    Assert-Clean 'Codex làm xong nhưng chưa commit hết.'
+    Save-AgentWork $task 'implement'
+    if (-not (git log --oneline "main..HEAD")) { Say "Codex không tạo thay đổi nào cho $task (có thể đang chờ bạn trả lời). Xem log." 'Red'; return 'stopped' }
   }
   $branch = (git branch --show-current).Trim()
   if ($branch -eq 'main') { Say "Codex không tạo nhánh task cho $task." 'Red'; return 'stopped' }
@@ -314,7 +329,7 @@ function Invoke-OneTask([string]$task) {
         Say "CI đỏ cho $task. Xem tab Actions trên GitHub." 'Red'
         if ($round -eq $MaxRounds) { return 'stopped' }
         Invoke-Codex "Fix $task following tasks/_fix.md. The review approved, but GitHub CI failed; run 'gh run view --log-failed' to see why and make CI pass."
-        Assert-Clean 'Codex sửa xong nhưng chưa commit hết.'
+        Save-AgentWork $task 'fix CI'
         continue
       }
       if ($NoMerge) { Say "$task đạt (không merge vì -NoMerge). Nhánh: $branch" 'Green'; return 'approval' }
@@ -335,7 +350,7 @@ function Invoke-OneTask([string]$task) {
     } else {
       Invoke-Codex "Fix $task following tasks/_fix.md exactly."
     }
-    Assert-Clean 'Codex sửa xong nhưng chưa commit hết.'
+    Save-AgentWork $task 'fix review findings'
   }
   Say "$task chưa đạt sau $MaxRounds vòng. Đọc tasks/reviews/$task.md." 'Red'
   return 'stopped'

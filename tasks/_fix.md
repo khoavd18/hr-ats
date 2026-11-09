@@ -13,3 +13,6 @@ The user names one task id (e.g. "Fix T05"). Below, `TASK` means that id.
 6. Append a "## Fix round <n>" section to tasks/reviews/TASK.md listing each finding id —
    fixed / not fixed (reason) — evidence. Commit with message `TASK: fix review findings`.
 7. End with: each finding — fixed / not fixed — evidence; commands run and results.
+
+## Git in sandboxed runs
+If `git` cannot write to `.git` (for example `cannot lock ref ... Permission denied`), do not stop and do not revert your work: stay on the current branch, leave all changes in the working tree, and say so in your final summary. The runner (`scripts/auto-task.ps1`) creates the task branch and commits for you.

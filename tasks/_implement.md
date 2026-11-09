@@ -48,3 +48,6 @@ described: stop after the plan and wait for approval.
 
 Stop and ask only if: a dependency task is missing, a major change outside the spec is needed,
 or you need secrets (API keys, passwords).
+
+## Git in sandboxed runs
+If `git` cannot write to `.git` (for example `cannot lock ref ... Permission denied`), do not stop and do not revert your work: stay on the current branch, leave all changes in the working tree, and say so in your final summary. The runner (`scripts/auto-task.ps1`) creates the task branch and commits for you.

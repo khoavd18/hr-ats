@@ -111,6 +111,7 @@ upsert cùng transaction với activity. Contract chi tiết tại spec 03/T15.
 
 ### audit_log
 `actor_id`, `action` (vd. `candidate.view`, `candidate.export`, `candidate.purge`, `user.role_change`), `entity`, `entity_id`, `occurred_at`, `ip`. Chỉ ghi id, không ghi nội dung.
+`details jsonb not null default '{}'` (thêm ở T17): chỉ số đếm và định danh, ví dụ `{"record_count": 12, "job_id": "…"}`. Không ghi họ tên, email, SĐT, nội dung CV hay giá trị bộ lọc dạng chữ.
 
 ### data_requests
 `candidate_id`, `kind` (`delete` | `export`), `requested_by_note`, `status` (`open` | `done` | `rejected`), `handled_by`, `handled_at`.
