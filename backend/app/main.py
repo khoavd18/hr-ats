@@ -10,6 +10,7 @@ from app.api import (
     jobs,
     recruitment,
     system,
+    tasks,
     users,
 )
 from app.core.config import Settings, get_settings
@@ -54,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         recruitment.router,
         email_templates.router,
         email_messages.router,
+        tasks.router,
     ):
         application.include_router(router, prefix="/api/v1")
     return application

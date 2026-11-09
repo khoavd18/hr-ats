@@ -382,7 +382,8 @@ def test_beat_only_registers_enabled_poll():
     for enabled in (False, True):
         application = create_celery_app(get_settings().model_copy(update={"imap_enabled": enabled}))
         try:
-            assert bool(application.conf.beat_schedule) == enabled
+            assert ("poll-inbox" in application.conf.beat_schedule) == enabled
+            assert application.conf.beat_schedule["due-tasks"]["task"] == "remind_due_tasks"
             if enabled:
                 assert application.conf.beat_schedule["poll-inbox"] == {
                     "task": "poll_inbox",

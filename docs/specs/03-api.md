@@ -507,6 +507,52 @@ ASSUMED: chi tiết T23 tại câu hỏi #82–#85; giữ schema EmailMessage c�
 - `GET /tasks?mine=true&status=&due_before=` · `POST /tasks` · `PATCH /tasks/{id}`
 - `GET /activities?job_id=&application_id=&actor_id=&from=&to=`
 
+### Contract T25
+
+- GET/POST/PATCH tasks và GET overview cần đăng nhập; mutation kiểm CSRF/Origin
+  T04, response thành công no-store. Recruiter chỉ xem/sửa việc được giao cho
+  mình, vẫn cần quyền Job hiện tại nếu có liên kết. Admin/lead sửa toàn bộ,
+  mine=false xem toàn bộ; recruiter mine=false → 403. Task/hồ sơ đã ẩn hoặc
+  ứng viên đã xoá/gộp/hết hạn bị loại khỏi danh sách; mất quyền Job không trả
+  task title/description hay metadata liên kết. PATCH task thiếu/ẩn → 404,
+  ngoài scope/không còn eligible → 403. Không có DELETE.
+- GET `/tasks?page=1&page_size=20&mine=true&status=&due_before=` trả
+  `{items,total}`; page≥1, page_size 1–100. Bỏ status lấy todo/doing; truyền
+  status lấy đúng enum. due_before là timestamp có offset, lọc due_at < mốc;
+  task không hạn không khớp. Xếp due_at tăng (null cuối), id; total trước phân
+  trang. Item gồm id/title/description/assignee_id/created_by/job_id/
+  application_id/due_at/status/completed_at/created_at/updated_at; không CV,
+  liên hệ hay deleted_at.
+- POST nhận `{title,description?,assignee_id?,job_id?,application_id?,due_at?}`
+  → 201 TaskRead. Title trim 1–200, description nullable/trim 1–10000; due_at
+  nullable hoặc timestamp có offset. Assignee bỏ/null là caller; recruiter
+  chỉ tự giao, admin/lead chọn user active có quyền Job. Sai user → 422
+  INVALID_TASK_ASSIGNEE, ngoài quyền → 403. Application suy ra Job, gửi Job
+  khác → 422 INVALID_TASK_LINK; liên kết thiếu/không eligible → 404.
+- PATCH chỉ nhận title/description/due_at/status; title/status không null;
+  optional null xoá giá trị. Không đổi người giao/nhận/liên kết qua PATCH.
+  Khoá hàng, khi chuyển vào done đặt completed_at server và activity task_done
+  chỉ payload task_id, cùng transaction; lặp done giữ timestamp/không thêm
+  activity. Mở lại todo/doing hoặc cancelled xoá completed_at. Không đổi stage,
+  gọi AI hoặc gửi email ứng viên. Field thừa/input sai → 422 envelope an toàn.
+- GET `/tasks/application-options?job_id=&q=&page=1` kiểm quyền Job trước kể
+  cả danh sách rỗng; trả `{items:[{id,job_id,name}],total}` (id là Application),
+  chỉ hồ sơ eligible; q trim≤200, substring literal tên, xếp tên/id, 20/trang.
+  Form dùng `/jobs` và `/jobs/options` hiện có để chọn Job/người nhận.
+- GET `/overview` trả `{today_tasks:TaskList,interviews,interview_total,jobs,
+  job_total,unseen_cv_count}`. Việc của caller mở có due_at trước hết hôm nay
+  (kể cả quá hạn); lịch hôm nay/ngày mai [nửa đêm,nửa đêm+2 ngày), xếp giờ/id;
+  Job open chưa đủ placement chưa ẩn, deadline từ hôm nay tới hôm nay+7 (inclusive),
+  xếp deadline/id. Mỗi danh sách tối đa 20, total đầy đủ. Lịch chỉ id/
+  application_id/job_id/candidate_name/job_title/scheduled_at; Job chỉ
+  id/title/deadline. Lịch và Job lọc owner/member Job của recruiter, admin/lead
+  toàn bộ. CV chưa xem đếm Application eligible stage=new trong scope, chưa
+  có audit view candidate của caller sau thời điểm tạo Application. Ngày theo
+  Asia/Ho_Chi_Minh; đây là số phục vụ màn Tổng quan, không định nghĩa KPI T26.
+
+ASSUMED: các mặc định T25 tại câu hỏi #90–#93. Endpoint activities tổng hợp
+chưa nằm trong T25; lịch sử hồ sơ dùng GET applications/{id} hiện có.
+
 ## Báo cáo
 - `GET /reports/summary?from=&to=&recruiter_id=&job_id=&hiring_unit_id=` → các KPI trong `06`
 - `GET /reports/funnel?job_id=&from=&to=` → số lượng và tỉ lệ theo stage

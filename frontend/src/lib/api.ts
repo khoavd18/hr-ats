@@ -4,6 +4,8 @@ const DEFAULT_API_URL = "http://localhost:8000/api/v1";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const errorKeys: Record<string, TranslationKey> = {
+  INVALID_TASK_ASSIGNEE: "tasks.invalidAssignee",
+  INVALID_TASK_LINK: "tasks.invalidLink",
   VALIDATION_ERROR: "api.validation",
   NOT_FOUND: "api.notFound",
   METHOD_NOT_ALLOWED: "api.unknown",

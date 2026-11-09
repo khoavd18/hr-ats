@@ -139,6 +139,7 @@ def main() -> None:
                     ("email-templates", UserRole.lead),
                     ("email", UserRole.admin),
                     ("mailbox", UserRole.lead),
+                    ("tasks", UserRole.lead),
                 ):
                     session.add(
                         User(

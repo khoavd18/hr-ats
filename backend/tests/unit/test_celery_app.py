@@ -52,3 +52,20 @@ def test_dev_routes_three_queues_and_uses_redis():
         assert (queue.name, queue.exchange.name, queue.routing_key) == (name, name, name)
     application.close()
     celery_app.set_current()
+
+
+def test_task_reminders_run_at_eight_vietnam_time_and_rules_hourly():
+    application = create_celery_app(Settings(_env_file=None, app_env="test"))
+    try:
+        assert application.conf.timezone == "Asia/Ho_Chi_Minh"
+        schedule = application.conf.beat_schedule["due-tasks"]
+        assert schedule["task"] == "remind_due_tasks"
+        assert schedule["schedule"].hour == {8} and schedule["schedule"].minute == {0}
+        assert application.conf.beat_schedule["followup-tasks"] == {
+            "task": "generate_followup_tasks",
+            "schedule": 3600.0,
+        }
+        assert application.conf.task_routes["remind_due_tasks"] == {"queue": "email"}
+    finally:
+        application.close()
+        celery_app.set_current()
