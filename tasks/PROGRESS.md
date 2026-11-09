@@ -26,7 +26,7 @@
 | T22 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
 | T23 | done | 2026-11-09 | VERIFIED: nháp theo stage, xác nhận/huỷ/gửi lại, worker SMTP + ICS/retry/hạn mức toàn hệ thống và mục Email trong drawer; tiêu chí đạt với SMTP giả/Mailpit thật. Backend 1142 pass/12 skip OCR cũ, frontend 122 pass, 10 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T23, CI và merge. |
 | T24 | done | 2026-11-09 | VERIFIED: nhận CV qua IMAP giả/TLS, chống trùng, gắn Job, receipt tự động riêng cv_received, trạng thái hộp mail và mã Job. T24 24 pass; toàn backend 1160 pass/12 skip OCR cũ, frontend 127 pass, 11 E2E pass (2 workers); lint/typecheck/build/migration sạch. Chờ Review T24, CI và merge; sandbox chặn ghi .git. |
-| T25 | review | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
+| T25 | done | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
 | T26–T33 | todo | | |
 
 ## Nhật ký
