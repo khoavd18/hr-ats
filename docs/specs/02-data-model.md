@@ -147,6 +147,13 @@ upsert cùng transaction với activity. Contract chi tiết tại spec 03/T15.
 ### email_messages
 `application_id null`, `template_id null`, `to_email`, `cc jsonb`, `subject`, `body_html`, `status email_status`, `scheduled_for null`, `sent_at`, `error`, `created_by`, `message_id` (header SMTP).
 
+T23 dùng các cột có sẵn, không migration mới: tạo nháp ghi created_by là tác giả;
+khi xác nhận send/gửi lại cập nhật thành người xác nhận để worker kiểm quyền
+và ghi actor của email_sent. scheduled_for là mốc hẹn/checkpoint delivery,
+failed có mốc này nghĩa là còn retry, null nghĩa là đã hết hoặc không hẹn.
+message_id là ID lượt xác nhận/header SMTP, giữ nguyên qua retry, đổi khi HR
+bấm gửi lại. Chi tiết API/vòng đời/giới hạn SMTP tại spec 03/06.
+
 ### Chi tiết triển khai T22
 
 Migration `0006_email_templates` thêm hai bảng trên và enum `email_status`.

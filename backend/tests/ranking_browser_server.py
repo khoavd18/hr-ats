@@ -50,6 +50,15 @@ def seed_bank(session: Session, directory: str) -> None:
         for label in ("A", "B")
     ]
     session.add_all(candidates)
+    # T23 must not share the two records merged by the concurrent T16 browser test.
+    session.add(
+        Candidate(
+            full_name="Ứng viên giả thiếu email T23",
+            retention_until=date(2099, 1, 1),
+            anonymized_text=text,
+            embedding=vector,
+        )
+    )
     session.flush()
     storage = LocalStorage(Path(directory))
     mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -128,6 +137,7 @@ def main() -> None:
                     ("bank", UserRole.admin),
                     ("recruitment", UserRole.admin),
                     ("email-templates", UserRole.lead),
+                    ("email", UserRole.admin),
                 ):
                     session.add(
                         User(

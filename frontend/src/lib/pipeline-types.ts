@@ -1,5 +1,6 @@
 import type { AiLevel } from "@/components/ai-level-badge";
 import type { ProcessingStatus, Stage } from "@/lib/ranking-types";
+import type { EmailDraft } from "@/lib/email-types";
 
 export type PipelineCard = {
   id: string;
@@ -17,7 +18,11 @@ export type Pipeline = {
 };
 // The board consumes only these fields from ApplicationRead, never the CV or contact data.
 export type StageUpdate = Pick<PipelineCard, "id" | "stage" | "stage_entered_at">;
-export type MoveResult = { application: StageUpdate; suggested_email: unknown | null };
+export type MoveResult = {
+  application: StageUpdate;
+  suggested_email: EmailDraft | null;
+  email_notice?: string | null;
+};
 
 export const rejectionReasons = [
   "skills",

@@ -51,6 +51,7 @@ import {
   type StageUpdate,
 } from "@/lib/pipeline-types";
 import { t } from "@/i18n/vi";
+import { emailNotice } from "@/lib/email-notice";
 
 // One left/right key moves one column (w-60 + gap-4). The server validates transitions.
 const columnCoordinates: KeyboardCoordinateGetter = (event, { currentCoordinates }) => {
@@ -173,6 +174,7 @@ export function PipelineBoard({ jobId, active = true }: { jobId: string; active?
       setRejecting(null);
       setReason("");
       setEmailDraft(result.suggested_email ?? null);
+      if (result.email_notice) setError(emailNotice(result.email_notice));
       const previousNotice = notices.current.get(card.id);
       if (previousNotice !== undefined) toast.dismiss(previousNotice);
       const notice = toast.success(

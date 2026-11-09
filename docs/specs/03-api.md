@@ -241,7 +241,7 @@ ASSUMED: các chi tiết chưa chốt trước T07 được ghi tại câu hỏi
   `ứng viên không phản hồi`, `đơn vị tuyển từ chối`, `khác`; bắt buộc khi đích
   `rejected`, phải bỏ qua/null ở đích khác. Field thừa/input sai → 422
   `VALIDATION_ERROR`, không phản chiếu input. Thành công 200
-  `{application: ApplicationRead, suggested_email: null}`; T23 mới bổ sung nháp.
+  `{application: ApplicationRead, suggested_email, email_notice}`; nháp T23 bên dưới.
 - Các cặp hợp lệ theo spec 02: bước kế tiếp/lùi một bước trên chuỗi
   new → screening → submitted → interview → offer → hired; từ năm bước mở
   new…offer còn được sang rejected/withdrawn. Cùng bước, nhảy bước hoặc move từ
@@ -442,7 +442,53 @@ ASSUMED: các mặc định T21 tại câu hỏi #74–#77; không thay ma trậ
   tính toán, tiêu đề xuống dòng hoặc vượt giới hạn → EMAIL_TEMPLATE_INVALID.
   UI ánh xạ mã lỗi sang nhãn Việt cục bộ, không hiển thị raw server message.
 
-ASSUMED: mặc định T22 tại câu hỏi #78–#81; chưa triển khai các endpoint message.
+ASSUMED: mặc định T22 tại câu hỏi #78–#81.
+
+### Contract gửi email T23
+
+- Mọi endpoint message cần đăng nhập, scope Job owner/member từ DB (admin/lead
+  toàn bộ), hồ sơ/ứng viên còn hiệu lực; mutation kiểm CSRF/Origin. Response
+  thành công no-store. Kho CV chung không cấp quyền message. Không có DELETE.
+- `/move` giữ transaction T19, thêm `suggested_email` là null hoặc
+  `{application_id,template_id,to_email,subject,body,body_html,has_calendar}`,
+  chưa ghi EmailMessage hoặc publish. Chọn mẫu đang bật theo stage, created_at/id
+  tăng dần. Người nhận là email ứng viên; mẫu stage submitted/key
+  submitted_to_unit dùng contact_email của đơn vị. Thiếu email hoặc biến/lịch:
+  stage vẫn được lưu, nháp null, `email_notice` là mã EMAIL_NO_ADDRESS,
+  EMAIL_UNIT_NO_ADDRESS hoặc mã render T22; không trả dữ liệu nội bộ. Không có
+  vấn đề thì email_notice=null. Không gợi ý nếu không có mẫu đang bật.
+- GET `/email-messages/templates?application_id=` trả `{items:[{id,name}]}` chỉ
+  mẫu đang bật, cho mọi user có quyền hồ sơ; không mở quyền quản lý mẫu T22.
+  POST `/email-messages/preview` nhận `{application_id,template_id}`, trả cùng
+  nháp như move, thiếu dữ liệu trả 422; không lưu/gửi/đổi stage.
+- POST `/email-messages` nhận `{application_id,template_id?,to_email,subject,body}`
+  → 201 draft. application_id bắt buộc; template_id nullable, phải đang bật nếu
+  chọn. Một địa chỉ thuần tối đa 254 ký tự, subject trim 1–500/một dòng/không
+  ký tự điều khiển, body trim 1–100000. Body là văn bản đã render, không đánh giá
+  Jinja lần hai; tạo body_html bằng Markdown escape T22. Không nhận status,
+  body_html, cc, created_by hoặc message_id từ client. Interview invite cần lịch.
+- POST `/{id}/send` là hành động xác nhận duy nhất trong T23 → 202 snapshot
+  queued, commit trước publish. Chỉ draft/failed chuyển queued; queued/sent lặp
+  trả hiện trạng, không publish lại. Cancelled → 409 EMAIL_INVALID_STATUS.
+  Lần xác nhận mới ghi created_by là người xác nhận, message_id RFC mới,
+  scheduled_for hiện tại và xoá error. Không sửa nội dung sau lưu nháp; khi lỗi
+  xếp hàng UI giữ ID để thử lại cùng nháp. Publish lỗi → failed/không hẹn retry,
+  trả 503 EMAIL_QUEUE_UNAVAILABLE an toàn. Không có tự gửi theo stage hoặc
+  requires_confirmation=false; cv_received tự động thuộc T24.
+- POST `/{id}/cancel` → 200 cancelled, xoá scheduled_for/error; lặp an toàn,
+  sent → 409. Khoá hàng chung với worker: huỷ trước SMTP thì không gửi; khi SMTP
+  đã được chấp nhận thì không thu hồi thư. Failed có scheduled_for là đang hẹn
+  retry; HR được huỷ hoặc bấm Gửi lại để cấp lượt gửi mới.
+- GET `/email-messages?application_id=&page=1&page_size=20` (tối đa 100) →
+  `{items,total}`, xếp created_at giảm dần/id tăng dần; bỏ message đã soft delete.
+  Item: id/application_id/template_id/to_email/subject/body_html/status/sent_at/
+  scheduled_for/error/created_at. Error chỉ thông báo Việt cố định; không trả
+  lỗi SMTP/credential/protocol. Toàn bộ danh sách kiểm quyền kể cả rỗng.
+- Template ngừng dùng → 422 EMAIL_TEMPLATE_INACTIVE; nội dung nháp render vượt
+  giới hạn/recipient lỗi → EMAIL_INVALID_DRAFT. Thiếu bản ghi → 404, ngoài scope
+  → 403, input sai → 422. Mọi mã lỗi có ánh xạ Việt tại frontend.
+
+ASSUMED: chi tiết T23 tại câu hỏi #82–#85; giữ schema EmailMessage của T22.
 
 ## Task & hoạt động
 - `GET /tasks?mine=true&status=&due_before=` · `POST /tasks` · `PATCH /tasks/{id}`

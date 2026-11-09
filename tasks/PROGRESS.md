@@ -24,10 +24,87 @@
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
 | T21 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
 | T22 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
-| T23–T33 | todo | | |
+| T23 | review | 2026-11-09 | VERIFIED: nháp theo stage, xác nhận/huỷ/gửi lại, worker SMTP + ICS/retry/hạn mức toàn hệ thống và mục Email trong drawer; tiêu chí đạt với SMTP giả/Mailpit thật. Backend 1142 pass/12 skip OCR cũ, frontend 122 pass, 10 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T23, CI và merge. |
+| T24–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T23 · 2026-11-09 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md`; T20/T21/T22 đều done, working
+tree sạch lúc bắt đầu trên `task/T23-email-sending-confirm`. `git switch` bị
+sandbox chặn `.git/index.lock`; giữ nhánh hiện có theo ngoại lệ workflow.
+Chưa chuyển done trước review và merge.
+
+- VERIFIED: move trả nháp chưa lưu và mã thông báo Việt khi thiếu liên hệ/biến;
+  submitted dùng email đơn vị. API message tạo draft, send xác nhận riêng,
+  cancel/list/template selector/preview kiểm Job từ DB và CSRF. Content escape,
+  không render Jinja lần hai hoặc nhận status/body_html từ client.
+- VERIFIED: worker queue email, commit trước publish, Message-ID/lượt hẹn chặn
+  delivery/retry cũ, kiểm lại quyền/eligibility, SMTP timeout/STARTTLS, text/HTML,
+  .ics từ calendar T21, email_sent chỉ ID. Retry 60/300/900 giây; hạn mức giờ trượt
+  toàn hệ thống mặc định 200 qua PostgreSQL advisory lock, không thêm schema,
+  dependency hoặc dịch vụ. Đã kiểm cạnh tranh hai session/worker chỉ một thư.
+- VERIFIED: dialog sửa người nhận/subject/body, Gửi/Không gửi, giữ draft ID khi
+  queue lỗi, chống lặp/đóng khi chờ. Drawer Email có lịch sử, iframe sandbox/CSP,
+  retry/huỷ, soạn mẫu/tự do. Chuỗi mới ở vi.ts; response muộn không gửi tiếp.
+- VERIFIED: tiêu chí 1 qua API/memory SMTP + E2E/Mailpit thật: kéo interview chưa
+  có message, Gửi mới có sent/.ics; thiếu email không gợi ý, UI báo rõ. Tiêu chí
+  2 qua test đủ bốn mẫu: tạo nháp/preview/worker trực tiếp không thể gửi nếu
+  chưa send; cancelled/job cũ/thu hồi quyền không gửi.
+- VERIFIED: **21 test T23** (18 API, 1 cạnh tranh, 2 SMTP) trong lượt backend
+  cuối **1142 passed / 12 skipped**. Frontend **122 passed**; lint,
+  typecheck/build pass. E2E toàn bộ **10 passed** trên fixture DB trống migrate
+  tới 0006 + FakeLLM, production web, Mailpit thật localhost 11025/18025. Đã xem
+  ảnh var/t23-email-preview.png và t23-email-history.png, không tràn ngang/lỗi JS.
+  Bài E2E mới dùng ứng viên thiếu email riêng để không bị T16 gộp khi chạy song song.
+- VERIFIED: tự rà soát bằng secure-code-review: quyền từng endpoint/worker,
+  CSRF, header injection, HTML/sandbox, không nội dung/liên hệ trong task args,
+  activity hoặc log SMTP. Không đổi dependency; chưa audit registry qua mạng.
+- VERIFIED: cập nhật spec 01/02/03/06/08 và câu hỏi #82–#85. ICS dùng lịch hiện
+  tại khi gửi và UI báo rõ; giới hạn exactly-once của SMTP được ghi ở spec 06.
+  Assertion T22 cũ về endpoint chưa tồn tại đổi 404→422 theo contract T23, giữ
+  mọi assertion quyền; T20 E2E bổ sung Không gửi sau từ chối, kiểm 0 message.
+
+VERIFIED: lượt cuối `uv run pytest`: **1142 passed, 12 skipped, 1 warning**,
+271,29 giây. 12 skip là ngoại lệ OCR T08 do Windows thiếu Tesseract; warning
+httpx upstream có sẵn. Lượt trước có một lỗi test vector T05 trả [] trên DB
+test tái sử dụng; chạy riêng core_data **60 pass**. INFERRED: HNSW/plan trên DB
+test đã qua nhiều rollback làm kết quả không ổn định. Không sửa test/thuật toán
+ngoài T23; VACUUM ANALYZE candidates/jobs trên hr_ats_test, không xoá bản ghi
+đang dùng, rồi chạy lại toàn bộ lệnh chuẩn đạt. Không nới assertion hoặc thêm skip.
+
+Lệnh cuối và kết quả:
+- `uv run pytest`: **1142 passed / 12 skipped** như trên.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 160 file.
+- `uv run mypy app`: pass, 96 source files.
+- `uv run alembic upgrade head`: pass; API fixture mới migrate DB trống đến 0006.
+- `npm test`: **122 passed / 15 files**; `npm run lint`, `npm run typecheck`,
+  `npm run build`: pass.
+- `npx playwright test`: **10 passed** trên API/web thật; bài mới đã được kiểm
+  cùng cả bộ sau sửa fixture riêng, giữ mặc định tám worker.
+- Kiểm raw MIME bằng API Mailpit localhost: text/HTML UTF-8, Message-ID,
+  đúng một phong-van.ics, giờ Việt Nam 09:30/thời lượng 60 phút: pass.
+- `docker compose up -d db redis mailpit`: DB/Redis chạy, Mailpit bị Windows
+  giữ cổng 1025; dùng `docker compose run` tạo đúng container tạm
+  hr-ats-t23-mailpit với host 11025/18025. Đã stop/remove container này sau kiểm,
+  dừng API fixture qua stop file (dọn DB/storage riêng) và web, không còn listener
+  8000/3000/11025/18025. Giữ DB/Redis dev, không xoá volume hoặc dữ liệu dev.
+- `git diff --check`: pass; 37 file thay đổi/mới UTF-8/LF, không BOM/newline cuối.
+
+File chính: backend/app/services/email_messages.py, app/workers/email.py,
+app/email/smtp.py, app/api/email_messages.py, schemas/email.py; frontend
+email-compose.tsx, profile-email.tsx, pipeline-email-preview.tsx; test API,
+concurrency/SMTP, Vitest và E2E email-messages; các spec và PROGRESS.md.
+
+Việc còn lại: Review T23, CI và merge do quy trình tiếp theo thực hiện. Chưa
+audit dependency qua registry/provider bên ngoài; không đổi dependency ở T23.
+Không triển khai T24. VERIFIED: `git add -A` bị sandbox chặn tạo
+`.git/index.lock` (Permission denied), nên không chạy được commit
+`T23: add human-confirmed email delivery`. Theo ngoại lệ `tasks/_implement.md`,
+giữ toàn bộ thay đổi trong working tree trên nhánh task để runner commit;
+không xin thêm quyền ghi .git hoặc đánh dấu done sớm.
 
 ## T22 · 2026-11-09 · review (Fix round 1 — CI)
 

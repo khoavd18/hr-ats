@@ -2,13 +2,14 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Literal, Self
+from typing import Annotated, Self
 from uuid import UUID
 
 from pydantic import BaseModel, StringConstraints, model_validator
 
 from app.models.enums import AiLevel, ApplicationStage, ProcessingStatus
 from app.schemas.core import ApplicationRead
+from app.schemas.email import SuggestedEmail
 from app.schemas.users import InputModel
 
 
@@ -38,7 +39,8 @@ class MoveInput(InputModel):
 
 class MoveResponse(BaseModel):
     application: ApplicationRead
-    suggested_email: Literal[None] = None
+    suggested_email: SuggestedEmail | None = None
+    email_notice: str | None = None
 
 
 class StageLabel(BaseModel):

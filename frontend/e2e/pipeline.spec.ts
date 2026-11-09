@@ -138,6 +138,14 @@ test("Kanban: real pointer/keyboard moves, rollback, rejection and undo at 1280p
   await page.screenshot({ path: "../var/t20-rejection.png", fullPage: true });
   await rejection.getByRole("button", { name: t("common.confirm"), exact: true }).click();
   await expect(rejection).toHaveCount(0);
+  // T23 adds a separate email confirmation; declining it leaves no saved message.
+  const emailPreview = page.getByRole("dialog", { name: t("pipeline.emailPreview") });
+  await expect(emailPreview).toBeVisible();
+  await emailPreview.getByRole("button", { name: t("email.skip"), exact: true }).click();
+  const emails = await (
+    await context.request.get(`${base}/email-messages?application_id=${application.id}`)
+  ).json();
+  expect(emails.total).toBe(0);
   await expect(candidate("rejected")).toBeVisible();
   await page.getByRole("button", { name: t("pipeline.undo"), exact: true }).click();
   await page.reload();

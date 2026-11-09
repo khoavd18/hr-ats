@@ -346,6 +346,45 @@ var/t22-email-templates.png gitignored; chạy cùng bộ cũ bằng
 `npx playwright test`. Chặn HTTP ngoài localhost; dừng fixture qua
 var/t14-browser.stop để chỉ dọn DB/storage của lượt kiểm thử.
 
+## Kiểm thử T23
+
+`tests/api/test_email_messages.py`, `tests/test_email_concurrency.py` và
+`tests/unit/test_email_smtp.py` chạy trong `uv run pytest`: move/render không
+lưu/gửi, chỉ send cấp queued, đủ bốn mẫu phải xác nhận, thiếu email/biến/lịch,
+submitted dùng contact_email đơn vị, header injection/HTML/literal Jinja,
+auth/CSRF/quyền owner/member/thu hồi, eligibility/user trước SMTP. SMTP trong
+bộ nhớ kiểm MIME text/HTML, Message-ID, parse ICS giờ/vòng/thời lượng/địa điểm,
+email_sent chỉ ID; retry countdown 60/300/900, kết thúc/huỷ/gửi lại/checkpoint
+job cũ, lỗi queue/SMTP không PII, hạn mức toàn hệ thống. Hai kết nối Postgres
+thật trên DB tạm chứng minh commit trước publish, hai send cạnh tranh chỉ
+publish một và hai worker delivery chỉ một thư/activity. Test SMTP boundary
+kiểm timeout, STARTTLS xác minh chứng chỉ/login và envelope một người nhận.
+T22 giữ mọi assertion quyền mẫu; assertion 404 do endpoint message chưa tồn
+tại được thay bằng 422 cho input rỗng vì T23 đã triển khai endpoint đó.
+
+Vitest `email-compose.test.tsx` kiểm preview/Không gửi/Escape không request,
+sửa nội dung rồi Gửi tạo draft→send đúng thứ tự, chống bấm lặp/đóng lúc chờ,
+send lỗi giữ ID/nội dung và retry/huỷ không tạo nháp khác, response sau unmount
+không gửi thêm/toast/cache. Kiểm drawer mở mới fetch, thiếu email, lịch sử lỗi,
+preview iframe sandbox/CSP, click retry và soạn từ mẫu/tự do, lỗi tải/thử lại.
+Giữ test pipeline T20 về payload sai hình dạng không được hiển thị hay gửi.
+Chạy npm test/lint/typecheck/build theo lệnh chuẩn.
+
+E2E `email-messages.spec.ts` dùng fixture
+`uv run python -m tests.ranking_browser_server` với user browser-email giả riêng,
+PostgreSQL/seed/FakeLLM thật và web production sau `npm run build`. SMTP dùng
+Mailpit dev; nếu Windows giữ cổng 1025 có thể chạy container Mailpit riêng với
+host SMTP 11025/web 18025, đặt SMTP_PORT=11025 cho fixture (không đổi Compose).
+Kéo submitted→interview, nháp không tồn tại trong DB; Không gửi giữ 0 message,
+lặp kéo/sửa tiêu đề/Gửi mới có một sent. Drawer đọc thư đã gửi; ứng viên kho
+giả không email không có gợi ý, UI báo rõ. E2E pipeline cũ thêm Không gửi sau
+từ chối và kiểm 0 message, giữ mọi kiểm tra stage/undo. Chạy cùng bộ cũ bằng
+`npx playwright test`; chỉ localhost, 1280px, kiểm overflow/lỗi JS, ảnh
+var/t23-*.png gitignored. Có thể kiểm attachment Mailpit qua API localhost;
+test backend parse lại ICS là kiểm tra nội dung độc lập. Dừng fixture bằng
+var/t14-browser.stop để dọn đúng DB/storage tạm và dừng container Mailpit của
+lượt kiểm thử. Không đổi schema/migration hoặc thêm dependency.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.
