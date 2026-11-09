@@ -208,6 +208,37 @@ PostgreSQL local và dữ liệu giả; không ghi workbook hay PII vào repo/lo
 Vitest `job-detail.test.tsx` kiểm dialog cảnh báo dữ liệu cá nhân, gọi API dạng
 blob, tên file và thao tác tải; không gọi mạng ngoài.
 
+## Kiểm thử T18
+
+`tests/unit/test_seed.py` kiểm seed từ chối prod, DB ngoài localhost, provider
+thật và storage từ xa trước khi mở DB, lỗi CLI không lộ nội dung exception,
+và khôi phục cấu hình eager dù có lỗi. `tests/api/test_seed_demo.py` migrate DB
+tạm trống rồi chạy CLI seed thật hai lần bằng subprocess (APP_ENV=dev, fake,
+storage tạm): 4 user/3 đơn vị/5 Job/40 ứng viên/40 file/40 hồ sơ đã chấm,
+embedding và provenance, consent vẫn null, không tăng bản ghi/file hay chấm lại,
+giữ stage HR đã sửa. Kiểm thêm không ghi đè tài khoản và phục hồi seed sau lỗi
+pipeline. Tất cả chạy trong `uv run pytest`, không provider/mạng ngoài.
+Test FakeLLM bổ sung danh sách kỹ năng có tiêu đề riêng dòng của CV giả T06;
+giữ test không suy đoán thông tin và không nuốt mục sau khi thiếu giá trị.
+
+Theo README **Demo nhanh**, migrate → `uv run python -m app.scripts.seed` →
+API + worker Celery thật (Windows `-P solo`) + web, rồi tại frontend chạy
+`npx playwright test m1-smoke.spec.ts`. Seed chạy các task đồng bộ để CLI chỉ
+thành công sau pipeline; upload mới từ web dùng worker/Redis thông thường.
+Smoke đăng nhập recruiter, tạo Job kế toán từ jobs.json bằng form, kéo 5 file
+giả dành riêng, đợi done, đối chiếu mức/thứ tự với nhãn, mở drawer và sửa phản
+hồi, mở lại kiểm lưu, tìm kỹ năng bookkeeping và xác nhận kết quả thuộc batch
+vừa upload. Test chỉ thêm ZIP/PDF comment vào payload để chạy lại trên dev DB
+mà không đổi file gốc hoặc nội dung CV. Browser chặn mạng ngoài localhost.
+
+Lệnh E2E đầy đủ vẫn là `npx playwright test`, dùng
+`uv run python -m tests.ranking_browser_server` và web như T14–T16. Fixture
+thêm catalog user/đơn vị/Job T18, không nhập 40 CV seed vào DB fixture để tránh
+đụng các file gốc của bài cũ. Luồng smoke dùng 5 file khác các bài cũ, tài khoản
+recruiter riêng; không thu hồi phiên hoặc sửa dữ liệu test khác. DB seed thật
+được kiểm riêng bằng CLI trên DB trống và demo với worker thật. Không thêm
+schema, dependency, thay điều kiện skip OCR hoặc tự seed khi khởi động app.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.

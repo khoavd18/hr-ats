@@ -137,6 +137,9 @@ def main() -> None:
                     )
                 seed_bank(session, directory)
                 session.commit()
+                from app.scripts.seed import seed_catalog
+
+                seed_catalog(session)
             server = uvicorn.Server(
                 uvicorn.Config(create_app(), host="127.0.0.1", port=8000, access_log=False)
             )

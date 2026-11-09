@@ -19,10 +19,80 @@
 | T15 | done | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
 | T16 | done | 2026-11-08 | VERIFIED: kho CV tìm không dấu/theo nghĩa và bộ lọc, top-50 gợi ý theo Job, chọn nhiều tạo/chấm hồ sơ, gộp nguyên tử có xác nhận/giữ lịch sử. 893 backend pass/12 skip OCR cũ, 85 Vitest và 5 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T16, CI và merge. |
 | T17 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1–F3; giữ cách escape an toàn của F4 theo review. Test export/migration PostgreSQL 8 pass, frontend 86 pass; lint/typecheck sạch. Xem nhật ký fix và tasks/reviews/T17.md. |
-| T18–T33 | todo | | |
+| T18 | review | 2026-11-09 | VERIFIED: seed dev idempotent chạy pipeline thật/FakeLLM, README Demo nhanh, M1 smoke với Celery/Redis thật và 6 E2E pass. Backend 908 pass/12 skip OCR sẵn có, frontend 86 pass; lint/typecheck/build sạch. M1 hoàn thành về chức năng; chờ review, CI và merge. |
+| T19–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T18 · 2026-11-09 · review
+
+**M1 hoàn thành** — VERIFIED về chức năng: tạo Job, tải CV, xếp hạng có lý do,
+phản hồi AI, tìm Kho CV và xuất Excel đã có kiểm chứng. T18 giữ `review` cho
+đến khi review/CI/merge; chưa tự chuyển task sang `done`.
+
+VERIFIED: bắt đầu trên nhánh `task/T18-seed-and-first-e2e`, working tree sạch,
+T16/T17 đều `done`; triển khai theo `tasks/_implement.md`.
+
+- `app/scripts/seed.py` tạo 4 tài khoản giả, 3 đơn vị tuyển, 5 Job từ jobs.json,
+  40 CV kỹ thuật số/hồ sơ qua upload → extract → parse → ẩn danh → embedding →
+  chấm điểm thật với fake provider. CLI dùng task eager và kết nối worker độc
+  lập, kiểm done trước khi thành công; upload web tiếp tục dùng Celery/Redis.
+- Seed từ chối prod/provider thật/DB ngoài localhost/storage từ xa, không reset
+  password/quyền hoặc suy diễn consent. Lặp lại giữ ID/score/lịch sử/stage HR
+  đã sửa; phục hồi lượt dở dang. Lịch sử stage được tạo rõ là dữ liệu giả.
+  Không thêm migration; các bảng module tương lai theo câu hỏi #66.
+- FakeLLM bổ sung đọc một dòng danh sách kỹ năng sau tiêu đề riêng dòng; có
+  test chống nuốt mục sau. Không sửa nhãn/prompt/công thức score/provider thật
+  hoặc suy đoán tên từ header. Câu hỏi #67 ghi lỗi tái hiện và lựa chọn này.
+- `m1-smoke.spec.ts` đăng nhập recruiter, tạo Job kế toán bằng form từ nhãn
+  jobs.json, thả 5 CV, đối chiếu cả thứ tự mức AI (dòng đầu high), gửi/mở lại
+  phản hồi khác mức, tìm bookkeeping và kiểm ứng viên thuộc batch vừa tải.
+  ZIP/PDF comment chỉ thay hash payload để chạy lại trên dev mà giữ file gốc.
+- README **Demo nhanh** ghi đầy đủ cài đặt/migrate/seed/API/worker/web/trình
+  duyệt, tài khoản giả, E2E và fallback cổng Mailpit. Fixture trình duyệt T14
+  tái sử dụng catalog T18; selector link T14 xác định đúng ID Job khi có tên
+  trùng, giữ mọi assertion cũ. Đã xem screenshot Kho CV ở 1280px, không tràn
+  ngang hoặc lỗi JavaScript; screenshot/artifact chỉ ở thư mục bị gitignore.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Từ repo sạch làm theo Demo nhanh chạy được và E2E pass | VERIFIED — đạt | CLI subprocess trên DB trống đã migrate, seed hai lần không tăng số row/file hoặc ghi đè stage; `uv run python -m app.scripts.seed` trên DB dev thành công; smoke với API/worker Redis thật **1 passed**; `npx playwright test` trên DB/storage tạm mới **6 passed** |
+| Đánh dấu mốc M1 hoàn thành | VERIFIED — đạt | Mốc ở đầu nhật ký này và dòng T18; trạng thái task vẫn `review` chờ duyệt/CI/merge |
+
+### Lệnh và kết quả
+
+- `docker compose up -d db redis mailpit`: DB/Redis chạy; Mailpit lỗi bind
+  SMTP 1025 bị Windows giữ. Fallback README `docker compose up -d db redis`:
+  pass. NOT TESTED: runtime Mailpit lượt này; M1 không gửi email.
+- `uv sync`: pass; `uv run alembic upgrade head`: pass. Test DB riêng chạy
+  lịch sử Alembic từ template0; không thay schema, không reset DB dev/test.
+- `uv run python -m app.scripts.seed`: pass, đủ 4/3/5/40; test CLI hai lần
+  và test seed tiếp tục sau lỗi pipeline cũng pass.
+- `uv run pytest`: **908 passed, 12 skipped**, 1 cảnh báo Starlette/httpx
+  có sẵn; 12 skip OCR theo T08 do không có Tesseract, không đổi điều kiện.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 134 file.
+  `uv run mypy app`: pass, 79 source file.
+- `npm ci`: pass, 0 vulnerability; `npm test`: **86 passed**.
+  `npm run lint`, `npm run typecheck`, `npm run build`: pass.
+- `npx playwright install chromium`: pass; smoke M1 trên demo dùng Uvicorn
+  `--reload`, worker Windows `-P solo`, Redis thật và Next dev: **1 passed**.
+  `npx playwright test` với fixture DB riêng và production web: **6 passed**.
+  Lần đầu bộ E2E phát hiện selector T14 trùng tên Job; đã sửa định danh link,
+  chạy lại cả suite trên fixture mới, giữ đủ 6 bài và mọi tiêu chí.
+- `git diff --check`: pass. Đã tự review diff về phạm vi, trường hợp lỗi và
+  PII; chỉ dữ liệu giả, không có secret thật, không có kết nối provider thật.
+- `git add` thất bại vì không tạo được `.git/index.lock` (Permission denied),
+  nên chưa commit. Theo fallback trong `tasks/_implement.md`, giữ nguyên toàn
+  bộ thay đổi ở working tree trên nhánh task để runner commit. Đã dừng các
+  API/worker/web do lượt kiểm thử khởi động; fixture dọn xong DB/storage tạm,
+  truy vấn không còn DB `hr_ats_test_t%`; giữ DB dev/test và dữ liệu demo.
+
+ASSUMED / việc còn lại: dữ liệu interview/offer/placement/task/email mẫu theo
+#66 được bổ sung khi task sở hữu bảng triển khai. Review T18, CI và merge còn
+chờ quy trình ngoài lượt implement này; chưa kiểm provider/model AI thật.
 
 ## T17 · 2026-11-09 · review · Fix round 1
 

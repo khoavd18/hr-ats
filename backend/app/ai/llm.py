@@ -249,6 +249,15 @@ class FakeLLM(_BaseLLM):
                     data = {"experiences": [], "education": []}
                 elif schema is ParseSkills:
                     skills = _line_value(text, "Kỹ năng|Skills?")
+                    if not skills:
+                        # T06's synthetic CVs also use a heading followed by a
+                        # comma/semicolon list. Never treat the next section as a skill.
+                        section = re.search(
+                            r"(?im)^[ \t]*(?:Kỹ năng|Skills?)[ \t]*:?[ \t]*\r?\n"
+                            r"[ \t]*([^\r\n,;]+[,;][^\r\n]+)",
+                            text,
+                        )
+                        skills = section[1] if section else None
                     data = {
                         "skills": [v.strip() for v in re.split("[,;]", skills) if v.strip()]
                         if skills
