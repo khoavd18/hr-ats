@@ -10,6 +10,7 @@ import { AiCounts } from "@/components/ai-counts";
 import { CvUpload } from "@/components/cv-upload";
 import { CandidateProfile } from "@/components/candidate-profile";
 import { AddFromBank } from "@/components/bank-add-dialog";
+import { PipelineBoard } from "@/components/pipeline-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +35,8 @@ import { aiLevels, stages, type Ranking, type RankedApplication } from "@/lib/ra
 import { t } from "@/i18n/vi";
 
 export function JobDetail({ jobId }: { jobId: string }) {
+  const [activeTab, setActiveTab] = useState("candidates");
+  const [pipelineVisited, setPipelineVisited] = useState(false);
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [level, setLevel] = useState("");
@@ -114,7 +117,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
               </Button>
             }
           />
-          <Tabs defaultValue="candidates">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              setActiveTab(value);
+              if (value === "pipeline") setPipelineVisited(true);
+            }}
+          >
             <TabsList aria-label={t("ranking.tabs")}>
               <TabsTrigger value="candidates">{t("ranking.candidates")}</TabsTrigger>
               <TabsTrigger value="pipeline">{t("ranking.pipeline")}</TabsTrigger>
@@ -308,10 +317,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
                 </>
               )}
             </TabsContent>
-            <TabsContent value="pipeline">
-              <p className="rounded-lg border p-6 text-muted-foreground">
-                {t("ranking.pipelineHint")}
-              </p>
+            <TabsContent value="pipeline" forceMount className="data-[state=inactive]:hidden">
+              {pipelineVisited && (
+                <PipelineBoard key={jobId} jobId={jobId} active={activeTab === "pipeline"} />
+              )}
             </TabsContent>
             <TabsContent value="info" className="space-y-4 rounded-lg border bg-card p-6">
               <p className="whitespace-pre-wrap">{job.data.description || t("ranking.unknown")}</p>

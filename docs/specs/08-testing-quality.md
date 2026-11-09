@@ -260,6 +260,31 @@ giữ các kiểm tra từ chối SĐT/email/khoá nhạy cảm/UUID nối thêm
 core_data cũ tiếp tục kiểm payload metadata và transaction, không đổi fixture
 hoặc nới assertion để tránh UUID ngẫu nhiên.
 
+## Kiểm thử T20
+
+Vitest `pipeline-board.test.tsx` dùng DndContext/KeyboardSensor thật, chỉ cấp
+geometry trình duyệt cho jsdom và mock API boundary. Kiểm request move đúng,
+thẻ đổi cột trước khi response về, lỗi khôi phục thẻ/count/thời điểm, toast và
+POST undo trả đúng cột, lỗi undo không đổi thẻ. Kiểm bắt buộc lý do từ chối,
+huỷ không gửi, khoá đóng/bấm lặp trong lúc chờ, giữ lý do khi lỗi, menu withdrawn,
+số ngày/AI, cùng cột/Escape, loading/error/retry/empty và dialog email chỉ khi có
+gợi ý; không gửi email hoặc render payload chưa có contract. API client test
+kiểm bốn mã lỗi pipeline thành tiếng Việt và loại message thô. Chạy bằng
+`npm test`, `npm run lint`, `npm run typecheck` và `npm run build` như bảng lệnh.
+
+E2E `pipeline.spec.ts` dùng fixture `uv run python -m tests.ranking_browser_server`
+và web như T14, tài khoản dev-lead riêng đã có trong catalog T18. Tạo Job mới,
+upload DOCX giả T06 cv_0043 với comment transport riêng; không sửa dữ liệu gốc.
+Playwright ở 1280px dùng chuột kéo new→screening, chuyển tab rồi undo, thử nhảy
+bước để API thật từ chối/rollback, dùng bàn phím cuộn đến rejected và xác nhận
+lý do, undo/reload, mở withdrawn/drawer và kiểm focus/overflow/lỗi JS. Chụp ảnh
+vào var/t20-*.png (gitignored), chặn mọi request browser ngoài localhost. Chạy
+`npx playwright test` cùng các bài cũ; nếu dev compile lạnh vượt thời gian chờ
+điều hướng, dừng dev rồi dùng `npm run build` và `npm run start` trước khi chạy
+lại trên fixture mới. Không chạy build đồng thời dev. Dừng fixture bằng
+var/t14-browser.stop.
+Không đổi schema, endpoint hoặc backend runtime trong T20.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.
