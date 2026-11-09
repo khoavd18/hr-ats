@@ -11,3 +11,4 @@ Mốc: M4 · Phụ thuộc: T21 · Spec: `06` (KPI), `03` (Báo cáo), `docs/met
 
 ## Ghi chú từ review T02
 - Múi giờ app đang đọc từ biến hệ thống `TZ`, dễ bị máy chủ ghi đè và làm lệch ranh giới ngày của KPI. Cân nhắc biến riêng `APP_TIMEZONE` (cập nhật spec 01 và `.env.example`).
+- Từ review T20 (F1): `pipeline-board.tsx` gửi `rejected_reason` là chuỗi hiển thị tiếng Việt thay vì mã enum. Trước khi viết KPI theo lý do loại: gửi và lưu mã cố định (vd. `missing_skills`), hiển thị qua `vi.ts`; migration chuyển dữ liệu cũ từ chuỗi hiển thị sang mã.
