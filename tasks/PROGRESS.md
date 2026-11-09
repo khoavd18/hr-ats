@@ -29,7 +29,7 @@
 | T25 | done | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
 | T26 | done | 2026-11-09 | VERIFIED: 13 KPI draft, 5 endpoint và Excel, SQL nhóm theo recruiter/quyền Job, fixture tính tay/biên ngày Việt Nam. Backend 1257 pass/12 skip OCR cũ; bộ T26/config cuối 76 pass; Ruff/mypy/migration sạch. Chờ Review T26, CI và merge; sandbox chặn ghi .git. |
 | T27 | done | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
-| T28 | review | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
+| T28 | done | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
 | T29–T33 | todo | | |
 
 ## Nhật ký
