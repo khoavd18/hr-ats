@@ -27,7 +27,7 @@ Context đọc từ Application đã kiểm quyền và ứng viên còn hiệu 
 Job.title, HiringUnit.name; recruiter là Application.owner_id. Company lấy tên
 hiển thị trong SMTP_FROM, thiếu thì báo thiếu biến khi mẫu cần tới. Interview
 chưa xoá mới nhất theo scheduled_at giảm dần/id tăng dần cung cấp thời gian
-`dd/mm/yyyy HH:MM` theo TZ và địa điểm; Offer chưa xoá mới nhất theo created_at
+`dd/mm/yyyy HH:MM` theo APP_TIMEZONE và địa điểm; Offer chưa xoá mới nhất theo created_at
 giảm dần/id tăng dần cung cấp lương định dạng `20.000.000 đồng` (0 vẫn hợp lệ)
 và ngày `dd/mm/yyyy`. Không điền giả thông tin còn thiếu.
 
@@ -192,6 +192,91 @@ Khoảng thời gian `[from, to)` theo giờ Việt Nam. "Người" của KPI = 
 | Hoạt động | Số `activities` theo loại và người |
 
 Truy vấn nằm trong `app/reports/queries.py`, mỗi KPI một hàm, có test với dữ liệu dựng sẵn và kết quả tính tay.
+
+### Contract triển khai KPI T26/v1 — status: draft
+
+ASSUMED: chi tiết dưới đây là mặc định kỹ thuật theo #94–#99, chờ HR duyệt;
+không nâng danh sách KPI thành approved. API trả definition_status=draft.
+Nguồn tổng hợp là fact trong PostgreSQL; SQL count/sum/distinct/percentile_cont,
+không gọi LLM. Mỗi hàm nhận session/start/end/filters; grouped=True tính cả
+bảng recruiter bằng truy vấn nhóm, không gọi lại bộ KPI cho từng người.
+
+**Kỳ và quyền:** from/to là ngày YYYY-MM-DD, 1–366 ngày, to không bao gồm.
+Chuyển hai mốc nửa đêm Asia/Ho_Chi_Minh sang UTC trước WHERE; không phụ thuộc
+TZ của máy hoặc phiên DB. Chỉ 366 ngày mỗi request để giới hạn bảng theo ngày.
+Admin/lead xem toàn bộ, recruiter mặc định và bắt buộc của mình; truyền ID
+người khác → 403. Bộ lọc recruiter/Job/đơn vị giao nhau. Recruiter còn phải
+có quyền owner/member Job hiện tại, kể cả sau khi thu hồi membership. Fact
+không gắn Job chỉ có trong báo cáo không lọc Job/đơn vị, và vẫn lọc attribution.
+
+**Attribution:** Application.owner_id được gán lúc tạo và hiện không có API
+đổi owner; dùng owner này cho stage/interview/offer/placement/feedback, không
+dùng actor đổi bước hoặc user viết feedback. Nếu sau này có chuyển owner phải
+thêm lịch sử trước khi khẳng định attribution tại thời điểm sự kiện. CV ưu tiên
+uploaded_by, null thì owner Job hiện tại; cả hai null vào hàng chưa gán. Job
+trễ hạn theo owner Job hiện tại. Hoạt động theo actor_id, null vào hệ thống.
+Job đổi owner/đơn vị có thể làm đổi nhóm lịch sử vì chưa có lịch sử phân công
+Job. Không bịa owner cũ. Bảng team giữ cả user inactive có dữ liệu; có hàng 0
+cho recruiter chưa có số liệu và hàng admin/lead nếu có đóng góp. Hàng null
+được giữ để đối chiếu tổng, không âm thầm bỏ activity/CV tự động.
+
+**Grain và thời điểm:**
+- CV đếm file chưa ẩn theo created_at, không đếm candidate/application, không
+  join một file với mọi Application để tránh nhân bản. Tất cả trạng thái parse.
+- Screen đếm event from_stage=new và to_stage khác new; gửi đơn vị đếm event
+  to_stage=submitted, theo occurred_at. Lượt đi lại/hoàn tác vẫn là sự kiện thật
+  theo spec 02, không triệt tiêu. Không suy ra từ stage hiện tại.
+- Interview theo scheduled_at: elapsed khi < as_of, upcoming khi >= as_of.
+  elapsed chỉ nghĩa lịch đã đến giờ, không khẳng định đã diễn ra (result có
+  thể pending/no_show). Không lọc theo created_at hoặc kết quả phỏng vấn.
+- Offer theo sent_at (draft null không tính); accepted/declined vẫn tính nếu
+  đã có sent_at trong kỳ. Placement theo created_at, mọi status chưa ẩn,
+  không phải start_date; phí cùng population đó, đơn vị VND.
+- Feedback lấy verdict hiện tại của row chưa ẩn theo created_at; upsert T15
+  giữ created_at, không tạo lịch sử mỗi lần sửa. Sửa verdict có thể làm thay
+  đổi báo cáo kỳ cũ; không coi đây là phép đo accuracy từ nhãn chuẩn.
+- Activity theo occurred_at, nhóm type/actor; liên kết Job dùng job_id hoặc
+  Job của Application nếu job_id null. Không đọc payload/ghi chú/liên hệ.
+
+**Phễu và trung vị:** mỗi Application chỉ đếm một lần ở mỗi to_stage trong kỳ,
+nhưng có thể xuất hiện ở nhiều bước. Không ép chung cohort: S+1/S là tỉ lệ dòng
+vào trong kỳ, có thể >1 nếu các hồ sơ đã vào S trước kỳ; không clamp 100%.
+Trả đủ tám bước; chỉ chuỗi new→screening→submitted→interview→offer→hired có
+bước kế. rejected/withdrawn/hired không có bước kế, rate=null. Mẫu số=0 cũng
+null, kèm count/next_count để UI giải thích.
+
+T12 chưa ghi StageEvent khởi tạo: khi không có event from=null/to=new còn
+hiệu lực, truy vấn thêm entry new ảo tại Application.created_at; không ghi hay
+backfill DB. Entry thực có ưu tiên nếu tồn tại. Thời gian ở stage dùng entry
+thật/ảo và lead theo application, sắp occurred_at rồi created_at/id; entry ảo
+đứng trước event thật khi cùng thời điểm. Mẫu được gán vào kỳ của **exit**,
+entry có thể trước from. Đọc lịch sử trước khi lọc kỳ; lượt chưa thoát không
+tính. Một application đi lại tạo nhiều mẫu; thời lượng bằng 0 vẫn hợp lệ.
+Trả đủ tám bước, mỗi bước days/sample_count/excluded_count (hiện duration
+không có mẫu âm vì sắp theo thời gian, excluded_count=0).
+
+Time-to-fill lấy placement trong kỳ, days=(created_at−opened_at)/86400 giây,
+trung vị liên tục PostgreSQL (mẫu chẵn lấy trung bình hai giá trị giữa).
+opened_at thiếu hoặc sau placement (Job mở lại) không gán 0; trả excluded_count.
+Không có mẫu hợp lệ → days=null. Team tính từ mẫu gốc, không trung bình trung
+vị từng người. Độ chính xác trả về không làm tròn; format thuộc UI T27.
+
+**Snapshot và dữ liệu thiếu:** Job trễ hạn dùng trạng thái/deadline/headcount và
+mọi placement chưa ẩn của Job trong DB hiện tại, không lọc kỳ/recruiter trước
+khi tính số ghế đã nhận. Deadline < ngày Việt Nam của as_of; đúng hôm nay
+chưa trễ. as_of được chụp một lần mỗi request để các nhánh dùng cùng ngày;
+đây không phải truy vấn trạng thái lịch sử tại to. Các truy vấn đọc dữ liệu
+hiện tại theo transaction mặc định; không cung cấp snapshot lưu trữ lịch sử.
+Count không có sự kiện là 0; rate/median không xác định là null. Phí trả
+amount/known_count/missing_count: sum phần đã biết, không có phí đã biết là
+null, không biến phí thiếu thành 0. Luôn giữ số mẫu khi rollup.
+
+Loại fact bị soft delete và con của Application bị soft delete. Không đọc
+Candidate/PII hoặc phụ thuộc retention của CV để tính số thống kê tổng hợp;
+thống kê từ các fact còn giữ được tiếp tục tính sau khi hồ sơ hết hạn/ẩn danh.
+Gộp có Application bị ẩn thì bỏ các fact của Application đó; T29 chịu trách
+nhiệm bảo toàn thống kê ẩn danh khi thiết kế xoá thật. Không xuất tên/liên hệ
+ứng viên, CV text hoặc payload; Excel chỉ số tổng hợp và tên recruiter.
 
 ## Báo cáo định kỳ
 - `generate_daily_report` 18:00 hằng ngày: email cho lead/admin bảng KPI trong ngày theo recruiter.

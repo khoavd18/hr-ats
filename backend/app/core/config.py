@@ -59,7 +59,10 @@ class Settings(BaseSettings):
     hiring_unit_label: str = "Đơn vị tuyển"
     data_retention_months: int = Field(default=24, ge=1)
     frontend_origin: str = "http://localhost:3000"
-    tz: str = "Asia/Ho_Chi_Minh"
+    # Do not let an operating-system TZ override Vietnamese business-day boundaries.
+    tz: Literal["Asia/Ho_Chi_Minh"] = Field(
+        default="Asia/Ho_Chi_Minh", validation_alias="APP_TIMEZONE"
+    )
 
     @model_validator(mode="after")
     def validate_production_signing_key(self) -> Self:

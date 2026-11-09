@@ -27,10 +27,80 @@
 | T23 | done | 2026-11-09 | VERIFIED: nháp theo stage, xác nhận/huỷ/gửi lại, worker SMTP + ICS/retry/hạn mức toàn hệ thống và mục Email trong drawer; tiêu chí đạt với SMTP giả/Mailpit thật. Backend 1142 pass/12 skip OCR cũ, frontend 122 pass, 10 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T23, CI và merge. |
 | T24 | done | 2026-11-09 | VERIFIED: nhận CV qua IMAP giả/TLS, chống trùng, gắn Job, receipt tự động riêng cv_received, trạng thái hộp mail và mã Job. T24 24 pass; toàn backend 1160 pass/12 skip OCR cũ, frontend 127 pass, 11 E2E pass (2 workers); lint/typecheck/build/migration sạch. Chờ Review T24, CI và merge; sandbox chặn ghi .git. |
 | T25 | done | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
-| T26–T33 | todo | | |
+| T26 | review | 2026-11-09 | VERIFIED: 13 KPI draft, 5 endpoint và Excel, SQL nhóm theo recruiter/quyền Job, fixture tính tay/biên ngày Việt Nam. Backend 1257 pass/12 skip OCR cũ; bộ T26/config cuối 76 pass; Ruff/mypy/migration sạch. Chờ Review T26, CI và merge; sandbox chặn ghi .git. |
+| T27–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T26 · 2026-11-09 · review
+
+VERIFIED: theo `tasks/_implement.md`; T21 done, working tree sạch và đã ở
+`task/T26-kpi-queries-reports-api` lúc bắt đầu. Git switch bị sandbox chặn
+`.git/index.lock`; tiếp tục nhánh có sẵn theo ngoại lệ workflow. Áp dụng các
+skill backend-api-engineer, kpi-metrics-engineer, software-testing và tự rà
+soát secure-code-review; chưa chuyển done trước khi được review và merge.
+
+- VERIFIED: `app/reports/queries.py` có hàm cho đủ 13 KPI, aggregate bằng SQL
+  PostgreSQL count/sum/distinct/percentile_cont và lead cho duration. Kỳ ngày
+  Việt Nam [from,to), giới hạn 1–366 ngày; thêm CV theo ngày gồm ngày 0. Query
+  group theo người thực hiện/owner một lần cho cả roster, không N+1. Team
+  recompute median/tử-mẫu từ fact; missing/zero tách biệt; giữ sample count,
+  fee known/missing, user inactive và hàng hệ thống/unassigned.
+- VERIFIED: năm GET summary/funnel/recruiters/ai-agreement/export.xlsx dùng
+  cùng bộ lọc/quyền reports.view; recruiter chỉ của mình và Job hiện còn
+  quyền owner/member. Kiểm cả explicit filter ngoài quyền khi không có số
+  liệu; auth, user inactive, malformed/unknown query, 404 resource tường minh.
+  DTO no-store, API/OpenAPI/spec rõ ràng, XLSX khai báo binary đúng MIME.
+- VERIFIED: workbook tám sheet Việt có draft/kỳ/filter/as_of, số liệu cùng
+  truy vấn, header đậm/freeze/filter, missing giữ blank; tên recruiter ép
+  OOXML string và bỏ XML control trước ghi. Test =/+/-/@/tab/control không
+  tạo formula. Không lấy tên/liên hệ ứng viên, nội dung CV, ghi chú hay payload.
+- VERIFIED: APP_TIMEZONE thay TZ của OS trong Settings, mặc định/chỉ hỗ trợ
+  Asia/Ho_Chi_Minh; giữ thuộc tính tz cho service cũ. Regression host TZ=UTC
+  và America/New_York không đổi ngày nghiệp vụ, cấu hình không hợp lệ bị chặn.
+  Cập nhật .env.example, README và spec 01/03/06/08, mapping hàm KPI giữ draft.
+- VERIFIED: fixture PostgreSQL dựng tay gồm 2 Job/4 Application/13 stage
+  events, thời gian tường minh, expected độc lập cho đủ KPI. CV=5, screen=2,
+  submitted=3, interview=3, offer=2, placement=4; funnel [2,1,2,2,1,0,1,0];
+  time-to-fill=4 ngày, AI=4/5=0.8, fee known=400 (3 biết/1 thiếu), 5 activity.
+  Kiểm trước from 1 microsecond/đúng from/đúng to, nửa đêm Việt Nam, deadline,
+  đi lại/entry new thiếu/zero duration, soft delete, thiếu opened_at/Job mở lại,
+  không đổi thống kê chỉ vì CV hết hạn, filter và thu hồi quyền cả 5 endpoint.
+- VERIFIED: `uv run pytest` **1257 passed, 12 skipped**, 409.94s; skip OCR
+  T08 do thiếu Tesseract không thay đổi. Sau các bổ sung rà soát (thứ tự map,
+  OOXML control và OpenAPI binary), lệnh
+  `uv run pytest tests/api/test_reports.py tests/api/test_reports_access.py tests/unit/test_config.py -q`
+  **76 passed**, 51.00s (61 test báo cáo, 15 cấu hình), bao cả 7 case bổ sung
+  sau khi full suite đã được collect. Không xóa/skip hoặc giảm assertion cũ.
+- VERIFIED: `uv run ruff check .`, `uv run ruff format --check .` (179 file),
+  `uv run mypy app` (109 source), `uv run alembic upgrade head` và
+  `git diff --check` pass. Full suite bao test migration từ DB trống,
+  downgrade/upgrade và compare_metadata tới 0008; không đổi schema/migration
+  và không downgrade DB dev. Không đổi frontend/dependency/stack/queue.
+- VERIFIED: tự rà scope/parameter binding/null/rollup/PII/export; sửa thứ tự
+  entry new ảo khi cùng timestamp với event thật, trường hợp tên chứa XML
+  control, bảo đảm thứ tự stage/activity output ổn định và OpenAPI xlsx.
+  Hai lỗi của lượt test đầu là tên thuộc tính AppError trong test và đo thêm
+  truy vấn reload actor do expire sau commit; sửa fixture đo ngoài auth cho
+  đúng boundary, vẫn giữ kiểm SQL count bằng nhau khi thêm 10 recruiter.
+
+ASSUMED: các mặc định chưa chốt ghi #94–#99 trong open-questions và contract
+draft T26/v1: flow funnel có thể >1 (không cohort), entry new ảo chỉ đọc,
+Application owner hiện không có luồng đổi, CV dự phòng owner Job hiện tại,
+feedback lấy verdict hiện tại theo created_at, snapshot deadline theo as_of.
+Không triển khai KPI theo lý do loại nên chuẩn hoá rejected_reason theo nhắc
+T20 hoãn tới trước KPI đó; không chặn tiêu chí T26. Chưa có KPI approved.
+
+Môi trường: UV_CACHE_DIR dùng var/uv-cache; cảnh báo Starlette/httpx sẵn có
+và pytest cache không ghi được trong sandbox, không ảnh hưởng test. Test chặn
+mạng ngoài, chỉ PostgreSQL/Redis localhost và dữ liệu giả. NOT TESTED: tải
+production, audit dependency qua mạng (pip-audit không cài, không thay
+dependency), frontend/browser vì T26 chỉ API. Review độc lập/CI/merge chờ
+workflow tiếp theo. Không có tiêu chí nghiệm thu còn thiếu.
+
+Sandbox không cho ghi `.git`; thay đổi để trong working tree trên nhánh T26
+cho runner commit theo ngoại lệ workflow.
 
 ## T25 · 2026-11-09 · review
 
