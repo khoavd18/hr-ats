@@ -3,6 +3,7 @@ from app.models.applications import AiFeedback, Application, StageEvent
 from app.models.base import Base
 from app.models.candidates import Candidate, CvFile
 from app.models.jobs import HiringUnit, Job, JobMember
+from app.models.recruitment import Interview, Offer, Placement
 from app.models.users import User, UserRole
 
 __all__ = [
@@ -14,8 +15,11 @@ __all__ = [
     "Candidate",
     "CvFile",
     "HiringUnit",
+    "Interview",
     "Job",
     "JobMember",
+    "Offer",
+    "Placement",
     "StageEvent",
     "User",
     "UserRole",

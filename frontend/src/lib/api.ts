@@ -28,6 +28,8 @@ const errorKeys: Record<string, TranslationKey> = {
   UNDO_NOT_AVAILABLE: "pipeline.undoUnavailable",
   UNDO_FORBIDDEN: "pipeline.undoForbidden",
   UNDO_EXPIRED: "pipeline.undoExpired",
+  PLACEMENT_EXISTS: "recruitment.placementExists",
+  INVALID_OFFER_STATUS: "recruitment.invalidOfferStatus",
 };
 
 const statusKeys: Record<number, TranslationKey> = {

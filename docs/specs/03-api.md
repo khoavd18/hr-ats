@@ -351,6 +351,59 @@ ASSUMED: các mặc định T15 ghi tại câu hỏi #59–#61; không đổi sc
 - `POST /applications/{id}/offers` · `PATCH /offers/{id}`
 - `POST /applications/{id}/placement` · `PATCH /placements/{id}`
 
+### Contract T21
+
+- Tất cả endpoint kiểm đăng nhập và scope Job từ DB như T19; mutation kiểm
+  CSRF/Origin. Không quyền → 403, bản ghi/Application/ứng viên thiếu hoặc đã
+  ẩn/gộp/hết hạn → 404. Response thành công no-store. Không có DELETE, không
+  gọi AI, queue hay gửi email. Field thừa/input sai → 422 envelope an toàn.
+- POST trả 201 bản ghi; PATCH trả 200 cùng DTO gồm id/application_id,
+  created_at/updated_at và các trường nghiệp vụ dưới đây; không có deleted_at.
+  PATCH chỉ thay field được gửi. Trường bắt buộc không nhận null; optional
+  nhận null để xoá giá trị. Không nhận application_id/id hoặc timestamp từ body.
+- Interview POST `{round=1, scheduled_at, duration_minutes=60,
+  location_or_link?, interviewers=[]}`; round nguyên dương tới 2147483647,
+  duration nguyên 1–1440; scheduled_at bắt buộc có offset. interviewers tối đa
+  50 chuỗi trim 1–254 ký tự (tên/email); không phân giải tài khoản hoặc gửi thư.
+  location nullable hoặc trim 1–10000. PATCH nhận các field trên và
+  result=pending|pass|fail|no_show, feedback nullable/trim 1–10000. POST không
+  nhận result/feedback, mặc định pending/null. Tạo đầu tiên từ submitted đổi
+  stage qua pipeline.move sang interview; tạo thêm ở interview không thêm event.
+  Tạo lại sau undo về submitted cũng đưa sang interview. Bước khác → 409
+  INVALID_STAGE_TRANSITION. Thay kết quả không tự từ chối hay đổi stage.
+- GET `/interviews?from=&to=&mine=true&page=1&page_size=20` → `{items,total}`.
+  from/to tuỳ chọn là ngày ISO (nửa đêm giờ Việt Nam) hoặc timestamp có offset;
+  khoảng [from,to), start phải nhỏ hơn end. page ≥1, page_size 1–100; xếp theo
+  scheduled_at/id. mine=true là Application.owner_id = caller, vẫn lọc scope
+  Job kể cả recruiter là owner hồ sơ; mine=false lấy toàn bộ Job có quyền.
+  Bỏ các bản đã ẩn và ứng viên hết hạn/gộp; total sau lọc/trước phân trang.
+- GET `/interviews/{id}/ics` → attachment text/calendar UTF-8 với UID từ UUID,
+  VTIMEZONE và DTSTART/DTEND TZID Asia/Ho_Chi_Minh, thời lượng chính xác;
+  DTSTAMP từ updated_at UTC. Dùng icalendar để escape/fold UTF-8. Nội dung chỉ
+  vòng/thời điểm/thời lượng/địa điểm, không CV/liên hệ/feedback/attendee hoặc
+  hành động gửi thư. Tên tệp interview-{id}.ics, no-store và nosniff.
+- Offer POST `{salary?, start_date?, status=draft|sent, notes?}`. Salary nguyên
+  0–2147483647; notes nullable/trim 1–10000. PATCH nhận cùng field, status thêm
+  accepted/declined; chỉ draft→sent→accepted|declined hoặc giữ nguyên. Đổi
+  ngược → 409 INVALID_OFFER_STATUS. Khi ghi nhận sent đặt sent_at ở server và
+  chuyển interview→offer qua pipeline; đã offer thì không thêm event. Gửi
+  lại status=sent giữ sent_at và không thêm activity. Draft không đổi stage;
+  accepted/declined giữ stage. T21 ghi nhận offer đã gửi bằng cách khác, gửi
+  email trong hệ thống vẫn phải qua xem trước/xác nhận T23.
+- Placement POST `{start_date, fee_amount?, guarantee_until?}`, PATCH nhận
+  cùng field cộng status=active|left_in_guarantee|completed. Phí nguyên
+  0–2147483647, guarantee_until ≥ start_date, kiểm cả dữ liệu cũ + PATCH.
+  Tạo ở offer chuyển hired qua pipeline; đã hired chỉ bổ sung bản ghi. Mỗi
+  Application đúng tối đa một placement kể cả bản ẩn: trùng → 409 PLACEMENT_EXISTS.
+  Row lock + UNIQUE bảo vệ hai yêu cầu đồng thời. PATCH không đổi stage.
+- GET `/applications/{id}` bổ sung interviews (scheduled_at/id tăng), offers
+  (created_at giảm/id tăng), placement hoặc null; chỉ bản chưa ẩn. Activity
+  interview_scheduled/offer_made chỉ lưu interview_id/offer_id; nhận xét, liên
+  hệ người phỏng vấn và ghi chú offer chỉ trong bảng nghiệp vụ có quyền.
+  Mọi bản ghi và stage/history/activity cùng transaction, lỗi rollback cả lượt.
+
+ASSUMED: các mặc định T21 tại câu hỏi #74–#77; không thay ma trận stage/KPI.
+
 ## Email
 - `GET/POST /email-templates`, `PATCH /email-templates/{id}` (admin, lead) · `POST /email-templates/{id}/preview` {application_id}
 - `POST /email-messages` {application_id, template_id?, subject, body, to_email} → tạo `draft`

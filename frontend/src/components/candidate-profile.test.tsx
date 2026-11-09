@@ -38,6 +38,7 @@ beforeEach(() => {
     },
     application: {
       id: "app",
+      stage: "new",
       ai_status: "done",
       ai_level: "insufficient",
       ai_score: 25,
@@ -65,6 +66,9 @@ beforeEach(() => {
         extracted_text: "Nội dung CV giả <script>khong-chay()</script>",
       },
     ],
+    interviews: [],
+    offers: [],
+    placement: null,
     feedback: null,
     activities: [
       {

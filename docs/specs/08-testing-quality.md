@@ -285,6 +285,38 @@ lại trên fixture mới. Không chạy build đồng thời dev. Dừng fixtur
 var/t14-browser.stop.
 Không đổi schema, endpoint hoặc backend runtime trong T20.
 
+## Kiểm thử T21
+
+`tests/api/test_recruitment.py` chạy bằng `uv run pytest`, dùng PostgreSQL thật
+và dữ liệu giả: tạo lịch đổi submitted→interview và ghi StageEvent/activity,
+buổi sau không thêm event; cập nhật kết quả không đổi stage. iCalendar parse lại
+bằng Calendar.from_ical, kiểm TZID/VTIMEZONE, giờ Việt Nam/UTC, thời lượng, UID,
+UTF-8 folding và địa điểm có dấu/ký tự điều khiển; không sinh attendee hoặc gửi
+thư. Offer draft/sent/accepted, timestamp idempotent, placement/undo, UNIQUE và
+hai session tạo đồng thời chỉ một thành công. Test lỗi sau pipeline.move kiểm
+rollback record/stage/history/activity. Kiểm quyền từng endpoint, thu hồi member,
+Application owner ngoài Job, soft delete/gộp/hết hạn, CSRF/Origin, input/null,
+khoảng ngày nửa đêm Việt Nam/mine/pagination. Test migration T02 mở rộng head
+0005, vẫn upgrade→downgrade base→upgrade và compare_metadata không khác biệt.
+Seed trên DB tạm có 5 interview/10 offer/5 placement giả khi khởi tạo mới;
+chạy lại không tăng row hoặc ghi đè thay đổi HR.
+
+Vitest `profile-recruitment.test.tsx` kiểm ngày giờ gửi offset +07:00 độc lập
+timezone máy, kết quả/feedback không tự từ chối, offer/placement, download blob,
+undo giữ record, lỗi giữ input/chặn bấm lặp và response sau unmount không refresh
+cache/toast. Chỉ mock API boundary và pointer capture thiếu trong jsdom; giữ
+Sonner thật. Chạy lệnh chuẩn npm test/lint/typecheck/build.
+
+E2E `recruitment.spec.ts` dùng `uv run python -m tests.ranking_browser_server`
+và production web (`npm run build` rồi `npm run start`). Tài khoản riêng
+browser-recruitment@example.invalid không xung đột phiên bài khác. Tạo Job,
+upload DOCX giả T06 cv_0044 với ZIP comment transport riêng, chuẩn bị submitted
+bằng API T19, rồi drawer đặt lịch/tải lịch/undo, lưu feedback/offer sent/accepted,
+ghi nhận nhận việc/kiểm trùng và mở lại sau reload. Kiểm 1280px, lỗi JavaScript,
+overflow; ảnh var/t21-recruitment.png không track. Chạy `npx playwright test`
+cùng các bài cũ, không request ngoài localhost. Dừng fixture bằng
+var/t14-browser.stop, chỉ dọn DB/storage do chính fixture vừa tạo.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.

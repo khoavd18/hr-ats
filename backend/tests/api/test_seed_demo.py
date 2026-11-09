@@ -10,7 +10,18 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.security import verify_password
-from app.models import Activity, Application, Candidate, CvFile, HiringUnit, Job, User
+from app.models import (
+    Activity,
+    Application,
+    Candidate,
+    CvFile,
+    HiringUnit,
+    Interview,
+    Job,
+    Offer,
+    Placement,
+    User,
+)
 from app.models.applications import StageEvent
 from app.models.enums import ApplicationStage, ProcessingStatus
 from app.scripts import seed
@@ -50,10 +61,23 @@ def test_seed_cli_on_empty_migrated_db_is_repeatable_and_preserves_hr_changes(
             assert f"dev-{login}@example.invalid / {seed.DEV_PASSWORD}" in result.stdout
 
     run()
-    models = (User, HiringUnit, Job, Candidate, CvFile, Application, StageEvent, Activity)
+    models = (
+        User,
+        HiringUnit,
+        Job,
+        Candidate,
+        CvFile,
+        Application,
+        StageEvent,
+        Activity,
+        Interview,
+        Offer,
+        Placement,
+    )
     with Session(empty_engine) as session:
         counts = [session.scalar(select(func.count()).select_from(model)) for model in models]
         assert counts[:7] == [4, 3, 5, 40, 40, 40, 40]
+        assert counts[-3:] == [5, 10, 5]
         for user in session.scalars(select(User)):
             assert verify_password(seed.DEV_PASSWORD, user.password_hash)
         applications = session.scalars(select(Application)).all()
@@ -63,6 +87,7 @@ def test_seed_cli_on_empty_migrated_db_is_repeatable_and_preserves_hr_changes(
             ApplicationStage.submitted,
             ApplicationStage.interview,
             ApplicationStage.offer,
+            ApplicationStage.hired,
         }
         assert all(
             row.ai_status == ProcessingStatus.done and row.ai_model == "fake-v1" and row.ai_criteria

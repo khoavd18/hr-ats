@@ -9,6 +9,7 @@ from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from app.models.enums import AiLevel, ProcessingStatus
 from app.schemas.core import ActivityRead, AiFeedbackRead, ApplicationRead, CandidateRead
+from app.schemas.recruitment import InterviewRead, OfferRead, PlacementRead
 from app.schemas.users import EmailInput, InputModel
 
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -75,3 +76,6 @@ class ApplicationDetail(InputModel):
     feedback: AiFeedbackRead | None
     activities: list[ProfileActivity]
     loaded_at: datetime
+    interviews: list[InterviewRead]
+    offers: list[OfferRead]
+    placement: PlacementRead | None

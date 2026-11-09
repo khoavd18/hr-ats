@@ -22,10 +22,100 @@
 | T18 | done | 2026-11-09 | VERIFIED: seed dev idempotent chạy pipeline thật/FakeLLM, README Demo nhanh, M1 smoke với Celery/Redis thật và 6 E2E pass. Backend 908 pass/12 skip OCR sẵn có, frontend 86 pass; lint/typecheck/build sạch. M1 hoàn thành về chức năng; chờ review, CI và merge. |
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
-| T21–T33 | todo | | |
+| T21 | review | 2026-11-09 | VERIFIED: model/migration/API/drawer cho phỏng vấn, offer và placement; transaction chung pipeline, ICS giờ Việt Nam, UNIQUE/concurrency. Backend 1052 pass/12 skip OCR cũ, frontend 106 pass, 8 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T21, CI và merge; sandbox chỉ đọc .git nên runner cần commit. |
+| T22–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T21 · 2026-11-09 · review
+
+VERIFIED: đọc workflow `_implement.md`, task/spec 02/03/05 và quy định kiểm thử;
+T19 đã done, working tree sạch khi bắt đầu. Nhánh có sẵn
+`task/T21-interviews-offers-placements`; thử switch báo .git/index.lock
+Permission denied. Theo ngoại lệ workflow, tiếp tục trên đúng nhánh hiện tại,
+không tạo worktree hoặc sửa metadata Git. Giữ review đến khi được duyệt/merge.
+
+- Thêm Interview/Offer/Placement và migration 0005: FK, soft delete, defaults,
+  CHECK round/duration/status/tiền/ngày bảo hành/sent_at, UNIQUE placement theo
+  Application kể cả đã ẩn và index cho drawer/khoảng lịch. Không sửa migration cũ.
+- Service khoá Application và đọc lại record; thao tác nghiệp vụ/stage/event/
+  activity cùng savepoint và commit. pipeline.move có commit=False cho caller
+  ghép transaction, mặc định API T19 giữ nguyên. submitted→interview khi đặt
+  lịch, interview→offer khi ghi sent, offer→hired khi nhận việc; cùng bước đích
+  chỉ bổ sung record. Bước khác 409, không nhảy bước. Kết quả phỏng vấn và
+  accepted/declined không tự loại/đổi stage; không AI hoặc gửi email.
+- API tạo/sửa đủ ba thực thể, GET lịch [from,to) theo ngày Việt Nam/timestamp có
+  offset, mine theo Application.owner_id cùng scope Job, pagination. Mở rộng
+  profile có interviews/offers/placement, chỉ bản còn hiệu lực. Quyền Job từ DB,
+  CSRF/Origin, input whitelist và no-store; Application owner không vượt Job.
+- ICS bằng icalendar 6.3.2 (dependency duy nhất thêm, khóa uv.lock): VTIMEZONE,
+  TZID Asia/Ho_Chi_Minh, UID ổn định từ UUID, DTSTAMP UTC, DTSTART/END và escape/
+  fold UTF-8. Chỉ vòng/thời điểm/thời lượng/địa điểm, không CV/liên hệ ứng viên,
+  feedback hay attendee. Không mở endpoint gửi thư hoặc tự gửi offer.
+- Drawer form đặt lịch, kết quả/nhận xét, tải ICS, draft/sent/accepted/declined,
+  nhận việc/phí/bảo hành/tình trạng. Chuỗi mới ở vi.ts; lỗi giữ input, khoá ghi
+  khi chờ, refresh các query liên quan, toast undo và nút trong focus trap.
+  Undo chỉ stage, giữ record để sửa; đóng drawer dọn toast và response muộn
+  không tạo lại cache/toast. Render text escape, không truy cập URL do HR nhập.
+- Seed mới thêm 5 interview/10 offer/5 placement giả cùng initial history và
+  stage hired; seed lặp giữ ID/count/AI/stage HR sửa. Không sửa ngược hồ sơ có
+  lịch sử từ trước hoặc sinh consent. Cập nhật spec 02/03/05/08 và câu hỏi #74–77.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Tạo interview chuyển stage đúng và ghi stage_events | VERIFIED — đạt | test_interviews_stage_history_results_and_ics_round_trip, test_no_stage_skipping_or_history_on_invalid_create, test_pipeline_and_record_roll_back_together; E2E drawer tạo/undo trên API thật |
+| File .ics hợp lệ và parse lại được | VERIFIED — đạt | Calendar.from_ical kiểm TZID, giờ Việt Nam/UTC, 75 phút, UID, folding/ký tự đặc biệt và không injection; E2E tải đúng tên tệp |
+| Placement duy nhất cho mỗi Application | VERIFIED — đạt | test_offer_draft_sent_accepted_and_placement_are_atomic kiểm API trùng/constraint SQL/undo giữ record; test_simultaneous_placements_have_one_winner với hai session PostgreSQL độc lập; E2E POST trùng 409 |
+
+### Lệnh và kết quả
+
+- `docker compose up -d db redis mailpit`: DB/Redis Running; Mailpit thất bại
+  bind SMTP 1025 do Windows giữ cổng (vấn đề có sẵn). NOT TESTED: Mailpit runtime,
+  không thuộc tiêu chí T21; mọi test dùng email_outbox bộ nhớ và không gửi thư.
+- `uv add 'icalendar>=6,<7>'`: pass sau khi cấp quyền cache/mạng. Lần thử
+  `--offline=false` bị uv từ chối cú pháp, không sửa dependency. `uv sync`: pass.
+- `uv run alembic upgrade head`: pass DB local từ 0004→0005. Test DB tạm migrate
+  trống→head→base→head và compare_metadata: **7 passed**; không xoá dữ liệu dev.
+  `uv run alembic upgrade head --sql`: pass. Rollout/rollback có ghi trong spec 02.
+- `uv run pytest tests/api/test_recruitment.py tests/api/test_pipeline.py -q`:
+  **144 passed**, gồm 29 T21 và 115 pipeline. `uv run pytest`:
+  **1052 passed, 12 skipped / 1064 collected**, một cảnh báo Starlette/httpx cũ.
+  Chỉ 12 OCR T08 skip vì Windows thiếu Tesseract; không thay điều kiện skip,
+  xoá test hoặc nới tiêu chí. Seed CLI thật trên DB tạm cũng pass trong bộ này.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, **143 files**.
+  `uv run mypy app`: pass, **85 source files**.
+- `npm ci`: pass, **539 package**, audit **0 vulnerabilities**. Cảnh báo
+  deprecation whatwg-encoding/eslint có sẵn, không đổi thư viện frontend.
+- Lượt test T21 đầu: 5 assertion pass nhưng Sonner có unhandled pointer capture
+  thiếu trong jsdom; thêm hỗ trợ API trình duyệt như test board hiện có. Sửa
+  locator Testing Library không hỗ trợ exact trước khi chạy typecheck cuối.
+- `npm test`: **106 passed / 13 files**, gồm 5 test T21. `npm run lint`,
+  `npm run typecheck`, `npm run build`: **pass** sau format Prettier. Không gọi
+  mạng ngoài từ tests; giữ Sonner thật và chỉ mock API boundary/pointer capture.
+- `uv run python -m tests.ranking_browser_server` + `npm run start` từ production
+  build: pass trên DB/storage tạm, FakeLLM/FakeEmbedder/eager worker.
+  `npx playwright test recruitment.spec.ts`: **1 passed**; lệnh chuẩn
+  `npx playwright test`: **8 passed** trong 28,3s, gồm mọi bài cũ. Tài khoản T21
+  riêng, DOCX giả cv_0044 chỉ thêm ZIP comment transport, không sửa mẫu gốc.
+- Đã xem ảnh var/t21-recruitment.png ở 1280px: hai cột/drawer/form vừa chiều
+  ngang; E2E kiểm không overflow/lỗi JavaScript, persistence sau reload và
+  undo từ focus trap. Ảnh/trace/runtime không track. Đã dừng API/web, fixture
+  tự dọn đúng DB/storage dùng một lần và stop file; giữ DB/Redis dev.
+- Tự review theo secure-code-review: auth/scope/CSRF đầy đủ, query bind, ID header
+  từ UUID, không log nội dung/names/feedback, không HTML thô hoặc fetch link HR,
+  không gửi thư, rollback và concurrency có bằng chứng test. Schema/API/KPI
+  ngoài T21 được giữ; không có dữ liệu thật hoặc thay đổi skill files.
+- `git diff --check`: pass. Ghi Git bị sandbox chặn .git/index.lock; runner cần
+  commit `T21: implement interviews offers and placements` từ working tree.
+
+### Câu hỏi / việc còn lại
+
+ASSUMED: #74–#77 về stage/undo, DTO/vòng đời, mine/khoảng lịch/ICS và seed.
+NOT TESTED: benchmark production, SMTP/provider thật, CI hoặc review độc lập.
+Không có tiêu chí T21 bị chặn; chờ Review T21, CI và merge, chưa tự chuyển done.
 
 ## T20 · 2026-11-09 · review
 
