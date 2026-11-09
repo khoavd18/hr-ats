@@ -13,11 +13,14 @@ from alembic import command
 from sqlalchemy import event, func, select, text
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import AppError
+from app.email import inbound
 from app.models import (
     Application,
     AuditLog,
     Candidate,
+    CvFile,
     DataRequest,
     EmailMessage,
     HiringUnit,
@@ -25,11 +28,11 @@ from app.models import (
     Task,
     User,
 )
-from app.models.enums import ApplicationStage, ProcessingStatus
+from app.models.enums import ApplicationStage, CandidateSource, ProcessingStatus
 from app.schemas.privacy import DataRequestInput
 from app.services import applications, cv_bank, pipeline, privacy
 from app.storage import LocalStorage
-from app.workers import reminders, tasks
+from app.workers import email, reminders, tasks
 from tests.conftest import migration_config
 
 
@@ -94,6 +97,188 @@ def wait_for_block_or_completion(engine, pid, future):
                 return
             sleep(0.01)
     raise AssertionError("Transaction neither blocked nor completed")
+
+
+@pytest.fixture
+def receipt_records(records, tmp_path, monkeypatch):
+    r = records
+    r.storage = LocalStorage(tmp_path)
+    r.settings = get_settings().model_copy(update={"imap_enabled": True})
+    with Session(r.engine) as session:
+        session.get_one(Candidate, r.source).email = "receipt-source@example.invalid"
+        session.get_one(Candidate, r.target).email = "receipt-target@example.invalid"
+        file = CvFile(
+            candidate_id=r.source,
+            job_id=r.job,
+            source=CandidateSource.email,
+            status=ProcessingStatus.done,
+            storage_key=r.storage.put(b"synthetic receipt CV", "application/pdf"),
+            original_filename="synthetic.pdf",
+            mime_type="application/pdf",
+            size_bytes=20,
+            sha256="b" * 64,
+        )
+        session.add(file)
+        session.commit()
+        r.file = file.id
+    r.published = []
+    monkeypatch.setattr(
+        email.send_email_message, "apply_async", lambda **kw: r.published.append(kw)
+    )
+    return r
+
+
+def test_receipt_overlaps_merge_without_deadlock(receipt_records):
+    r = receipt_records
+    locked, release = Event(), Event()
+    pids = Queue()
+
+    def pause_file_lock(connection, cursor, statement, parameters, context, many):
+        if (
+            connection.info.get("pause_receipt")
+            and "FROM cv_files" in statement
+            and "FOR UPDATE" in statement
+        ):
+            connection.info["pause_receipt"] = False
+            locked.set()
+            assert release.wait(15)
+
+    def receipt():
+        with Session(r.engine) as session:
+            info = session.connection().info
+            info["pause_receipt"] = True
+            session.execute(text("SET LOCAL statement_timeout = '12s'"))
+            try:
+                inbound.queue_receipt(session, r.file, r.settings)
+            finally:
+                info.pop("pause_receipt", None)
+
+    def merge():
+        with Session(r.engine) as session:
+            pids.put(session.scalar(select(func.pg_backend_pid())))
+            session.execute(text("SET LOCAL statement_timeout = '12s'"))
+            cv_bank.merge(session, session.get_one(User, r.actor), r.source, r.target)
+
+    event.listen(r.engine, "after_cursor_execute", pause_file_lock)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            writer = pool.submit(receipt)
+            try:
+                assert locked.wait(10)
+                merger = pool.submit(merge)
+                wait_for_block_or_completion(r.engine, pids.get(timeout=10), merger)
+            finally:
+                release.set()
+            writer.result(10)
+            merger.result(10)
+    finally:
+        event.remove(r.engine, "after_cursor_execute", pause_file_lock)
+    with Session(r.engine) as session:
+        assert session.get_one(CvFile, r.file).candidate_id == r.target
+        assert session.get_one(Candidate, r.source).merged_into_id == r.target
+        row = session.get_one(EmailMessage, r.file)
+        assert row.to_email == "receipt-source@example.invalid"
+        assert row.application_id == r.application and row.status == "queued"
+    assert len(r.published) == 1
+
+
+def test_receipt_rereads_identity_after_waiting_for_merge(receipt_records):
+    r = receipt_records
+    locked, release = Event(), Event()
+    pids = Queue()
+
+    def pause_merge(connection, cursor, statement, parameters, context, many):
+        if "FROM candidates" in statement and "FOR UPDATE" in statement:
+            locked.set()
+            assert release.wait(15)
+
+    def merge():
+        with Session(r.engine) as session:
+            cv_bank.merge(session, session.get_one(User, r.actor), r.source, r.target)
+
+    # Keep stale objects alive in the receipt session before merge starts.
+    with Session(r.engine) as session:
+        stale_file = session.get_one(CvFile, r.file)
+        stale_source = session.get_one(Candidate, r.source)
+        stale_target = session.get_one(Candidate, r.target)
+        assert stale_file.candidate_id == stale_source.id != stale_target.id
+        session.commit()
+        # Commit expires the map; explicitly load it again before the merge.
+        assert stale_file.candidate_id == r.source
+        assert stale_source.email == "receipt-source@example.invalid"
+        assert stale_target.email == "receipt-target@example.invalid"
+
+        def receipt():
+            pids.put(session.scalar(select(func.pg_backend_pid())))
+            session.execute(text("SET LOCAL statement_timeout = '12s'"))
+            inbound.queue_receipt(session, r.file, r.settings)
+
+        event.listen(r.engine, "after_cursor_execute", pause_merge)
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                merger = pool.submit(merge)
+                try:
+                    assert locked.wait(10)
+                    writer = pool.submit(receipt)
+                    wait_for_block_or_completion(r.engine, pids.get(timeout=10), writer)
+                finally:
+                    release.set()
+                merger.result(10)
+                writer.result(10)
+        finally:
+            event.remove(r.engine, "after_cursor_execute", pause_merge)
+        row = session.get_one(EmailMessage, r.file)
+        assert row.to_email == "receipt-target@example.invalid"
+        assert "Đích giả T29" in row.body_html
+        assert "Nguồn giả T29" not in row.body_html
+        assert row.application_id == r.application
+        inbound.queue_receipt(session, r.file, r.settings)
+        assert session.scalar(select(func.count()).select_from(EmailMessage)) == 1
+
+
+def test_frozen_receipt_exits_before_purge_file_lock(receipt_records):
+    r = receipt_records
+    with Session(r.engine) as session:
+        request_id = privacy.create_request(
+            session,
+            session.get_one(User, r.actor),
+            DataRequestInput(candidate_id=r.source, requested_by_note="Bằng chứng giả"),
+        ).id
+    locked, release = Event(), Event()
+
+    def pause_purge(connection, cursor, statement, parameters, context, many):
+        if "FROM cv_files" in statement and "FOR UPDATE" in statement:
+            locked.set()
+            assert release.wait(15)
+
+    def purge():
+        with Session(r.engine) as session:
+            return privacy.execute_request(
+                session, session.get_one(User, r.actor), request_id, r.storage
+            ).status
+
+    def receipt():
+        with Session(r.engine) as session:
+            session.execute(text("SET LOCAL statement_timeout = '5s'"))
+            inbound.queue_receipt(session, r.file, r.settings)
+
+    event.listen(r.engine, "after_cursor_execute", pause_purge)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            executor = pool.submit(purge)
+            try:
+                assert locked.wait(10)
+                # A frozen identity must finish while purge still holds the file.
+                pool.submit(receipt).result(7)
+            finally:
+                release.set()
+            assert executor.result(10) == "done"
+    finally:
+        event.remove(r.engine, "after_cursor_execute", pause_purge)
+    with Session(r.engine) as session:
+        assert session.get_one(Candidate, r.source).purged_at is not None
+        assert session.get(EmailMessage, r.file) is None
+    assert r.published == []
 
 
 def test_reminder_snapshot_cannot_survive_concurrent_purge(records, tmp_path, monkeypatch):

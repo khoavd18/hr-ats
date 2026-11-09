@@ -231,14 +231,33 @@ def receipt_candidate(
 def queue_receipt(session: Session, file_id: UUID, settings: Settings) -> None:
     if not settings.imap_enabled:
         return
-    cv_file = session.scalar(select(CvFile).where(CvFile.id == file_id).with_for_update())
-    if (
-        cv_file is None
-        or cv_file.source != CandidateSource.email
-        or cv_file.status != ProcessingStatus.done
-        or cv_file.deleted_at is not None
-        or cv_file.candidate_id is None
-    ):
+    # Match merge/freeze: identity -> Candidate -> CvFile. Read the current
+    # identity only after waiting; a merge may have reassigned a cached file.
+    session.execute(select(func.pg_advisory_xact_lock(0x4356, 10)))
+    file_filters = (
+        CvFile.id == file_id,
+        CvFile.source == CandidateSource.email,
+        CvFile.status == ProcessingStatus.done,
+        CvFile.deleted_at.is_(None),
+    )
+    candidate_id = session.scalar(select(CvFile.candidate_id).where(*file_filters))
+    if candidate_id is None:
+        session.commit()
+        return
+    try:
+        candidate = eligible_candidate(session, candidate_id, lock=True)
+    except AppError:
+        # Purge can already hold the file lock. Exit on its committed freeze
+        # before taking a child lock, so erasure can finish updating Candidate.
+        session.commit()
+        return
+    cv_file = session.scalar(
+        select(CvFile)
+        .where(*file_filters, CvFile.candidate_id == candidate.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if cv_file is None:
         session.commit()
         return
     # A receipt shares its CV UUID across tables. API-created drafts cannot choose an ID.
@@ -263,7 +282,6 @@ def queue_receipt(session: Session, file_id: UUID, settings: Settings) -> None:
             )
         )
         try:
-            candidate = eligible_candidate(session, cv_file.candidate_id, lock=True)
             if template is None or actor is None or not actor.is_active or not candidate.email:
                 session.commit()
                 return

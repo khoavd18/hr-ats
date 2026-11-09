@@ -77,6 +77,10 @@ và đổi stage cùng khoá Candidate trước Application, khớp thứ tự g
 đổi candidate_id giữa lần đọc đầu và lúc lấy khoá, bỏ khoá của lần thử bằng
 savepoint rồi đọc/khoá lại identity hiện tại; không ghi dựa trên identity cũ.
 Writer thấy purge_pending_at dừng trước khi lấy child lock.
+Receipt intake cũng khoá identity trước, đọc candidate_id hiện tại từ DB rồi
+khoá/kiểm Candidate trước CvFile. File chỉ đủ điều kiện khi email/done/chưa xoá;
+đọc lại file dưới khoá, không dùng identity map cũ sau merge. Receipt của hồ sơ
+đã freeze dừng trước khi đợi file đang được purge, không tạo lại snapshot PII.
 Purge serialize bằng advisory lock 290029;
 giai đoạn dọn không giữ Candidate row lock khi đợi child rows, tránh đảo thứ tự
 với worker/API đang hoàn tất. Khóa hồ sơ là bền vững khi Storage lỗi; retry delete

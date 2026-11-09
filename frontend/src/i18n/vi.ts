@@ -62,6 +62,8 @@ export const vi = {
   "privacy.consentNotNew":
     "Cần bằng chứng đồng ý mới hơn. Khi gia hạn, đồng ý phải trong 30 ngày gần đây.",
   "privacy.invalidRequest": "Yêu cầu này không thể thực thi xoá.",
+  "privacy.mergeBlocked":
+    "Không thể gộp vì một trong hai hồ sơ đang có yêu cầu xoá dữ liệu. Hãy liên hệ quản trị viên để kiểm tra yêu cầu.",
   "privacy.storageUnavailable":
     "Chưa thể xử lý tệp lưu trữ. Nếu đang xoá, hồ sơ đã bị khoá; hãy thử lại yêu cầu.",
   "reports.teamScope": "Theo dõi kết quả tuyển dụng của cả nhóm hoặc từng người phụ trách.",

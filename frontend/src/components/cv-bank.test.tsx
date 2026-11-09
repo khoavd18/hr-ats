@@ -121,6 +121,36 @@ it("allows recruiters to search summaries and directs merges to a lead", async (
   expect(screen.queryByRole("button", { name: t("bank.merge") })).not.toBeInTheDocument();
 });
 
+it("shows the open deletion request explanation from the real API client in the merge dialog", async () => {
+  const real = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        Response.json(
+          { error: { code: "DATA_REQUEST_OPEN", message: "SYNTHETIC_PRIVATE_ERROR" } },
+          { status: 409 },
+        ),
+      ),
+  );
+  vi.mocked(api).mockImplementation((path, options) =>
+    path.endsWith("/merge") ? real.api(path, options) : original(path, options),
+  );
+  show();
+  await userEvent.click(await screen.findByRole("button", { name: t("bank.merge") }));
+  await userEvent.click(screen.getByRole("button", { name: t("bank.confirmMerge") }));
+  const dialog = screen.getByRole("dialog", { name: t("bank.mergeTitle") });
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Không thể gộp vì một trong hai hồ sơ đang có yêu cầu xoá dữ liệu. Hãy liên hệ quản trị viên để kiểm tra yêu cầu.",
+  );
+  expect(within(dialog).getByRole("alert")).not.toHaveTextContent("SYNTHETIC_PRIVATE_ERROR");
+  expect(within(dialog).getAllByRole("article")).toHaveLength(2);
+  await userEvent.click(within(dialog).getByRole("button", { name: t("common.cancel") }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 it("chooses a permitted Job from the bank and adds the selected candidate", async () => {
   show();
   await userEvent.click(await screen.findByLabelText(t("bank.select") + rows[0].full_name));

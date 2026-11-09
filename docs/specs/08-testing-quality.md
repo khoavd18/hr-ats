@@ -442,6 +442,12 @@ khi writer lấy khoá, writer đến khi purge giữ child lock, và create_req
 hoặc suy đoán thứ tự bằng sleep cố định. Kiểm không còn snapshot PII sau cả hai
 commit, không deadlock, không ghi lại PII sau freeze. Test API request → merge
 409 → danh sách xác nhận giữ đúng ứng viên → execute done cho cả nguồn và đích.
+Fix round 2 thêm receipt đang giữ file khi merge bắt đầu, receipt chờ merge với
+identity map cũ và receipt đến khi purge đã freeze/giữ file. Kiểm cả hai giao dịch
+hoàn tất, lấy đúng người nhận hiện tại, không tạo trùng receipt và không đợi child
+lock/ghi snapshot sau freeze. Vitest gọi API client thật với response 409
+DATA_REQUEST_OPEN, kiểm thông báo tiếng Việt ở client và hộp gộp, không lộ message
+thô từ server; hộp giữ hai hồ sơ và vẫn huỷ được.
 
 Vitest `privacy-settings.test.tsx`: ẩn admin UI với lead/recruiter, danh sách/
 filter/phân trang/tải/rỗng/lỗi, nhập bằng chứng/giờ Việt/flag gia hạn, lỗi giữ
