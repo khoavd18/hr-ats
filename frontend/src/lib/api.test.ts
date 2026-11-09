@@ -135,6 +135,10 @@ describe("API client", () => {
   });
 
   it.each([
+    ["EMAIL_MISSING_INTERVIEW_TIME", 422, "emailTemplates.missing.interview_time"],
+    ["EMAIL_MISSING_OFFER_SALARY", 422, "emailTemplates.missing.offer_salary"],
+    ["EMAIL_TEMPLATE_INVALID", 422, "emailTemplates.invalid"],
+    ["EMAIL_VARIABLE_UNKNOWN", 422, "emailTemplates.unknownVariable"],
     ["INVALID_STAGE_TRANSITION", 409, "pipeline.invalidTransition"],
     ["UNDO_NOT_AVAILABLE", 409, "pipeline.undoUnavailable"],
     ["UNDO_FORBIDDEN", 403, "pipeline.undoForbidden"],

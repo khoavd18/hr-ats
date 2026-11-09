@@ -127,6 +127,7 @@ def main() -> None:
                     ("profile", UserRole.admin),
                     ("bank", UserRole.admin),
                     ("recruitment", UserRole.admin),
+                    ("email-templates", UserRole.lead),
                 ):
                     session.add(
                         User(

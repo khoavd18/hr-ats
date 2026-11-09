@@ -11,6 +11,33 @@
 
 Biến dùng trong mẫu: `candidate_name`, `job_title`, `hiring_unit_name`, `interview_time`, `interview_location`, `offer_salary`, `offer_start_date`, `recruiter_name`, `recruiter_email`, `company_name`. Render bằng Jinja2 sandbox; biến thiếu → lỗi rõ ràng ở bước xem trước, không gửi mail thiếu nội dung.
 
+### Render và context T22
+
+`app/email/render.py` dùng SandboxedEnvironment/StrictUndefined, xoá globals,
+filters/tests và chỉ chấp nhận `{{ tên_biến }}` trong danh sách trên. Chặn cú
+pháp tính toán/lặp/include/attribute trước cả parse để giới hạn chi phí. Context
+chỉ chuỗi, không có ORM/callable; thiếu hoặc trắng báo tên biến bằng tiếng Việt.
+Template body tối đa 20000, output thô tối đa 100000 ký tự (kiểm giới hạn trước
+render), subject đầu ra một dòng tối đa 500. Không render lần hai dữ liệu biến.
+Escape toàn bộ text trước khi tạo HTML; Markdown chỉ đậm/nghiêng, đoạn/xuống
+dòng và danh sách `- `. Không hỗ trợ raw HTML, ảnh, URL hoặc thuộc tính HTML;
+`<script>` hiển thị như văn bản. Không thêm thư viện Markdown/sanitizer.
+
+Context đọc từ Application đã kiểm quyền và ứng viên còn hiệu lực: tên ứng viên,
+Job.title, HiringUnit.name; recruiter là Application.owner_id. Company lấy tên
+hiển thị trong SMTP_FROM, thiếu thì báo thiếu biến khi mẫu cần tới. Interview
+chưa xoá mới nhất theo scheduled_at giảm dần/id tăng dần cung cấp thời gian
+`dd/mm/yyyy HH:MM` theo TZ và địa điểm; Offer chưa xoá mới nhất theo created_at
+giảm dần/id tăng dần cung cấp lương định dạng `20.000.000 đồng` (0 vẫn hợp lệ)
+và ngày `dd/mm/yyyy`. Không điền giả thông tin còn thiếu.
+
+Năm mẫu được seed khi migrate và bổ sung mẫu còn thiếu ở seed dev, không ghi
+đè chỉnh sửa HR. cv_received có mục đích xử lý, giới hạn chia sẻ, lưu trữ theo
+chính sách, liên hệ yêu cầu xoá và nói rõ không thay bằng chứng đồng ý. Các biến
+người phỏng vấn/hạn phản hồi/link hồ sơ chưa được định nghĩa: mẫu dùng đầu mối
+tuyển dụng và hướng dẫn phản hồi theo thời hạn đã thống nhất, HR bổ sung nội
+dung cụ thể; không tự bịa người/ngày/link. Đính kèm ICS và gửi thư thuộc T23.
+
 ## Luồng gửi
 1. Đổi stage → API trả `suggested_email` (nháp, chưa lưu).
 2. UI hiện xem trước; người dùng sửa và bấm **Gửi** → `POST /email-messages` rồi `/send`.

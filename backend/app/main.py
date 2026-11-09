@@ -1,6 +1,16 @@
 from fastapi import FastAPI
 
-from app.api import applications, auth, cv_bank, cv_files, jobs, recruitment, system, users
+from app.api import (
+    applications,
+    auth,
+    cv_bank,
+    cv_files,
+    email_templates,
+    jobs,
+    recruitment,
+    system,
+    users,
+)
 from app.core.config import Settings, get_settings
 from app.core.cors import ApiCORSMiddleware
 from app.core.errors import ErrorResponse, register_error_handlers
@@ -41,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         jobs.router,
         cv_bank.router,
         recruitment.router,
+        email_templates.router,
     ):
         application.include_router(router, prefix="/api/v1")
     return application
