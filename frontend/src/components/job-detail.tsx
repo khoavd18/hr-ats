@@ -39,6 +39,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const [level, setLevel] = useState("");
   const [stage, setStage] = useState("");
   const [selected, setSelected] = useState<RankedApplication | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(false);
   const drawerTrigger = useRef<HTMLButtonElement | null>(null);
   const job = useQuery({
     queryKey: ["job", jobId],
@@ -57,6 +59,40 @@ export function JobDetail({ jobId }: { jobId: string }) {
     retry: false,
     refetchInterval: (query) => (query.state.error ? false : 3000),
   });
+  async function exportExcel() {
+    if (!job.data || exporting) return;
+    if (!window.confirm(t("ranking.exportWarning"))) return;
+    setExporting(true);
+    setExportError(false);
+    try {
+      const blob = await api<Blob>(`/jobs/${jobId}/export.xlsx`, { responseType: "blob" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const slug = job.data.title
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "job";
+      const date = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      anchor.href = url;
+      anchor.download = `ung-vien-${slug}-${date}.xlsx`;
+      anchor.style.display = "none";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setExportError(true);
+    } finally {
+      setExporting(false);
+    }
+  }
   return (
     <div className="space-y-6">
       <QueryFeedback
@@ -86,6 +122,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
             <TabsContent value="candidates" className="space-y-5 pt-4">
               <AddFromBank jobId={jobId} />
               <CvUpload jobId={jobId} />
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="outline" disabled={exporting} onClick={() => void exportExcel()}>
+                  {exporting ? t("ranking.exporting") : t("ranking.export")}
+                </Button>
+                {exportError && <p role="alert">{t("ranking.exportError")}</p>}
+              </div>
               {ranking.data && !ranking.isError && <AiCounts counts={ranking.data.ai_counts} />}
               <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-4">
                 <div className="min-w-48 flex-1 space-y-2">

@@ -32,6 +32,7 @@ class AuditLog(RecordMixin, Base):
     action: Mapped[str] = mapped_column(String(100))
     entity: Mapped[str] = mapped_column(String(100))
     entity_id: Mapped[UUID] = mapped_column(index=True)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )

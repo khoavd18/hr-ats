@@ -18,7 +18,8 @@
 | T14 | done | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
 | T15 | done | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
 | T16 | done | 2026-11-08 | VERIFIED: kho CV tìm không dấu/theo nghĩa và bộ lọc, top-50 gợi ý theo Job, chọn nhiều tạo/chấm hồ sơ, gộp nguyên tử có xác nhận/giữ lịch sử. 893 backend pass/12 skip OCR cũ, 85 Vitest và 5 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T16, CI và merge. |
-| T17–T33 | todo | | |
+| T17 | review | 2026-11-09 | Excel export, audit metadata and migration implemented. Backend static checks pass; DB/API and frontend runtime verification could not complete in this environment. See T17 log below. |
+| T18–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
@@ -1023,3 +1024,33 @@ NOT TESTED / không áp dụng cho T01: pytest, ruff, mypy, Alembic, npm test/li
 - Câu hỏi #5–#7 ghi các mặc định nhỏ: biến `.env` mỗi dòng, tài khoản mẫu MinIO, ngoại lệ `var/.gitkeep`.
 - Blocker #8: cần duyệt nguồn image MinIO hoặc phạm vi build từ source upstream. [MinIO chính thức](https://github.com/minio/minio#source-only-distribution) hiện chỉ hướng dẫn phân phối source; không tự thay dịch vụ hoặc thêm quy trình build ngoài spec. NOT TESTED: runtime MinIO vì chưa pull được image. Giữ T01 `blocked` cho đến khi xử lý xong phần này.
 - Ba dịch vụ dev đã kiểm chứng đang chạy; không xoá volume hoặc dữ liệu.
+
+## T17 · 2026-11-09 · review
+
+VERIFIED: Triển khai T17 trên nhánh `task/T17-excel-export-audit`; T14 đã done và working tree sạch khi bắt đầu. Migration 0004 thêm `audit_log.details` JSONB `NOT NULL DEFAULT '{}'`. Service audit dùng chung cho xem CV, tải CV, xem hồ sơ và export; caller commit cùng transaction.
+
+- `GET /jobs/{id}/export.xlsx` kiểm scope Job từ DB, lấy hồ sơ còn hiệu lực theo thứ tự T14, tạo workbook tiếng Việt gồm họ tên/liên hệ/AI/điểm/lý do/kỹ năng/kinh nghiệm/stage/ngày nhận. Có header đậm, freeze hàng đầu, độ rộng cột, tên file theo slug + ngày, `no-store`; văn bản do người dùng cung cấp được ghi dạng text để tránh Excel formula injection.
+- Audit export ghi `candidate.export`, entity Job và details chỉ gồm `record_count`, `job_id`; không có PII hay filter. Nút tab Ứng viên hiển thị cảnh báo trước, nhận blob và tải đúng tên file; chuỗi mới ở `frontend/src/i18n/vi.ts`.
+- Cập nhật contract T17 trong spec 03 và test strategy spec 08. Test API mới đọc workbook bằng openpyxl, kiểm số dòng, Unicode, formula safety và audit. Vitest mới kiểm xác nhận và tải blob.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Workbook mở được, đúng số dòng và tiếng Việt | INFERRED — test đã viết nhưng chưa chạy | `backend/tests/api/test_export.py`; backend pytest không kết nối được PostgreSQL |
+| Audit `candidate.export` có record_count | INFERRED — test đã viết nhưng chưa chạy | Test kiểm details gồm `record_count`, `job_id`, không PII; runtime API chưa chạy được |
+| Nút xuất có xác nhận dữ liệu cá nhân | INFERRED — test đã viết nhưng chưa chạy | Vitest T17 trong `job-detail.test.tsx`; tiến trình Vitest không hoàn tất |
+
+### Lệnh và kết quả
+
+- `uv run ruff check .`: VERIFIED — pass.
+- `uv run ruff format --check .`: VERIFIED — 131 files đúng format.
+- `uv run mypy app`: VERIFIED — 78 source files, không lỗi.
+- `uv run alembic upgrade head --sql`: VERIFIED — sinh SQL tới revision `0004_audit_details`, có ALTER TABLE JSONB/default/not-null.
+- `uv run alembic upgrade head`: NOT TESTED — PostgreSQL localhost không kết nối. `docker compose up -d db redis mailpit` không kết nối được Docker Desktop engine (named pipe `dockerDesktopLinuxEngine` không khả dụng/permission denied).
+- `uv run pytest`: NOT TESTED — pytest thu thập 906 tests, dừng vì DB không khả dụng; không có kết quả test.
+- `npm test -- --run src/components/job-detail.test.tsx`, `npm run lint`, `npm run typecheck`: NOT TESTED — các tiến trình không trả kết quả trong môi trường process sandbox; đã dừng.
+- `git diff --check`: VERIFIED — sạch; `python -m compileall -q app tests/api/test_export.py` cũng pass.
+- `git add`/`git commit`: NOT COMPLETED — Git không tạo được `.git/index.lock` do permission denied; thay đổi còn trong working tree trên task branch.
+
+NOT TESTED: runtime DB/browser, test suite đầy đủ và review/CI độc lập. Không có thay đổi ngoài phạm vi T17.

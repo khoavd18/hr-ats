@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorDetail
 from app.core.permissions import authorize
-from app.models.activity import AuditLog
 from app.models.applications import Application
 from app.models.candidates import Candidate, CvFile
 from app.models.enums import ActivityType, ProcessingStatus
@@ -16,6 +15,7 @@ from app.models.users import User
 from app.schemas.core import CvFileRead
 from app.schemas.cv_files import CvFileStatusRead, CvUploadResult
 from app.services.activity import log_activity
+from app.services.audit import record_audit
 from app.services.cv_validation import validate_file
 from app.services.ranking import visible_applications
 from app.storage import Storage, StorageError
@@ -175,8 +175,13 @@ def get_file(session: Session, actor: User, cv_file_id: UUID) -> CvFile:
 def record_access(
     session: Session, actor: User, cv_file: CvFile, action: str, ip: str | None
 ) -> None:
-    session.add(
-        AuditLog(actor_id=actor.id, action=action, entity="cv_file", entity_id=cv_file.id, ip=ip)
+    record_audit(
+        session,
+        actor_id=actor.id,
+        action=action,
+        entity="cv_file",
+        entity_id=cv_file.id,
+        ip=ip,
     )
     session.commit()
 

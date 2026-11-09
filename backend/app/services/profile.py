@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.core.permissions import authorize
-from app.models.activity import Activity, AuditLog
+from app.models.activity import Activity
 from app.models.applications import AiFeedback, Application
 from app.models.candidates import CvFile
 from app.models.enums import ActivityType
@@ -24,6 +24,7 @@ from app.schemas.profile import (
 )
 from app.services.activity import log_activity
 from app.services.applications import accessible_job, eligible_candidate
+from app.services.audit import record_audit
 
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -88,10 +89,13 @@ def detail(
         loaded_at=datetime.now(UTC),
     )
     # candidate.view uses the same action/entity convention as cv_file.view T07.
-    session.add(
-        AuditLog(
-            actor_id=actor.id, action="view", entity="candidate", entity_id=candidate.id, ip=ip
-        )
+    record_audit(
+        session,
+        actor_id=actor.id,
+        action="view",
+        entity="candidate",
+        entity_id=candidate.id,
+        ip=ip,
     )
     session.commit()
     return snapshot

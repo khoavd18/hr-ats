@@ -199,6 +199,15 @@ Dừng/dọn fixture bằng `var/t14-browser.stop` như trước. Khi kiểm pro
 build, chạy `npm run build` sau khi dừng dev rồi `npm run start`; không chạy
 build và dev đồng thời vì chúng cùng ghi `.next`.
 
+## Kiểm thử T17
+
+`tests/api/test_export.py` kiểm quyền Job, workbook mở được bằng openpyxl, tiêu
+đề/cột tiếng Việt, số dòng, thứ tự/xuất trường, chuỗi chống công thức và audit
+`candidate.export` chỉ có record_count/job_id. Chạy qua `uv run pytest`, fixture
+PostgreSQL local và dữ liệu giả; không ghi workbook hay PII vào repo/log.
+Vitest `job-detail.test.tsx` kiểm dialog cảnh báo dữ liệu cá nhân, gọi API dạng
+blob, tên file và thao tác tải; không gọi mạng ngoài.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.
