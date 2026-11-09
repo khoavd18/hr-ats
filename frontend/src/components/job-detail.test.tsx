@@ -74,6 +74,46 @@ it("renders ten ranked rows, six columns, no numeric scores and an accessible dr
   expect(screen.getByText("Mô tả giả")).toBeVisible();
 });
 
+it("confirms the personal data warning before downloading the Job workbook", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  const downloads: string[] = [];
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    downloads.push(this.download);
+  });
+  vi.stubGlobal("URL", {
+    createObjectURL: vi.fn(() => "blob:export"),
+    revokeObjectURL: vi.fn(),
+  });
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path === "/jobs/job")
+      return {
+        id: "job",
+        title: "Job mẫu giả",
+        hiring_unit_name: "Đơn vị giả",
+        owner_name: "HR giả",
+        description: "Mô tả giả",
+        must_have: [],
+        nice_to_have: [],
+      };
+    if (path.startsWith("/jobs/job/applications")) return ranking;
+    if (path === "/jobs/job/export.xlsx") return new Blob(["fake workbook"]);
+    throw new Error("Unexpected mocked API path");
+  });
+  show();
+  await userEvent.click(await screen.findByRole("button", { name: t("ranking.export") }));
+  expect(confirm).toHaveBeenCalledWith(t("ranking.exportWarning"));
+  await waitFor(() =>
+    expect(api).toHaveBeenCalledWith("/jobs/job/export.xlsx", { responseType: "blob" }),
+  );
+  expect(click).toHaveBeenCalledOnce();
+  expect(downloads[0]).toMatch(/^ung-vien-job-mau-gia-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  confirm.mockRestore();
+  click.mockRestore();
+  vi.unstubAllGlobals();
+});
+
 it("sends level, stage and search filters to the API and shows an actionable empty state", async () => {
   show();
   await screen.findByRole("table");

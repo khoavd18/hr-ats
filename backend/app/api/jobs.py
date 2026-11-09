@@ -1,8 +1,9 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 
+from app.api.cv_files import client_ip
 from app.api.dependencies import DB, Config, CurrentUser
 from app.models.enums import AiLevel, ApplicationStage, JobStatus
 from app.schemas.core import HiringUnitRead
@@ -18,6 +19,7 @@ from app.schemas.jobs import (
     JobResponse,
 )
 from app.schemas.ranking import ApplicationRanking
+from app.services import export as job_export
 from app.services import jobs, ranking
 
 
@@ -87,6 +89,20 @@ def list_applications(
 ):
     return ranking.list_applications(
         session, actor, job_id, page, page_size, stage, ai_level, q, sort
+    )
+
+
+@router.get("/jobs/{job_id}/export.xlsx")
+def export_ranking(job_id: UUID, request: Request, session: DB, actor: CurrentUser):
+    content, filename = job_export.export_job(session, actor, job_id, client_ip(request))
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

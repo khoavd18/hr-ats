@@ -40,6 +40,20 @@ Các mặc định kỹ thuật trên được ghi ở câu hỏi #18–#20; kh�
 - `GET /jobs/{id}/suggestions?limit=50` → ứng viên trong kho CV gần với Job (vector), chưa có application
 - `GET /jobs/{id}/export.xlsx` → xuất bảng xếp hạng (ghi audit)
 
+### Contract xuất Job T17
+
+- `GET /jobs/{id}/export.xlsx` cần đăng nhập và kiểm `jobs.view` từ DB, bao gồm
+  quyền owner/member recruiter; Job thiếu → 404, ngoài quyền → 403. Trả workbook
+  `.xlsx` không phân trang gồm các Application/Candidate còn hiệu lực theo cùng
+  thứ tự mặc định của bảng xếp hạng T14; không áp dụng bộ lọc đang chọn trên UI.
+- Cột theo thứ tự: họ tên, email, SĐT, mức AI tiếng Việt, điểm, lý do AI gộp,
+  kỹ năng, năm kinh nghiệm, stage tiếng Việt, ngày nhận. Chuỗi do người dùng cung
+  cấp được ghi dạng text để Excel không diễn giải thành công thức. Phản hồi có
+  `Cache-Control: no-store`, tên `ung-vien-<slug-job>-<ngày>.xlsx`.
+- Chỉ sau khi workbook được tạo thành công, ghi audit `action=candidate.export`,
+  `entity=job`, `entity_id=job.id`, IP kết nối đã kiểm định; `details` chỉ gồm
+  `record_count` và `job_id`. Không ghi bộ lọc hay dữ liệu ứng viên vào audit.
+
 ### Contract Đơn vị tuyển và Job T13
 
 - Mọi endpoint cần đăng nhập; POST/PATCH/PUT kiểm CSRF và Origin như T04.
