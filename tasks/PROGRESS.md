@@ -22,7 +22,7 @@
 | T18 | done | 2026-11-09 | VERIFIED: seed dev idempotent chạy pipeline thật/FakeLLM, README Demo nhanh, M1 smoke với Celery/Redis thật và 6 E2E pass. Backend 908 pass/12 skip OCR sẵn có, frontend 86 pass; lint/typecheck/build sạch. M1 hoàn thành về chức năng; chờ review, CI và merge. |
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
-| T21 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
+| T21 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
 | T22–T33 | todo | | |
 
 ## Nhật ký
