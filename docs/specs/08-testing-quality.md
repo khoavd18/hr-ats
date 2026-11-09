@@ -415,6 +415,24 @@ cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên 
 7. Nếu thay đổi hợp đồng (API, schema, KPI) thì cập nhật spec tương ứng trong cùng commit.
 8. Cuối task, ghi tóm tắt vào `tasks/PROGRESS.md`: task id, việc đã làm, file chính, lệnh test đã chạy và kết quả, việc còn lại / câu hỏi.
 
+## Kiểm thử T27
+
+`src/components/reports.test.tsx` dùng dữ liệu giả tại boundary API, không gọi
+mạng ngoài; Recharts thật, chỉ thay đo kích thước jsdom. Kiểm recruiter chỉ
+có request/row của mình, lead/admin thấy team, đổi vai trò không dùng cache
+của team; bộ lọc/Excel cùng tham số, đủ trang Job có quyền, thứ tự số/null,
+biên ngày Việt Nam/leap/366 ngày, null/zero và flow >100%, tải/rỗng/lỗi/retry,
+request cũ bị huỷ và export chống lặp/response sau unmount. Chạy `npm test`,
+`npm run lint`, `npm run typecheck`, `npm run build` theo lệnh chuẩn.
+
+`e2e/reports.spec.ts` dùng `tests.ranking_browser_server` với DB/storage tạm,
+pipeline thật + FakeLLM/FakeEmbedder. Tạo user/đơn vị/Job giả riêng qua API,
+upload hai DOCX giả, kiểm báo cáo lead/recruiter, danh mục theo quyền, biểu
+đồ, tải workbook, 403 không giữ số cũ và thử lại. Playwright chặn request web
+ngoài localhost; ảnh 1280px trong `var/t27-reports-*.png` (gitignored).
+Không sửa backend/schema/KPI; regression API T26 có thể chạy bằng
+`uv run pytest tests/api/test_reports.py tests/api/test_reports_access.py -q`.
+
 ## Kiểm thử T26
 
 `tests/api/test_reports.py` và `test_reports_access.py` chạy trong lệnh chuẩn
