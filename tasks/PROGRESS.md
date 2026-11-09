@@ -28,10 +28,78 @@
 | T24 | done | 2026-11-09 | VERIFIED: nhận CV qua IMAP giả/TLS, chống trùng, gắn Job, receipt tự động riêng cv_received, trạng thái hộp mail và mã Job. T24 24 pass; toàn backend 1160 pass/12 skip OCR cũ, frontend 127 pass, 11 E2E pass (2 workers); lint/typecheck/build/migration sạch. Chờ Review T24, CI và merge; sandbox chặn ghi .git. |
 | T25 | done | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
 | T26 | done | 2026-11-09 | VERIFIED: 13 KPI draft, 5 endpoint và Excel, SQL nhóm theo recruiter/quyền Job, fixture tính tay/biên ngày Việt Nam. Backend 1257 pass/12 skip OCR cũ; bộ T26/config cuối 76 pass; Ruff/mypy/migration sạch. Chờ Review T26, CI và merge; sandbox chặn ghi .git. |
-| T27–T33 | todo | | |
+| T27 | review | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
+| T28–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T27 · 2026-11-09 · review
+
+VERIFIED: theo `tasks/_implement.md`; T26 done, working tree sạch lúc bắt đầu,
+đã ở nhánh `task/T27-reports-ui`. Dùng frontend-engineer và software-testing;
+tự rà diff theo quyền, dữ liệu giả, i18n, cancellation và scope. Không sửa API,
+schema, công thức KPI hay backend; chỉ thêm Recharts đúng stack/task đã chốt.
+
+- `/reports`: preset Hôm nay/7 ngày/Tháng này/Tuỳ chọn; ngày Việt Nam, ngày
+  kết thúc inclusive chuyển sang `[from,to)` T26; kiểm 1–366 ngày và năm nhuận.
+  Áp dụng bộ lọc rõ ràng, khoá export khi còn thay đổi chưa áp dụng.
+- Recruiter cố định ID phiên; lead/admin có roster team. Job/đơn vị lấy đủ
+  trang Job có quyền, không gọi danh mục rộng `/jobs/options`. Query key theo
+  phiên/role/bộ lọc, huỷ request cũ; lỗi refresh ẩn dữ liệu cũ, có Thử lại.
+- Thẻ KPI; phễu Recharts sáu bước và bảng đủ tám bước; CV theo ngày có bảng
+  thay thế; tỷ lệ đồng thuận AI/tử/mẫu; bảng recruiter bảy cột sắp xếp số và
+  null cuối; duration/activity mở rộng. Giữ nhãn Bản nháp, null khác zero,
+  flow >100% không cap, số Việt Nam/phần trăm một chữ số, số mẫu thiếu rõ ràng.
+- Excel dùng cùng filter/phiên, chống bấm lặp và download sau unmount; dọn
+  blob URL. Không đưa CV/liên hệ vào UI báo cáo, test, log hoặc mã mới.
+- Cập nhật spec 05/08 và mặc định ASSUMED #100–#101, không nâng KPI approved.
+
+**Tiêu chí nghiệm thu:** VERIFIED — recruiter chỉ thấy số mình, lead thấy
+team: `reports.test.tsx` kiểm request tự scope/row riêng, lead/admin/team,
+đổi role không dùng cache team; E2E thật kiểm lead và recruiter, Job/đơn vị
+ngoài quyền không xuất hiện, yêu cầu recruiter khác trả 403.
+
+**Lệnh và kết quả:**
+- `npm install recharts --cache ../var/npm-cache --no-audit --no-fund`: pass,
+  Recharts 3.10.1 và lockfile, không thêm dịch vụ hay thư viện ngoài task.
+- `npm test` với `VITEST_MAX_WORKERS=2`: **148 passed**, 18 file, 25.39s;
+  nhóm T27 **14 passed**. Toàn bộ fake API, không mạng ngoài; Recharts thật,
+  chỉ thay đo kích thước ở jsdom. Không bỏ/skip/giảm assertion bài cũ.
+- `npm run lint`, `npm run typecheck`, `npm run build`: pass; route reports
+  build thành công, First Load JS 258 kB. Không coi đây là benchmark production.
+- `uv run pytest tests/api/test_reports.py tests/api/test_reports_access.py -q`
+  với UV_CACHE_DIR=var/uv-cache: **61 passed**, 37.36s trên PostgreSQL thật.
+  Hai warning sẵn có: Starlette/httpx deprecation và pytest cache sandbox.
+- `npx playwright test e2e/reports.spec.ts`: **1 passed**, lần cuối 6.4s;
+  API thật/DB tạm migrate 0001→0008/FakeLLM/FakeEmbedder, workbook thật,
+  sắp xếp bằng Enter, 1280px không overflow/lỗi JS, 403 ẩn số cũ và retry.
+  Đã xem ảnh `var/t27-reports-team.png`, `-own.png`, `-error.png` (gitignored).
+- `npx playwright test`: lượt đầu **10 passed/3 failed** do fixture đã có
+  nhiều user từ các lần T27 riêng, SMTP localhost:1025 không hoạt động và
+  lỗi upload trong lượt 8 workers. Không thay test cũ để khớp lỗi.
+- Dựng lại đúng fixture DB tạm, SMTP Mailpit riêng localhost:11025/18025;
+  `npx playwright test --workers=2`: **12 passed/1 failed** (40.0s), chỉ
+  Kanban cũ không mở hộp từ chối đúng lúc. `npx playwright test
+  e2e/pipeline.spec.ts --workers=1`: **1 passed** (7.6s), giữ nguyên code và
+  assertion. INFERRED: ca kéo thả/bàn phím nhạy timing khi chạy song song;
+  không có lượt toàn bộ E2E xanh trong T27, cần theo dõi khi review/CI.
+- Lượt T27 đầu sửa selector test: chọn combobox bằng accessible role vì
+  getByLabel exact gộp option text; alert được scope vào main để không lẫn
+  route announcer Next.js. Không đổi hành vi sản phẩm để làm test xanh.
+- `git diff --check`: sạch. Git switch/add bị chặn `.git/index.lock`, không
+  thể commit; theo ngoại lệ workflow, giữ thay đổi cho runner commit.
+- VERIFIED: đã dừng web, API và container Mailpit tạm. Fixture cuối bị kẹt
+  khi shutdown nên ngắt tiến trình, xác nhận không còn kết nối DB rồi chỉ
+  xoá đúng DB UUID/storage tạm của lượt T27; giữ nguyên DB dev/test chung
+  và các thư mục tạm từ lượt khác. Không còn stop marker của lượt này.
+
+File chính: `frontend/src/components/reports.tsx`, `report-charts.tsx`,
+`report-metrics.tsx`, `reports.test.tsx`, `frontend/src/lib/report-types.ts`,
+route reports, `vi.ts`, package/lockfile, `frontend/e2e/reports.spec.ts`,
+spec 05/08, open-questions và PROGRESS. NOT TESTED: full backend suite/lint/
+mypy (backend không đổi), tải production, review độc lập/CI. Task đủ tiêu chí,
+giữ `review` đến khi được duyệt và merge; không triển khai T28.
 
 ## T26 · 2026-11-09 · review
 
