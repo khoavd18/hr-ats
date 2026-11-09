@@ -68,12 +68,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
       const blob = await api<Blob>(`/jobs/${jobId}/export.xlsx`, { responseType: "blob" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
-      const slug = job.data.title
-        .normalize("NFKD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || "job";
+      const slug =
+        job.data.title
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") || "job";
       const date = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Ho_Chi_Minh",
         year: "numeric",

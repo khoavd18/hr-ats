@@ -104,7 +104,9 @@ it("confirms the personal data warning before downloading the Job workbook", asy
   show();
   await userEvent.click(await screen.findByRole("button", { name: t("ranking.export") }));
   expect(confirm).toHaveBeenCalledWith(t("ranking.exportWarning"));
-  await waitFor(() => expect(api).toHaveBeenCalledWith("/jobs/job/export.xlsx", { responseType: "blob" }));
+  await waitFor(() =>
+    expect(api).toHaveBeenCalledWith("/jobs/job/export.xlsx", { responseType: "blob" }),
+  );
   expect(click).toHaveBeenCalledOnce();
   expect(downloads[0]).toMatch(/^ung-vien-job-mau-gia-\d{4}-\d{2}-\d{2}\.xlsx$/);
   confirm.mockRestore();

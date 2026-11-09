@@ -3,13 +3,32 @@
 import re
 from datetime import date
 from io import BytesIO
+from types import SimpleNamespace
 
+import pytest
 from openpyxl import load_workbook
 from sqlalchemy import select
 
-from app.models import Application, AuditLog
-from app.models.enums import AiLevel, ApplicationStage, ProcessingStatus
+from app.models import Application, AuditLog, Candidate, HiringUnit, Job
+from app.models.enums import AiLevel, ApplicationStage, HiringUnitKind, ProcessingStatus
 from tests.auth_helpers import sign_in
+
+
+@pytest.fixture
+def records(db_session, account):
+    candidate = Candidate(full_name="Ứng viên mô phỏng", retention_until=date(2099, 1, 1))
+    unit = HiringUnit(name="Đơn vị mô phỏng", kind=HiringUnitKind.department)
+    db_session.add_all([candidate, unit])
+    db_session.flush()
+    job = Job(
+        title="Python",
+        description="Mô tả giả",
+        owner_id=account.id,
+        hiring_unit_id=unit.id,
+    )
+    db_session.add(job)
+    db_session.commit()
+    return SimpleNamespace(job=job, candidate=candidate)
 
 
 def test_job_export_workbook_and_audit(client, account, records, db_session):
@@ -41,7 +60,7 @@ def test_job_export_workbook_and_audit(client, account, records, db_session):
         r'attachment; filename="ung-vien-python-\d{4}-\d{2}-\d{2}\.xlsx"',
         response.headers["content-disposition"],
     )
-    workbook = load_workbook(BytesIO(response.content), data_only=True)
+    workbook = load_workbook(BytesIO(response.content), data_only=False)
     sheet = workbook["Ứng viên"]
     assert sheet.freeze_panes == "A2"
     assert sheet["A1"].font.bold is True
@@ -61,7 +80,9 @@ def test_job_export_workbook_and_audit(client, account, records, db_session):
     )
     assert len(rows) == 2
     assert rows[1][0] == '\'=HYPERLINK("https://example.invalid","Giả")'
-    assert rows[1][1:5] == ("ung-vien-gia@example.invalid", "+84900000000", "Cao", 91)
+    assert rows[1][1:5] == ("ung-vien-gia@example.invalid", "'+84900000000", "Cao", 91)
+    assert sheet["A2"].data_type == "s"
+    assert sheet["C2"].data_type == "s"
     assert rows[1][5:9] == (
         "Kinh nghiệm phù hợp; Có kỹ năng Python",
         "Python, SQL",

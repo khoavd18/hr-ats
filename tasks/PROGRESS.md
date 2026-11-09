@@ -18,11 +18,51 @@
 | T14 | done | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
 | T15 | done | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
 | T16 | done | 2026-11-08 | VERIFIED: kho CV tìm không dấu/theo nghĩa và bộ lọc, top-50 gợi ý theo Job, chọn nhiều tạo/chấm hồ sơ, gộp nguyên tử có xác nhận/giữ lịch sử. 893 backend pass/12 skip OCR cũ, 85 Vitest và 5 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T16, CI và merge. |
-| T17 | review | 2026-11-09 | Excel export, audit metadata and migration implemented. Backend static checks pass; DB/API and frontend runtime verification could not complete in this environment. See T17 log below. |
+| T17 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa F1–F3; giữ cách escape an toàn của F4 theo review. Test export/migration PostgreSQL 8 pass, frontend 86 pass; lint/typecheck sạch. Xem nhật ký fix và tasks/reviews/T17.md. |
 | T18–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T17 · 2026-11-09 · review · Fix round 1
+
+VERIFIED: xử lý review theo `tasks/_fix.md`, giữ nhánh
+`task/T17-excel-export-audit`. T17 giữ trạng thái `review` cho đến khi được
+duyệt và merge vào main.
+
+- F1: thêm fixture `records` cục bộ tạo đơn vị, Job do account sở hữu và ứng
+  viên giả còn hạn. Đã tái hiện lỗi thiếu fixture trước khi sửa.
+- F2: đã tái hiện sai kỳ vọng SĐT sau khi sửa fixture; kỳ vọng mới giữ dấu
+  apostrophe do cơ chế chống công thức. Đọc workbook không dùng cached formula
+  và kiểm ô tên/SĐT có kiểu chuỗi; không đổi bảo vệ trong service export.
+- F3: Prettier định dạng lại đúng hai file `job-detail.tsx` và
+  `job-detail.test.tsx`; không thay hành vi giao diện.
+- F4: không sửa ghi chú UX tuỳ chọn; giữ dấu apostrophe để escape chuỗi bắt
+  đầu bằng ký tự công thức, đúng trade-off mà review chấp nhận.
+- Phát hiện thêm test migration cũ còn kỳ vọng revision 0003. Sửa kỳ vọng
+  thành `0004_audit_details` của T17, giữ đủ upgrade/rollback/upgrade và đối
+  chiếu schema. `uv run pytest tests/api/test_database.py tests/api/test_export.py`:
+  **8 passed**, 1 cảnh báo Starlette/httpx có sẵn.
+- `npm test -- --maxWorkers=1`: **86 passed**. Lần `npm test` chạy song song
+  với các kiểm tra khác có 85 pass/1 timeout 5 giây ở test kho CV T16; chạy
+  lại toàn bộ bằng một worker pass, không đổi test hoặc timeout.
+- `uv run pytest`: **893 passed, 12 skipped, 1 failed** ở lượt khởi chạy trước
+  khi sửa kỳ vọng revision; lỗi duy nhất là hàm migration đã nạp vẫn so với
+  0003. Sau khi lượt này kết thúc, `uv run pytest --lf`: **1 passed** trên mã
+  hiện tại; bộ database/export ở trên cũng **8 passed**. Không chạy lại toàn
+  bộ từ đầu sau sửa một kỳ vọng test. 12 skip do thiếu Tesseract theo ngoại lệ
+  T08; giữ nguyên điều kiện skip/timeout. Cảnh báo Starlette/httpx có sẵn.
+- `uv run ruff check .`, `uv run ruff format --check .` (131 file),
+  `uv run mypy app` (78 file), `uv run alembic upgrade head`, `npm run lint`,
+  `npm run typecheck`, `npm run build` (tắt telemetry): **PASS**.
+- `git diff --check`: **PASS**; tự rà soát diff không có thay đổi ngoài T17.
+- Chưa tạo commit `T17: fix review findings`: `git add` không tạo được
+  `.git/index.lock` do `Permission denied`. Theo fallback của `tasks/_fix.md`,
+  giữ toàn bộ thay đổi trên nhánh T17 để runner commit. Chờ review lại/CI/merge.
+
+File chính: `backend/tests/api/test_export.py`, `test_database.py`, hai file
+frontend nêu trên, `tasks/reviews/T17.md`, `tasks/PROGRESS.md`. Bằng chứng và
+quyết định từng finding được ghi trong `tasks/reviews/T17.md` mục Fix round 1.
 
 ## T16 · 2026-11-08 · review
 
