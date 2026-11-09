@@ -7,6 +7,7 @@ import { ProfileInfo } from "@/components/profile-info";
 import { ProfileAI } from "@/components/profile-ai";
 import { ProfileRecruitment } from "@/components/profile-recruitment";
 import { ProfileEmail } from "@/components/profile-email";
+import { TaskCreateDialog } from "@/components/task-create-dialog";
 import { QueryFeedback } from "@/components/query-feedback";
 import { Button } from "@/components/ui/button";
 import { api, ApiError } from "@/lib/api";
@@ -132,6 +133,7 @@ export function CandidateProfile({ applicationId }: { applicationId: string }) {
           </section>
           <div className="min-w-0 space-y-5">
             <ProfileInfo candidate={detail.data.candidate} onSaved={refresh} />
+            <TaskCreateDialog applicationId={applicationId} />
             <ProfileAI detail={detail.data} onSaved={refresh} />
             <ProfileRecruitment
               applicationId={applicationId}

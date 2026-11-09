@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import setup_logging
 from kombu import Queue
 
@@ -12,7 +13,12 @@ def create_celery_app(settings: Settings) -> Celery:
         "hr_ats",
         broker="memory://" if testing else settings.redis_url,
         backend="cache+memory://" if testing else settings.redis_url,
-        include=["app.workers.tasks", "app.workers.email", "app.email.inbound"],
+        include=[
+            "app.workers.tasks",
+            "app.workers.email",
+            "app.email.inbound",
+            "app.workers.reminders",
+        ],
     )
     application.conf.update(
         task_queues=tuple(
@@ -25,7 +31,10 @@ def create_celery_app(settings: Settings) -> Celery:
                 name: {"queue": "ai"}
                 for name in ("process_cv_file", "score_application", "rescore_job")
             },
-            **{name: {"queue": "email"} for name in ("send_email_message", "poll_inbox")},
+            **{
+                name: {"queue": "email"}
+                for name in ("send_email_message", "poll_inbox", "remind_due_tasks")
+            },
         },
         task_always_eager=testing,
         task_eager_propagates=testing,
@@ -37,11 +46,17 @@ def create_celery_app(settings: Settings) -> Celery:
         broker_connection_timeout=3,
         broker_transport_options={"socket_connect_timeout": 3, "socket_timeout": 3},
         worker_hijack_root_logger=False,
-        timezone="UTC",
+        timezone="Asia/Ho_Chi_Minh",
         enable_utc=True,
-        beat_schedule={"poll-inbox": {"task": "poll_inbox", "schedule": 300.0}}
-        if settings.imap_enabled
-        else {},
+        beat_schedule={
+            **(
+                {"poll-inbox": {"task": "poll_inbox", "schedule": 300.0}}
+                if settings.imap_enabled
+                else {}
+            ),
+            "followup-tasks": {"task": "generate_followup_tasks", "schedule": 3600.0},
+            "due-tasks": {"task": "remind_due_tasks", "schedule": crontab(hour=8, minute=0)},
+        },
     )
     return application
 

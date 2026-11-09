@@ -141,6 +141,22 @@ upsert cùng transaction với activity. Contract chi tiết tại spec 03/T15.
 ### tasks
 `title`, `description`, `assignee_id`, `created_by`, `job_id null`, `application_id null`, `due_at null`, `status task_status`, `completed_at`.
 
+T25: revision `0008_tasks` thêm đúng bảng này với RecordMixin/deleted_at và enum
+task_status. Title VARCHAR(200) bắt buộc không trắng, description TEXT nullable;
+assignee_id/created_by FK users bắt buộc, FK không cascade. Application có mặt
+thì job_id bắt buộc; service suy ra Job từ Application và kiểm khớp nếu gửi cả
+hai. Status mặc định todo; CHECK completed_at có giá trị khi và chỉ khi done.
+Index (assignee_id,status,due_at) cho danh sách/nhắc hạn và index created_by,
+job_id,application_id cho tra liên kết. Không có DELETE từ giao diện/API.
+Loại việc tự động nhận diện bằng hai title cố định theo spec 06 + application_id;
+không thêm cột loại/nguồn ngoài schema. Khoá transaction chung giữa tạo tay và
+generator chống tạo trùng task mở trong hai lượt generator đồng thời.
+
+Rollout: migrate trước API/worker/Beat mới; chỉ thêm bảng/enum, không backfill.
+Downgrade xoá bảng/enum, chỉ chạy trên DB tạm trong test; môi trường có dữ liệu
+cần dừng writer và backup trước rollback. Tải/thời gian migration production:
+NOT TESTED, chưa có quy mô được duyệt.
+
 ### email_templates
 `key unique` (vd. `cv_received`, `interview_invite`, `rejection`, `offer`), `name`, `stage application_stage null`, `subject` (Jinja2), `body` (Jinja2, Markdown đơn giản → HTML), `is_active`, `requires_confirmation bool default true`.
 

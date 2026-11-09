@@ -25,7 +25,7 @@ def test_migration_upgrades_empty_database_and_preserves_extensions_on_rollback(
         command.upgrade(config, "head")
         assert set(connection.execute(extensions_query).scalars()) == {"vector", "unaccent"}
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0007_inbound_emails"
+            "0008_tasks"
         )
         assert set(inspect(connection).get_table_names()) == set(Base.metadata.tables) | {
             "alembic_version"
@@ -40,7 +40,7 @@ def test_migration_upgrades_empty_database_and_preserves_extensions_on_rollback(
                     "SELECT count(*) FROM pg_type WHERE typname IN "
                     "('user_role', 'application_stage', 'processing_status', 'candidate_source', "
                     "'hiring_unit_kind', 'job_status', 'ai_level', "
-                    "'extraction_method', 'activity_type')"
+                    "'extraction_method', 'activity_type', 'task_status')"
                 )
             ).scalar_one()
             == 0

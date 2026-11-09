@@ -139,6 +139,40 @@ nhận thư sẽ tự chống trùng. Không tự retry lỗi DB sau khi SMTP đ
 - Tự tạo task: khi application ở `screening` quá 3 ngày không có hoạt động → task "Liên hệ ứng viên" cho owner; khi interview kết thúc chưa có kết quả sau 1 ngày → task "Cập nhật kết quả phỏng vấn".
 - `remind_due_tasks` mỗi sáng 8:00: email cho mỗi người danh sách task đến hạn/quá hạn.
 
+### Chi tiết triển khai T25
+
+Beat dùng Asia/Ho_Chi_Minh, enable_utc=true. generate_followup_tasks ở queue
+default mỗi giờ, remind_due_tasks queue email bằng crontab 8:00; độc lập cờ
+IMAP. Chạy đúng một Beat với cùng cấu hình DB/broker như worker.
+
+Screening: đã ở bước này >72 giờ và không có Activity chưa ẩn của Application
+trong 72 giờ gần nhất. Interview pending: scheduled_at + duration_minutes đã
+qua >24 giờ, Application còn ở bước mở new…offer. Đúng biên chưa tạo; không
+tự từ chối/đổi stage. Assignee và created_by là owner Application đang active,
+còn quyền Job; ứng viên/hồ sơ phải eligible. due_at là thời điểm tạo. Cùng
+Application/title cố định có task todo/doing chưa ẩn thì không tạo thêm, kể
+cả task tạo tay; done/cancelled cho phép tạo việc mới nếu điều kiện vẫn đúng.
+Không thêm cột loại; sửa title việc tự động làm nó không còn được coi là cùng
+loại. Generator giữ advisory transaction lock, ghi cả lượt cùng transaction.
+
+Email nội bộ chỉ người active có task todo/doing eligible, due_at trước nửa
+đêm ngày mai Việt Nam (gồm quá hạn và hết hôm nay); không nhắc task không hạn.
+Mỗi người một EmailMessage/ngày, ID tất định từ user/ngày và đánh dấu version
+4 để tương thích allowlist metadata. created_by là người nhận; application_id/
+template_id null. API tạo thư vẫn bắt buộc Application và không nhận ID/mốc/
+message_id, không thể tự cấp marker thư hệ thống. Marker phải khớp đủ ID,
+created_at/người nhận và Message-ID trước khi worker áp dụng nhắc nội bộ.
+
+Producer commit trước publish, chạy lại cùng ngày giữ ID, queued được publish
+lại an toàn; sent không gửi lại. Worker kiểm user active/email hiện tại, lọc
+lại quyền Job/eligibility/task mở/hạn và dựng lại nội dung trước SMTP; không
+còn việc thì failed, không gửi thư rỗng. Nội dung chỉ title (escape HTML) và
+hạn, không đọc CV/email ứng viên; không có payload/nội dung trong Celery args.
+Dùng chung SMTP/rate limit/retry/checkpoint T23, activity email_sent actor null
+chỉ email_message_id. Publish lỗi giữ queued; có thể chạy lại remind_due_tasks
+trong ngày để phục hồi, không gọi SMTP trực tiếp. Giới hạn exactly-once SMTP
+như T23. Thư nội bộ này không thay luồng HR duyệt offer/từ chối ứng viên.
+
 ## KPI (định nghĩa dùng trong code; khớp `docs/metrics/kpi-list.md`)
 Khoảng thời gian `[from, to)` theo giờ Việt Nam. "Người" của KPI = `owner_id` của application tại thời điểm sự kiện, trừ khi ghi khác.
 | KPI | Công thức |

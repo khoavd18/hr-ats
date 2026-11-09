@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+import { MyTasks } from "@/components/task-list";
 
 export default function TasksPage() {
-  return <PlaceholderPage page="tasks" />;
+  return <MyTasks />;
 }

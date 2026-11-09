@@ -26,10 +26,75 @@
 | T22 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
 | T23 | done | 2026-11-09 | VERIFIED: nháp theo stage, xác nhận/huỷ/gửi lại, worker SMTP + ICS/retry/hạn mức toàn hệ thống và mục Email trong drawer; tiêu chí đạt với SMTP giả/Mailpit thật. Backend 1142 pass/12 skip OCR cũ, frontend 122 pass, 10 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T23, CI và merge. |
 | T24 | done | 2026-11-09 | VERIFIED: nhận CV qua IMAP giả/TLS, chống trùng, gắn Job, receipt tự động riêng cv_received, trạng thái hộp mail và mã Job. T24 24 pass; toàn backend 1160 pass/12 skip OCR cũ, frontend 127 pass, 11 E2E pass (2 workers); lint/typecheck/build/migration sạch. Chờ Review T24, CI và merge; sandbox chặn ghi .git. |
-| T25–T33 | todo | | |
+| T25 | review | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
+| T26–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T25 · 2026-11-09 · review
+
+VERIFIED: triển khai theo `tasks/_implement.md`; T21 done và working tree sạch
+lúc bắt đầu trên `task/T25-tasks-reminders-overview`. Git switch bị sandbox
+chặn `.git/index.lock`, giữ nhánh có sẵn theo ngoại lệ workflow. Áp dụng các
+skill backend-api-engineer, database-engineer, frontend-engineer,
+software-testing và tự rà soát secure-code-review. Chưa chuyển done trước
+review và merge.
+
+- VERIFIED: `0008_tasks` thêm bảng tasks/enum, FK không cascade, soft delete,
+  CHECK title/completed_at/liên kết Job và index người nhận/trạng thái/hạn.
+  API GET/POST/PATCH kiểm user/CSRF/Origin, người nhận active/quyền Job,
+  Application eligible; recruiter chỉ tự giao/xem/sửa việc mình. Hoàn thành
+  khoá hàng, task_done chỉ ID cùng transaction; done lặp không thêm activity,
+  mở lại xoá completed_at, lỗi activity rollback toàn lượt.
+- VERIFIED: generator mỗi giờ, screening >72h và không Activity Application
+  trong 72h; interview pending quá >24h sau scheduled_at + duration, hồ sơ ở
+  bước mở. Chỉ owner active/còn quyền Job; bỏ hồ sơ/ứng viên ẩn/gộp/hết hạn.
+  Cùng Application/title chuẩn có todo/doing (kể cả tạo tay) không tạo thêm;
+  cancelled/done cho tạo lại nếu vẫn đủ điều kiện. Advisory transaction lock
+  và test hai kết nối độc lập chứng minh hai generator chỉ tạo một việc.
+- VERIFIED: Beat 8:00 Asia/Ho_Chi_Minh gửi một thư/người/ngày cho task hôm nay/
+  quá hạn, bỏ không hạn/done/cancelled và user inactive. Dùng EmailMessage ID
+  tất định version4/marker nội bộ, commit trước publish, replay queued an toàn;
+  worker kiểm lại quyền/người nhận/eligibility và dựng lại danh sách trước SMTP.
+  Escape title, không lấy CV/liên hệ ứng viên, queue chỉ ID/checkpoint. Dùng
+  chung SMTP/rate limit/retry T23; không đổi stage hoặc luồng duyệt offer/từ chối.
+- VERIFIED: Việc của tôi nhóm ngày Việt Nam, phân trang/tick/trạng thái chờ và
+  lỗi; form tìm/chọn Job/hồ sơ/người nhận, offset +07, giữ input/chặn bấm lặp/
+  đóng khi pending. Drawer tạo việc cố định Application. Tổng quan có việc hôm
+  nay/quá hạn, lịch hôm nay/ngày mai, Job open còn thiếu placement hết hạn trong
+  7 ngày, số hồ sơ new chưa có audit xem của caller; quick upload dùng T14.
+  Selector có htmlFor/id, có tải/rỗng/lỗi/thử lại; chuỗi mới ở vi.ts.
+- VERIFIED: `uv run pytest` cuối **1202 passed, 12 skipped**, 566,08 giây;
+  12 skip OCR T08 do thiếu Tesseract giữ nguyên, cảnh báo Starlette/httpx cũ.
+  Bao gồm **35 test T25**, concurrency generator và lịch Beat; test database
+  compare_metadata/upgrade→downgrade base→upgrade trên DB tạm tới revision 0008.
+  `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app` và
+  `uv run alembic upgrade head` pass; không downgrade DB dev.
+- VERIFIED: `npm test` với VITEST_MAX_WORKERS=2 **134 passed**, `npm run lint`,
+  `npm run typecheck`, `npm run build` pass. `npx playwright test --workers=2`
+  **12 passed** trên production web/API fixture thật/FakeLLM và Mailpit localhost
+  11025/18025. Đã xem ảnh var/t25-tasks.png và t25-overview.png ở 1280px; không
+  overflow/lỗi JS. Dọn API/web, DB/storage fixture và đúng container Mailpit tạm.
+- VERIFIED: kiểm thử phát hiện/sửa selector label bị lẫn option, checkbox phải
+  hiện tick khi đang ghi, và định dạng deadline phải chỉ rõ múi giờ Việt Nam.
+  Test retry SMTP dùng eager result.successful() thay get() vì get phụ thuộc
+  trạng thái join task Celery từ bài trước; vẫn kiểm đầy đủ failed/checkpoint/
+  retry/sent trong DB. Lượt pytest đầu 1199 pass/1 fail/12 skip; lượt cuối sạch.
+  Các lượt Vitest chạy cùng full pytest có timeout bài cũ; chạy tuần tự với 2
+  worker pass toàn bộ, không sửa assertion/timeout hoặc bỏ bài.
+- VERIFIED: tự rà quyền, tính nguyên tử, retry/chống trùng, PII/log và HTML;
+  không thêm dependency/dịch vụ triển khai, không sửa stack/KPI approved.
+  Cập nhật spec 02/03/05/06/08, README và mặc định còn thiếu tại #90–#93.
+
+Môi trường: UV cache mặc định bị chặn, dùng var/uv-cache; Vitest spawn EPERM
+trong sandbox nên chạy với quyền tiến trình phù hợp. Mạng ngoài bị chặn trong
+test, dữ liệu hoàn toàn giả. NOT TESTED: tải production/SMTP provider thật và
+audit dependency qua mạng (không thay dependency/lockfile). Giới hạn SMTP
+exactly-once giữ như T23; có thể chạy lại producer trong ngày khi publish lỗi.
+
+Chờ Review T25/CI/merge; sandbox không cho ghi `.git`, giữ thay đổi trong
+working tree cho runner commit. Không có acceptance criterion còn thiếu.
 
 ## T24 · 2026-11-09 · review
 

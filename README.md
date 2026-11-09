@@ -502,6 +502,28 @@ Thông báo không tạo bằng chứng đồng ý. Chỉ bật hộp mail thậ
 điều kiện triển khai và pháp chế của dự án; test T24 dùng IMAP giả, không cần
 tài khoản thật. Chi tiết tiếp nhận, chống trùng và phục hồi: spec 06, mục T24.
 
+### Việc cần làm và nhắc hạn (T25)
+
+Sau `uv run alembic upgrade head`, mở **Việc của tôi** để tạo việc có hạn
+(giờ Việt Nam), gắn Job/hồ sơ và tick hoàn thành; trong drawer ứng viên có nút
+**Tạo việc cần làm**. Lead/admin có thể giao cho người khác còn quyền Job.
+**Tổng quan** hiển thị việc hôm nay/quá hạn, lịch hôm nay/ngày mai, Job sắp hết
+hạn trong 7 ngày và số hồ sơ Mới nhận mà bạn chưa mở xem; có nút tải CV nhanh.
+
+Dùng worker hiện có với queue `ai,email,default` và đúng một Beat theo lệnh
+ở mục T24. Không cần bật IMAP: Beat kiểm việc cần liên hệ/cập nhật phỏng vấn
+mỗi giờ, gửi email nhắc nội bộ lúc **8:00 Asia/Ho_Chi_Minh**. SMTP dev vào
+Mailpit; không có email ứng viên hoặc quyết định tuyển dụng tự động từ task.
+Nếu publish thư nhắc lỗi, sau khi khôi phục broker có thể chạy lại producer
+trong cùng ngày; ID thư/người/ngày giữ nguyên, thư sent không gửi lặp:
+
+```powershell
+cd backend
+uv run celery -A app.workers.celery_app call remind_due_tasks
+```
+
+Điều kiện tạo việc, phạm vi quyền và giới hạn SMTP: spec 03/06, contract T25.
+
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.

@@ -414,3 +414,36 @@ cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên 
 6. Chuỗi giao diện mới nằm trong `vi.ts`.
 7. Nếu thay đổi hợp đồng (API, schema, KPI) thì cập nhật spec tương ứng trong cùng commit.
 8. Cuối task, ghi tóm tắt vào `tasks/PROGRESS.md`: task id, việc đã làm, file chính, lệnh test đã chạy và kết quả, việc còn lại / câu hỏi.
+
+## Kiểm thử T25
+
+`tests/api/test_tasks.py` trong `uv run pytest` dùng PostgreSQL thật, clock
+truyền tường minh và SMTP bộ nhớ: screening đúng/quá 72 giờ, có/không activity,
+interview sau kết thúc (gồm duration) đúng/quá 24 giờ, result pending/đã có kết
+quả, stage kết thúc/ứng viên ẩn/hết hạn/gộp/user inactive/mất quyền. Task mở
+tạo tay/doing chặn trùng, cancelled cho tạo mới, hai kết nối generator đồng
+thời chỉ tạo một. Kiểm CRUD/complete lặp/reopen, task_done chỉ ID và rollback
+khi ghi activity lỗi, CSRF/auth/quyền/thu hồi member/pagination/input sai.
+Schema/migration test hiện có bao revision 0008, compare_metadata và rollback
+trên DB tạm. Unit Celery kiểm 8:00 Asia/Ho_Chi_Minh và hourly generator.
+
+Reminder test kiểm chỉ đúng người có task hôm nay/quá hạn nhận một thư, không
+nhắc ngày mai/không hạn/done, escape HTML và replay producer; worker kiểm lại
+completed/user inactive/mất quyền/email đổi trước SMTP. Queued phục hồi publish,
+SMTP failed/retry giữ checkpoint; không mạng ngoài. Overview kiểm scope Job,
+nửa đêm Việt Nam/lịch hai ngày, deadline +7 và audit chuyển CV chưa xem thành
+đã xem. Không định nghĩa/thay đổi KPI approved.
+
+Vitest `tasks.test.tsx` kiểm nhóm ngày độc lập timezone máy, tick/lỗi giữ dòng,
+form chọn Job/ứng viên/người nhận và offset +07, lỗi giữ input/chống bấm lặp/
+Escape khi pending, huỷ không POST, overview và quick upload selector/retry.
+Lệnh chuẩn npm test/lint/typecheck/build; khi máy thiếu CPU có thể đặt biến
+môi trường VITEST_MAX_WORKERS=2 trước `npm test`, không đổi assertion/timeout.
+
+E2E `tasks.spec.ts` dùng ranking_browser_server, user browser-tasks giả riêng,
+production web và Mailpit localhost như T23. Tạo Job/upload DOCX giả cv_0045
+(ZIP comment riêng), tạo việc gắn Job, reload/tick/kiểm done qua API, mở drawer
+tạo việc gắn Application, xem overview/quick upload. Chạy cùng bộ cũ bằng
+`npx playwright test`; 1280px, ảnh var/t25-*.png gitignored, kiểm overflow/lỗi JS
+và chặn request browser ngoài localhost. Dừng/dọn fixture qua
+var/t14-browser.stop. Chỉ DB/storage/container tạm do lượt test tạo được dọn.
