@@ -156,6 +156,7 @@ def seed_demo(session: Session) -> dict[str, int]:
         ApplicationStage.submitted,
         ApplicationStage.interview,
         ApplicationStage.offer,
+        ApplicationStage.hired,
     )
     with eager_workers():
         for index, path in enumerate(files[:40]):
@@ -217,8 +218,47 @@ def seed_demo(session: Session) -> dict[str, int]:
                         note="Lịch sử giả lập cho demo M1",
                     )
                 )
+                seed_recruitment(session, application)
             session.commit()
     return {"users": 4, "hiring_units": 3, "jobs": 5, "sample_cvs": 40}
+
+
+def seed_recruitment(session: Session, application: Application) -> None:
+    """Initial synthetic state only, alongside its initial event; never overwrite HR edits."""
+    from datetime import date
+
+    from app.models.recruitment import Interview, Offer, Placement
+
+    if application.stage == ApplicationStage.interview:
+        session.add(
+            Interview(
+                application_id=application.id,
+                round=1,
+                scheduled_at=datetime(2026, 11, 10, 2, tzinfo=UTC),
+                duration_minutes=60,
+                location_or_link="Phòng phỏng vấn giả lập",
+                interviewers=["Người phỏng vấn giả lập"],
+            )
+        )
+    if application.stage in {ApplicationStage.offer, ApplicationStage.hired}:
+        session.add(
+            Offer(
+                application_id=application.id,
+                salary=20000000,
+                start_date=date(2026, 12, 1),
+                status="accepted" if application.stage == ApplicationStage.hired else "sent",
+                sent_at=datetime(2026, 11, 9, tzinfo=UTC),
+                notes="Offer giả lập cho demo",
+            )
+        )
+    if application.stage == ApplicationStage.hired:
+        session.add(
+            Placement(
+                application_id=application.id,
+                start_date=date(2026, 12, 1),
+                guarantee_until=date(2027, 2, 1),
+            )
+        )
 
 
 def main() -> int:

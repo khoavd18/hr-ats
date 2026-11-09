@@ -94,6 +94,32 @@ T05 dùng trigger BEFORE INSERT OR UPDATE (kể cả sửa trực tiếp search_
 ### placements
 `application_id unique`, `start_date`, `fee_amount int null`, `guarantee_until date null`, `status` (`active` | `left_in_guarantee` | `completed`).
 
+### Chi tiết triển khai T21
+
+Migration `0005_recruitment_records` thêm đúng ba bảng trên với RecordMixin và
+deleted_at; FK application NO ACTION. Không thêm enum PostgreSQL: trạng thái
+dùng VARCHAR + CHECK. Interview round > 0, duration 1–1440 phút, interviewers
+JSONB mảng chuỗi (tên hoặc email do HR nhập); mặc định result=pending, mảng rỗng.
+Offer mặc định draft, salary không âm; draft có sent_at=null, trạng thái đã gửi/
+đồng ý/từ chối phải có sent_at. Placement mặc định active, phí không âm, ngày
+bảo hành không trước ngày bắt đầu. UNIQUE application_id áp dụng cả bản đã ẩn.
+Index interviews(application_id), interviews(scheduled_at), offers(application_id)
+phục vụ drawer và khoảng lịch; unique placement phục vụ tra cứu theo hồ sơ.
+
+Các mutation khoá Application rồi đọc lại record, ghi cùng transaction với
+pipeline.move(commit=False), StageEvent và activity. Đặt lịch ở submitted →
+interview; nếu đã interview thì không thêm stage event. Offer chuyển sang sent
+ở interview → offer; placement ở offer → hired. Hồ sơ đã ở bước đích cho phép
+bổ sung bản ghi mà không đổi stage. Bước khác trả 409, không nhảy qua các bước.
+Kết quả phỏng vấn và accepted/declined không tự đổi stage. Undo T19 chỉ đổi
+stage, giữ bản ghi nghiệp vụ để HR sửa; không xoá hoặc gửi email.
+
+Rollout: `uv run alembic upgrade head` trước khi khởi động phiên bản mới. Đây là
+migration thêm bảng, không backfill hoặc sửa dữ liệu cũ. Rollback schema chỉ sau
+khi dừng phiên bản mới và backup ba bảng; downgrade xoá ba bảng nên không chạy
+trên DB có dữ liệu cần giữ. Test rollback chỉ dùng DB tạm do fixture tạo.
+Giới hạn tải/hiệu năng production: NOT TESTED, chưa có quy mô được phê duyệt.
+
 ### activities
 `actor_id null` (null = hệ thống), `type activity_type`, `job_id null`, `application_id null`, `candidate_id null`, `payload jsonb` (không chứa nội dung CV), `occurred_at`.
 
@@ -139,3 +165,6 @@ giả, 3 đơn vị, 5 Job, 40 CV kỹ thuật số qua pipeline thật với fa
 lịch sử stage giả. Chạy lại không tạo trùng hoặc ghi đè kết quả/chỉnh sửa HR;
 không tạo bằng chứng đồng ý giả. Interview/offer/placement/task/email mẫu được
 bổ sung ở task sở hữu bảng T21–T23/T25 (câu hỏi #66), không thêm schema tại T18.
+T21 bổ sung initial stage hired và 5 interview/10 offer/5 placement giả cho
+seed mới, cùng initial StageEvent. Chỉ tạo trong lúc khởi tạo lịch sử lần đầu;
+không thêm ngược hoặc ghi đè các hồ sơ có lịch sử/chỉnh sửa HR từ trước.

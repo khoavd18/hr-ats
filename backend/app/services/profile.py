@@ -25,6 +25,7 @@ from app.schemas.profile import (
 from app.services.activity import log_activity
 from app.services.applications import accessible_job, eligible_candidate
 from app.services.audit import record_audit
+from app.services.recruitment import records
 
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -70,6 +71,7 @@ def detail(
         )
     )
     snapshot = ApplicationDetail(
+        **records(session, application.id).model_dump(),
         application=ApplicationRead.model_validate(application),
         candidate=CandidateRead.model_validate(candidate),
         cv_files=[

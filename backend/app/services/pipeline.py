@@ -65,7 +65,7 @@ def can_move(from_stage: ApplicationStage, to_stage: ApplicationStage) -> bool:
     )
 
 
-def _locked_application(session: Session, actor: User, application_id: UUID) -> Application:
+def locked_application(session: Session, actor: User, application_id: UUID) -> Application:
     application = session.scalar(
         select(Application)
         .where(Application.id == application_id, Application.deleted_at.is_(None))
@@ -132,6 +132,8 @@ def move(
     to_stage: ApplicationStage,
     note: str | None = None,
     rejected_reason: RejectedReason | None = None,
+    *,
+    commit: bool = True,
 ) -> ApplicationRead:
     # Validate direct service callers as well as HTTP callers, without leaking input.
     try:
@@ -139,7 +141,7 @@ def move(
     except ValidationError:
         raise AppError("VALIDATION_ERROR", "Dữ liệu không hợp lệ.", 422) from None
     with session.begin_nested():
-        application = _locked_application(session, actor, application_id)
+        application = locked_application(session, actor, application_id)
         if not can_move(application.stage, data.to_stage):
             raise AppError("INVALID_STAGE_TRANSITION", "Không thể chuyển sang bước này.", 409)
         snapshot = _change(
@@ -151,13 +153,14 @@ def move(
             note=data.note,
             rejected_reason=data.rejected_reason,
         )
-    session.commit()
+    if commit:
+        session.commit()
     return snapshot
 
 
 def undo(session: Session, actor: User, application_id: UUID) -> ApplicationRead:
     with session.begin_nested():
-        application = _locked_application(session, actor, application_id)
+        application = locked_application(session, actor, application_id)
         event = session.scalar(
             select(StageEvent)
             .where(

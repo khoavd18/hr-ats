@@ -1,4 +1,6 @@
 import type { AiLevel } from "@/components/ai-level-badge";
+import type { Stage } from "@/lib/ranking-types";
+import type { RecruitmentRecords } from "@/lib/recruitment-types";
 
 export type Candidate = {
   id: string;
@@ -29,10 +31,11 @@ export type ProfileActivity = {
   occurred_at: string;
   payload: Record<string, unknown>;
 };
-export type ApplicationDetail = {
+export type ApplicationDetail = RecruitmentRecords & {
   candidate: Candidate;
   application: {
     id: string;
+    stage: Stage;
     ai_status: "pending" | "running" | "done" | "failed";
     ai_level: AiLevel | null;
     ai_score: number | null;

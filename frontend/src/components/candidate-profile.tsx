@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CvPreview } from "@/components/cv-preview";
 import { ProfileInfo } from "@/components/profile-info";
 import { ProfileAI } from "@/components/profile-ai";
+import { ProfileRecruitment } from "@/components/profile-recruitment";
 import { QueryFeedback } from "@/components/query-feedback";
 import { Button } from "@/components/ui/button";
 import { api, ApiError } from "@/lib/api";
@@ -131,6 +132,11 @@ export function CandidateProfile({ applicationId }: { applicationId: string }) {
           <div className="min-w-0 space-y-5">
             <ProfileInfo candidate={detail.data.candidate} onSaved={refresh} />
             <ProfileAI detail={detail.data} onSaved={refresh} />
+            <ProfileRecruitment
+              applicationId={applicationId}
+              stage={detail.data.application.stage}
+              records={detail.data}
+            />
             <History activities={detail.data.activities} />
             <form
               className="space-y-3 border-t pt-5"
