@@ -366,9 +366,7 @@ def stage_duration(
     return result
 
 
-def overdue_jobs(
-    session: Session, start: datetime, end: datetime, filters: Filters
-) -> dict[Key, int]:
+def _overdue_jobs_query(filters: Filters) -> Select:
     # Snapshot at as_of, not a flow inside [start, end). Count all placements
     # on the Job before applying recruiter attribution to the Job itself.
     filled = (
@@ -383,12 +381,28 @@ def overdue_jobs(
         .correlate(Job)
         .scalar_subquery()
     )
-    query = _scope(select().select_from(Job), Job.owner_id, Job.id, filters).where(
+    return _scope(select().select_from(Job), Job.owner_id, Job.id, filters).where(
         Job.status == JobStatus.open,
         Job.deadline < filters.as_of.astimezone(VIETNAM).date(),
         filled < Job.headcount,
     )
-    return _count(session, query, Job.owner_id, filters)
+
+
+def overdue_jobs(
+    session: Session, start: datetime, end: datetime, filters: Filters
+) -> dict[Key, int]:
+    return _count(session, _overdue_jobs_query(filters), Job.owner_id, filters)
+
+
+def top_overdue_jobs(session: Session, filters: Filters) -> list[tuple[str, str]]:
+    """Same population as the KPI, oldest deadlines first; no candidate data."""
+    rows = session.execute(
+        _overdue_jobs_query(filters)
+        .add_columns(Job.title, Job.deadline)
+        .order_by(Job.deadline, Job.id)
+        .limit(5)
+    )
+    return [(row.title, row.deadline.strftime("%d/%m/%Y")) for row in rows]
 
 
 def placement_revenue(

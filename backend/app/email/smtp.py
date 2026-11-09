@@ -9,15 +9,17 @@ from app.core.config import Settings
 
 
 def plain_text(html: str) -> str:
-    """Recover a readable text alternative from our escaped Markdown HTML."""
+    """Recover readable text from escaped Markdown and internal report tables."""
 
     class Text(HTMLParser):
         def handle_data(self, data: str) -> None:
             parts.append(data)
 
         def handle_starttag(self, tag: str, attrs) -> None:
-            if tag in {"p", "br", "li"}:
+            if tag in {"p", "br", "li", "tr", "h1", "h2", "h3"}:
                 parts.append("\n")
+            elif tag in {"td", "th"}:
+                parts.append("\t")
 
     parts: list[str] = []
     parser = Text()

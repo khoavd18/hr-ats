@@ -2,6 +2,50 @@ from app.core.config import Settings
 from app.workers.celery_app import celery_app, create_celery_app
 
 
+def test_report_schedules_are_due_at_vietnam_times_even_with_utc_clock():
+    from datetime import UTC, datetime, timedelta
+
+    application = create_celery_app(Settings(_env_file=None, app_env="test"))
+    try:
+        assert application.conf.timezone == "Asia/Ho_Chi_Minh" and application.conf.enable_utc
+        assert "app.workers.reports" in application.conf.include
+        for key, task, instant, hour, minute, weekdays in (
+            (
+                "daily-report",
+                "generate_daily_report",
+                datetime(2026, 11, 9, 11, tzinfo=UTC),
+                18,
+                0,
+                set(range(7)),
+            ),
+            (
+                "weekly-report",
+                "generate_weekly_report",
+                datetime(2026, 11, 9, 1, 30, tzinfo=UTC),
+                8,
+                30,
+                {1},
+            ),
+        ):
+            entry = application.conf.beat_schedule[key]
+            assert entry["task"] == task
+            schedule = entry["schedule"]
+            schedule.app = application
+            assert schedule.hour == {hour} and schedule.minute == {minute}
+            assert schedule.day_of_week == weekdays
+            assert application.amqp.router.route({}, task)["queue"].name == "default"
+            last_run = instant - timedelta(days=1 if key == "daily-report" else 7)
+            schedule.nowfun = lambda instant=instant: instant - timedelta(seconds=1)
+            assert not schedule.is_due(last_run).is_due
+            schedule.nowfun = lambda instant=instant: instant
+            assert schedule.is_due(last_run).is_due
+            schedule.nowfun = lambda instant=instant: instant + timedelta(days=1, seconds=-1)
+            assert not schedule.is_due(instant).is_due
+    finally:
+        application.close()
+        celery_app.set_current()
+
+
 def test_ai_message_is_delivered_only_to_ai_queue():
     application = create_celery_app(Settings(_env_file=None, app_env="dev"))
     application.conf.update(broker_url="memory://", result_backend="cache+memory://")

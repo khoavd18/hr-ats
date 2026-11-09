@@ -18,6 +18,7 @@ def create_celery_app(settings: Settings) -> Celery:
             "app.workers.email",
             "app.email.inbound",
             "app.workers.reminders",
+            "app.workers.reports",
         ],
     )
     application.conf.update(
@@ -56,6 +57,14 @@ def create_celery_app(settings: Settings) -> Celery:
             ),
             "followup-tasks": {"task": "generate_followup_tasks", "schedule": 3600.0},
             "due-tasks": {"task": "remind_due_tasks", "schedule": crontab(hour=8, minute=0)},
+            "daily-report": {
+                "task": "generate_daily_report",
+                "schedule": crontab(hour=18, minute=0),
+            },
+            "weekly-report": {
+                "task": "generate_weekly_report",
+                "schedule": crontab(hour=8, minute=30, day_of_week=1),
+            },
         },
     )
     return application

@@ -29,10 +29,61 @@
 | T25 | done | 2026-11-09 | VERIFIED: model/migration/API task, hai quy tắc chống trùng, email nhắc 8:00 giờ Việt Nam, Việc của tôi và Tổng quan. Backend 1202 pass/12 skip OCR cũ, frontend 134 pass, 12 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T25, CI và merge; sandbox chặn ghi .git. |
 | T26 | done | 2026-11-09 | VERIFIED: 13 KPI draft, 5 endpoint và Excel, SQL nhóm theo recruiter/quyền Job, fixture tính tay/biên ngày Việt Nam. Backend 1257 pass/12 skip OCR cũ; bộ T26/config cuối 76 pass; Ruff/mypy/migration sạch. Chờ Review T26, CI và merge; sandbox chặn ghi .git. |
 | T27 | done | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
-| T28–T33 | todo | | |
+| T28 | review | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
+| T29–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T28 · 2026-11-09 · review
+
+VERIFIED: theo `tasks/_implement.md`; T23/T26 done, working tree sạch lúc bắt
+đầu, đã ở nhánh `task/T28-scheduled-report-emails`. Áp dụng backend-api-engineer,
+software-testing và tự rà secure-code-review. Chỉ triển khai T28, không đổi
+schema/API/định nghĩa KPI/dependency/frontend hoặc mẫu email cần HR xác nhận.
+
+- VERIFIED: `app/reports/scheduled.py` dựng bảng HTML từ queries T26 và roster
+  nhóm. Ngày hiện tại, tuần thứ Hai–Chủ nhật vừa kết thúc và cột so tuần trước
+  nữa; 13 nhóm KPI, bản nháp, null/zero, mẫu số, phí thiếu và thời điểm Việt Nam.
+  Top 5 Job dùng chung query population với overdue KPI, deadline/UUID ổn định;
+  không giả lập trạng thái trễ hạn lịch sử. Tên/URL escape, link `/reports`.
+- VERIFIED: `app/workers/reports.py`, Beat 18:00 hằng ngày và 08:30 thứ Hai,
+  timezone Asia/Ho_Chi_Minh, queue default → sender queue email. Chỉ lead/admin
+  active; ID tất định user/loại/kỳ, advisory lock, commit trước publish. Worker
+  kiểm marker/role/email lại, giữ snapshot qua retry/nửa đêm, dùng rate limit
+  và checkpoint T23. Replay không gửi lại; payload/activity chỉ metadata ID.
+  MIME text thêm dấu phân cách bảng để nội dung không dính liền.
+- VERIFIED: CLI `app/scripts/send_report.py` với --daily hoặc --weekly,
+  --dry-run ghi UTF-8 vào var/reports gitignored hoặc --output file mới,
+  không EmailMessage/activity/publish/SMTP; không ghi đè file. Hai subprocess
+  thật chạy đúng lệnh trên DB tạm, không dịch vụ/mạng ngoài.
+- VERIFIED: 36 test T28/Beat pass (25.23s): fixture tính tay T26, HTML số/người,
+  hai kỳ, top Job, null/zero/draft/escape, biên nửa đêm/thứ Hai/năm nhuận,
+  role/email thay đổi, marker sai, replay/retry/rate limit/publish recovery,
+  hai producer đồng thời và observer DB riêng kiểm commit trước publish.
+- VERIFIED: `uv run pytest` **1296 passed, 12 skipped**, 324.96s. Skip OCR T08
+  do thiếu Tesseract giữ nguyên; warning Starlette/httpx và pytest cache không
+  ghi được trong sandbox đã có. Không giảm assertion, xóa hoặc skip test mới.
+- VERIFIED: `uv run ruff check .`, `uv run ruff format --check .` (183 file),
+  `uv run mypy app` (112 source), `uv run alembic upgrade head` và
+  `git diff --check` pass. Suite bao migrate DB trống/downgrade/upgrade và
+  compare_metadata; không sửa migration, không downgrade DB dev.
+- VERIFIED: tự rà diff theo scope/quyền/HTML/metadata/concurrency; kiểm lại
+  tên time-to-fill là thời gian tuyển trung vị, không hàm ý đủ headcount.
+  Spec 06/08 cập nhật contract/kiểm thử; mặc định #102–#104 ở open-questions.
+
+ASSUMED: kỳ ngày theo calendar T26 tại thời điểm lập, tuần trước hoàn chỉnh,
+top 5 deadline cũ nhất, một thư/người/loại/kỳ như T25; KPI vẫn draft.
+NOT TESTED: SMTP thật/hiệu năng production, audit dependency qua mạng (không
+đổi dependency), frontend/browser vì không đổi UI. Chưa chạy worker/Beat để
+gửi báo cáo thật. Review độc lập, CI và merge còn lại; chưa đánh dấu done.
+
+VERIFIED: đã thử `git add` để commit `T28: add scheduled daily and weekly
+report emails`; sandbox từ chối tạo `.git/index.lock` (Permission denied),
+nên chưa thể commit. Giữ toàn bộ thay đổi trong working tree trên nhánh T28
+cho runner commit theo ngoại lệ Git của `tasks/_implement.md`, không xin lại
+quyền hoặc đổi nhánh.
+
 
 ## T27 · 2026-11-09 · review
 
