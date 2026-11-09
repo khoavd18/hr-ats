@@ -475,6 +475,33 @@ bài T14 thực sự kéo 10 CV mẫu kèm hai file lỗi. Tạo file `var/t14-b
 Contract/filter/sort/quyền: [spec 03](docs/specs/03-api.md); các lệnh và phạm vi
 kiểm thử: [spec 08](docs/specs/08-testing-quality.md).
 
+### Nhận CV qua hộp mail (T24)
+
+Chạy `uv run alembic upgrade head` tại backend trước khi cập nhật API/worker.
+Trong `.env` ngoài Git, cấu hình `IMAP_ENABLED=true`, `IMAP_HOST`, `IMAP_USER`,
+`IMAP_PASSWORD`, `IMAP_FOLDER=INBOX`; IMAP dùng SSL cổng 993 với chứng chỉ hợp lệ.
+Khởi động lại API và worker với cùng cấu hình, rồi chạy thêm đúng một Beat tại
+`backend/` (lịch đọc 5 phút chỉ đăng ký khi bật):
+
+```powershell
+uv run celery -A app.workers.celery_app beat -l info --schedule ../var/celerybeat-schedule
+```
+
+Worker vẫn dùng queue `ai,email,default` như lệnh hiện có. Admin/lead vào
+**Cài đặt → Kết nối hộp mail** xem bật/tắt, thời điểm và lỗi lượt đọc gần nhất.
+Trang chi tiết Job có mã `[JOB-XXXXXXXX]` để đưa vào tiêu đề email tuyển dụng;
+Job phải đang mở. Không xác định duy nhất Job thì CV vào kho chung. Tệp PDF,
+DOCX, PNG/JPG qua cùng kiểm tra upload, tối đa 10 MiB/tệp; mail tối đa 50 MiB,
+50 đính kèm và 100 thư/lượt. Mail vượt giới hạn giữ unread để quản trị xử lý.
+
+Sau parse thành công, mẫu **Xác nhận đã nhận CV** đang bật/không yêu cầu xác nhận
+được gửi tới email trích từ CV, mỗi file một thư; không lấy địa chỉ người gửi
+mail làm địa chỉ ứng viên. Thiếu email/context hoặc mẫu ngừng dùng thì chưa gửi.
+SMTP dùng cấu hình/giới hạn/retry hiện có; các mẫu cần duyệt vẫn do HR xác nhận.
+Thông báo không tạo bằng chứng đồng ý. Chỉ bật hộp mail thật sau khi hoàn thành
+điều kiện triển khai và pháp chế của dự án; test T24 dùng IMAP giả, không cần
+tài khoản thật. Chi tiết tiếp nhận, chống trùng và phục hồi: spec 06, mục T24.
+
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.

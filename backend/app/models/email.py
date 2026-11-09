@@ -1,4 +1,4 @@
-"""Email templates and future human-confirmed delivery records (T22)."""
+"""Email templates, delivery records and inbound metadata without message bodies."""
 
 from datetime import datetime
 from uuid import UUID
@@ -49,3 +49,20 @@ class EmailMessage(RecordMixin, SoftDeleteMixin, Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     message_id: Mapped[str | None] = mapped_column(Text)
+
+
+class InboundEmail(RecordMixin, SoftDeleteMixin, Base):
+    __tablename__ = "inbound_emails"
+    __table_args__ = (
+        CheckConstraint("attachment_count >= 0", name="ck_inbound_emails_attachment_count"),
+        CheckConstraint("status IN ('processed', 'ignored')", name="ck_inbound_emails_status"),
+    )
+
+    message_id: Mapped[str] = mapped_column(Text, unique=True)
+    from_email: Mapped[str] = mapped_column(String(254))
+    subject: Mapped[str] = mapped_column(Text)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attachment_count: Mapped[int]
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(20))
+    error: Mapped[str | None] = mapped_column(Text)

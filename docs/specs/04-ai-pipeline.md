@@ -17,6 +17,11 @@ upload / email ──► cv_files(pending)
      8. judge_criteria        (LLM, chỉ dùng anonymized_text + yêu cầu Job)
      9. compute_score         (local, tất định)
 ```
+
+T24: sau commit `process_cv_file` done, file source=email được đưa qua
+`queue_receipt` để gửi riêng mẫu cv_received theo spec 06. Lỗi email không
+rollback parse/embedding/score. File failed hoặc nguồn upload không tự gửi.
+Ứng viên mới dùng source từ file; dedupe giữ nguồn của ứng viên đã có.
 Mỗi bước bọc try/except, ghi `status/error` lên bản ghi, không làm hỏng bước khác. Lỗi ở một file không chặn các file còn lại trong cùng lần upload.
 
 ## 1. Trích text (`ai/extract.py`)

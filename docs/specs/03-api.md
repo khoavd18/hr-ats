@@ -1,5 +1,18 @@
 # 03 · API
 
+## Contract T24 · Trạng thái hộp mail
+
+`GET /api/v1/settings/mailbox`: chỉ admin/lead đang hoạt động; chưa đăng nhập
+401, recruiter 403. Trả 200 `{enabled: bool, last_read_at: ISO timestamp|null,
+last_error: code|null}`. enabled lấy IMAP_ENABLED; metadata lượt đọc gần nhất
+lưu Redis key `hr-ats:imap:status`, không chứa host/user/password/header/body.
+Mã lỗi: IMAP_NOT_CONFIGURED, IMAP_READ_FAILED, IMAP_MESSAGE_TOO_LARGE,
+IMAP_STATUS_UNAVAILABLE; null khi lần đọc gần nhất không lỗi. Redis mất hoặc
+metadata sai vẫn trả enabled và lỗi trạng thái an toàn; chưa từng đọc trả null.
+Không có API ghi cấu hình, gọi poll thủ công hay trả danh sách/nội dung thư.
+Trang Job hiển thị mã tính từ 8 ký tự hex đầu UUID: `[JOB-XXXXXXXX]`; không
+thêm field vào DTO Job hoặc nhận mã Job từ client.
+
 Base `/api/v1`. JSON, xác thực bằng cookie HttpOnly chứa JWT (access 30 phút, refresh 7 ngày). Mọi endpoint yêu cầu đăng nhập, trừ health, login và bước lấy CSRF trước đăng nhập; refresh/logout xác thực bằng refresh cookie. Quyền theo `07-security-privacy.md`. OpenAPI tự sinh tại `/docs` (chỉ bật khi `APP_ENV != prod`).
 
 ## Hệ thống

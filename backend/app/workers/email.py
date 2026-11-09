@@ -1,4 +1,4 @@
-"""Deliver only confirmed records. Queue payloads contain delivery metadata only."""
+"""Deliver human-confirmed mail or verified intake receipts; queue only metadata."""
 
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage as MIMEMessage
@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.email.smtp import deliver, plain_text
-from app.models import EmailMessage, EmailTemplate, User
+from app.models import CvFile, EmailMessage, EmailTemplate, User
 from app.models.enums import ActivityType, EmailStatus
 from app.services.activity import log_activity
 from app.services.email_messages import latest_interview
@@ -53,15 +53,31 @@ def send_email_message(
             return
         now = datetime.now(UTC)
         actor = session.get(User, row.created_by, populate_existing=True)
+        settings = get_settings()
         try:
-            if actor is None or row.application_id is None:
+            if actor is None:
                 raise AppError("NOT_FOUND", "Không tìm thấy dữ liệu.", 404)
-            application = accessible_application(session, actor, row.application_id)
             if not actor.is_active:
                 raise AppError("FORBIDDEN", "Tài khoản đã ngừng dùng.", 403)
             template = session.get(EmailTemplate, row.template_id) if row.template_id else None
+            from app.email.inbound import receipt_candidate
+
+            # Intake receipts use a CV's UUID as their record UUID. Human drafts
+            # always have independent UUIDs and still require the T23 send action.
+            intake_receipt = session.get(CvFile, row.id) is not None
+            application = None
+            candidate_id = None
+            job_id = None
+            if intake_receipt:
+                candidate, cv_file = receipt_candidate(session, row, settings)
+                candidate_id, job_id = candidate.id, cv_file.job_id
+            else:
+                if row.application_id is None:
+                    raise AppError("NOT_FOUND", "Không tìm thấy dữ liệu.", 404)
+                application = accessible_application(session, actor, row.application_id)
+                candidate_id, job_id = application.candidate_id, application.job_id
             calendar = None
-            if template and template.key == "interview_invite":
+            if application and template and template.key == "interview_invite":
                 calendar = calendar_file(
                     session, actor, latest_interview(session, application.id).id
                 )
@@ -71,7 +87,6 @@ def send_email_message(
             row.scheduled_for = None
             session.commit()
             return
-        settings = get_settings()
         recent = select(EmailMessage.sent_at).where(
             EmailMessage.sent_at >= now - timedelta(hours=1)
         )
@@ -117,10 +132,10 @@ def send_email_message(
                 log_activity(
                     session,
                     type=ActivityType.email_sent,
-                    actor_id=actor.id,
-                    job_id=application.job_id,
-                    application_id=application.id,
-                    candidate_id=application.candidate_id,
+                    actor_id=None if intake_receipt else actor.id,
+                    job_id=job_id,
+                    application_id=application.id if application else row.application_id,
+                    candidate_id=candidate_id,
                     payload={"email_message_id": str(row.id)},
                 )
         checkpoint = row.scheduled_for.isoformat() if row.scheduled_for else ""

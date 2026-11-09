@@ -82,6 +82,14 @@ class CvFile(RecordMixin, SoftDeleteMixin, Base):
     mime_type: Mapped[str] = mapped_column(String(200))
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    source: Mapped[CandidateSource] = mapped_column(
+        Enum(
+            CandidateSource,
+            name="candidate_source",
+            values_callable=lambda enum: [v.value for v in enum],
+        ),
+        server_default=text("'upload'"),
+    )
     extracted_text: Mapped[str | None] = mapped_column(Text)
     extraction_method: Mapped[ExtractionMethod | None] = mapped_column(
         Enum(ExtractionMethod, name="extraction_method")

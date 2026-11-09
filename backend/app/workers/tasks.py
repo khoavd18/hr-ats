@@ -120,6 +120,7 @@ def process_cv_file(cv_file_id: str) -> None:
                     retention_until=retention_date(
                         datetime.now(ZoneInfo(settings.tz)).date(), settings.data_retention_months
                     ),
+                    source=cv_file.source,
                 )
                 cv_file.candidate_id = candidate.id
                 error = "Không thể hoàn tất xử lý hồ sơ ứng viên. Vui lòng thử lại."
@@ -154,6 +155,14 @@ def process_cv_file(cv_file_id: str) -> None:
         session.commit()
         if cv_file.status == ProcessingStatus.done and application_id is not None:
             dispatch_score(session, application_id)
+        if cv_file.status == ProcessingStatus.done:
+            from app.email.inbound import queue_receipt
+
+            try:
+                queue_receipt(session, cv_file.id, get_settings())
+            except Exception:
+                # Email failure must not undo a successfully parsed CV.
+                session.rollback()
 
 
 @celery_app.task(name="score_application")

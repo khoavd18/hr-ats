@@ -356,6 +356,23 @@ export const vi = {
     "Kết quả sẽ được tổng hợp khi có hoạt động tuyển dụng. Hãy xem danh sách vị trí để theo dõi tiến độ.",
   "reports.action": "Xem việc tuyển dụng",
   "settings.description": "Quản lý các thiết lập chung cho công việc tuyển dụng.",
+  "jobs.inboundCode": "Mã nhận CV qua email:",
+  "jobs.inboundHint": "Đưa mã này vào tiêu đề email trong tin tuyển dụng.",
+  "mailbox.title": "Kết nối hộp mail",
+  "mailbox.description":
+    "Hệ thống đọc CV đính kèm mỗi 5 phút khi được bật. Liên hệ quản trị hệ thống để thay đổi cấu hình kết nối.",
+  "mailbox.state": "Trạng thái",
+  "mailbox.enabled": "Đã bật",
+  "mailbox.disabled": "Đã tắt",
+  "mailbox.lastRead": "Lần đọc gần nhất",
+  "mailbox.lastError": "Lỗi lần đọc gần nhất",
+  "mailbox.never": "Chưa đọc hộp mail",
+  "mailbox.noError": "Không có lỗi",
+  "mailbox.IMAP_NOT_CONFIGURED": "Chưa đủ thông tin kết nối. Liên hệ quản trị hệ thống.",
+  "mailbox.IMAP_READ_FAILED":
+    "Không đọc được hộp mail. Liên hệ quản trị hệ thống kiểm tra kết nối.",
+  "mailbox.IMAP_MESSAGE_TOO_LARGE": "Có email vượt giới hạn dung lượng, chưa thể tiếp nhận.",
+  "mailbox.IMAP_STATUS_UNAVAILABLE": "Chưa tải được trạng thái kết nối. Vui lòng thử lại sau.",
   "settings.emptyTitle": "Chưa có thiết lập để hiển thị",
   "settings.emptyDescription":
     "Các thiết lập sẽ xuất hiện theo quyền của tài khoản. Bạn có thể quay lại Tổng quan để tiếp tục.",
