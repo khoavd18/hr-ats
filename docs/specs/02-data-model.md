@@ -118,3 +118,9 @@ upsert cùng transaction với activity. Contract chi tiết tại spec 03/T15.
 
 ## Seed dev
 Lệnh seed tạo: 1 admin, 1 lead, 2 recruiter (mật khẩu chỉ cho dev), 3 đơn vị tuyển, 5 Job, ~40 ứng viên giả từ `data/sample_cvs/`, applications ở nhiều stage, vài interview/offer/placement, task và email mẫu.
+
+T18 triển khai phần M1 bằng `uv run python -m app.scripts.seed`: 4 tài khoản
+giả, 3 đơn vị, 5 Job, 40 CV kỹ thuật số qua pipeline thật với fake provider và
+lịch sử stage giả. Chạy lại không tạo trùng hoặc ghi đè kết quả/chỉnh sửa HR;
+không tạo bằng chứng đồng ý giả. Interview/offer/placement/task/email mẫu được
+bổ sung ở task sở hữu bảng T21–T23/T25 (câu hỏi #66), không thêm schema tại T18.

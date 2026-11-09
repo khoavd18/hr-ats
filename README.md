@@ -4,6 +4,91 @@ Hệ thống tuyển dụng có AI lọc CV cho HR. Kế hoạch: `docs/product/
 
 Agent skills được cài từ thư viện `D:\code\ai_skills` (v1.7.1, quản lý bằng `skills_manager.py`). Không sửa file trong `.agents/skills/` và `.claude/skills/`; thông tin riêng của dự án đặt trong `AGENTS.md` (ngoài khối thư viện) và `docs/`.
 
+## Demo nhanh
+
+ASSUMED: máy dev có Docker Desktop chạy Linux containers, Python 3.12 + `uv`,
+Node.js 22.14 trở lên và các cổng localhost 5432/6379/1025/8025/8000/3000 còn trống.
+Demo dùng toàn bộ dữ liệu giả, `FakeLLM`, `FakeEmbedder`, storage local, không cần
+API key, model tải về hay Tesseract. Không dùng tài khoản demo cho môi trường thật.
+
+Từ repo sạch, tại thư mục gốc (PowerShell):
+
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d db redis mailpit
+cd backend
+uv sync
+uv run alembic upgrade head
+uv run python -m app.scripts.seed
+uv run uvicorn app.main:app --reload
+```
+
+Nếu đã có `.env`, giữ `APP_ENV=dev`, `LLM_PROVIDER=fake`,
+`EMBEDDING_PROVIDER=fake`, `STORAGE_BACKEND=local` và DB localhost.
+Seed từ chối prod/provider thật/DB từ xa. Lệnh seed chạy worker đồng bộ ngay
+trong tiến trình CLI, qua pipeline upload → trích text → parse → ẩn danh →
+embedding → chấm điểm thật; không cần khởi động worker trước khi seed.
+CLI thành công khi đủ 4 user, 3 đơn vị, 5 Job, 40 CV kỹ thuật số và 40 hồ sơ
+đã chấm. Chạy lại giữ ID, kết quả AI, lịch sử và chỉnh sửa HR; không đặt lại
+mật khẩu, cấp lại quyền hay tạo bằng chứng đồng ý. Lỗi giữa chừng có thể chạy
+lại sau khi sửa môi trường. Các bảng interview/offer/placement/task/email mẫu
+được bổ sung theo T21–T23/T25, chưa có trong M1 (câu hỏi #66).
+
+Terminal thứ hai, từ thư mục gốc, chạy worker để xử lý các CV tải thêm:
+
+```powershell
+cd backend
+uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P solo
+```
+
+Linux/macOS bỏ `-P solo`. Terminal thứ ba, từ thư mục gốc:
+
+```powershell
+cd frontend
+npm ci
+npx playwright install chromium
+npm run dev
+```
+
+Mở <http://localhost:3000/login>, đăng nhập `dev-recruiter@example.invalid`,
+mật khẩu **`synthetic-dev-password`**. Seed cũng in tài khoản admin/lead/
+recruiter2 (`dev-admin`, `dev-lead`, `dev-recruiter2` cùng miền và mật khẩu).
+Mỗi tài khoản chỉ có một phiên; dùng tài khoản khác khi mở demo và E2E đồng thời.
+
+Mở **Việc tuyển dụng**, tạo vị trí kế toán theo `data/sample_cvs/jobs.json`,
+rồi kéo 5 file `cv_0008.docx`, `cv_0013.pdf`, `cv_0019.docx`, `cv_0020.docx`,
+`cv_0029.pdf` vào tab **Ứng viên**. Đây là các file dành riêng, chưa nằm trong
+seed. Chờ đủ 5 hồ sơ; mở dòng đầu, chọn **Không đồng ý**, chọn mức khác rồi gửi.
+Mở **Kho CV**, tìm `bookkeeping`. Fake parser đọc danh sách kỹ năng có nhãn;
+tên/kinh nghiệm thiếu nhãn có thể hiện **Chưa xác định**. Không suy luận chất
+lượng AI thật từ demo. Nút **Xuất Excel** yêu cầu xác nhận trước khi tải.
+
+Terminal thứ tư, sau khi API/web/worker sẵn sàng, chạy đúng lát cắt trên bằng
+Playwright (từ thư mục gốc):
+
+```powershell
+cd frontend
+npx playwright test m1-smoke.spec.ts
+```
+
+Bài smoke đăng nhập recruiter, tạo Job bằng form, kéo thả đúng 5 CV, đối chiếu
+cả thứ tự mức AI với nhãn T06, gửi/mở lại phản hồi và tìm ứng viên của chính
+lô upload trong Kho CV. Có thể chạy lại: bài test thêm comment metadata vào
+bản upload để tránh trùng SHA-256 của file cũ, giữ nguyên nội dung và file gốc.
+Mỗi lượt giữ lại Job/hồ sơ giả trong DB dev, không tự xoá dữ liệu.
+
+Bộ E2E đầy đủ còn gồm các bài T04–T16 cần tài khoản/duplicate fixture riêng.
+Dừng API/worker demo bằng Ctrl+C, chạy tại backend
+`uv run python -m tests.ranking_browser_server` (DB/storage tạm, fake/eager,
+có sẵn catalog T18), giữ web đang chạy, rồi tại frontend chạy lệnh chuẩn
+`npx playwright test`. Fixture không thay DB/storage dev. Dừng fixture bằng
+`New-Item -ItemType File var/t14-browser.stop` ở thư mục gốc; fixture tự dọn
+đúng DB/storage của lượt đó. Khởi động lại API/worker demo khi cần dùng DB dev.
+
+Nếu Windows giữ cổng SMTP 1025, lệnh Compose sẽ báo bind lỗi. Luồng M1 không
+gửi email: có thể chạy `docker compose up -d db redis` để dùng demo, rồi xử lý
+cổng Mailpit trước khi làm các task email. Không xoá volume DB để sửa lỗi cổng.
+
 ## Chạy dev
 
 Yêu cầu: Docker Engine đang chạy Linux containers và Docker Compose v2. Chạy tại thư mục gốc repo:

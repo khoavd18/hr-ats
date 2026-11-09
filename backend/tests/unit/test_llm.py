@@ -120,6 +120,21 @@ def test_ollama_base_url_rejects_credentials_and_input_in_urls(url):
         OllamaLLM(model="synthetic-v1", base_url=url)
 
 
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Skills\nbookkeeping, excel\nExperience\nSynthetic role", ["bookkeeping", "excel"]),
+        ("Kỹ năng:\nPython; SQL\nKinh nghiệm", ["python", "sql"]),
+        ("Skills\n\nEducation\nSynthetic school", []),
+        ("Skills\nEducation", []),
+    ],
+)
+def test_fake_skill_heading_in_synthetic_cvs(text, expected):
+    prompt = load_prompt("parse_cv_skills").render(text=text)
+    result = FakeLLM().complete_json(system=prompt.system, user=prompt.user, schema=ParseSkills)
+    assert result.skills == expected
+
+
 def test_fake_parse_uses_real_templates_and_is_deterministic():
     client = FakeLLM()
     text = (

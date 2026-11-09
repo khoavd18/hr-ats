@@ -40,8 +40,11 @@ test("drops ten synthetic CVs and isolates invalid and unreadable files in a rea
   });
   expect(created.status()).toBe(201);
   const job = await created.json();
+  const jobLink = page
+    .getByRole("link", { name: job.title, exact: true })
+    .and(page.locator(`a[href="/jobs/${job.id}"]`));
   await page.goto("/jobs");
-  await page.getByRole("link", { name: job.title, exact: true }).click();
+  await jobLink.click();
   await expect(page).toHaveURL(`/jobs/${job.id}`);
   await expect(page.getByRole("tab")).toHaveCount(3);
   await expect(page.getByText(t("ranking.empty"), { exact: true })).toBeVisible();
@@ -112,9 +115,7 @@ test("drops ten synthetic CVs and isolates invalid and unreadable files in a rea
   await expect(page.getByText(t("ranking.noMatches"), { exact: true })).toBeVisible();
   await page.goto("/jobs");
   await expect(page.getByRole("columnheader")).toHaveCount(7);
-  const jobRow = page
-    .getByRole("row")
-    .filter({ has: page.getByRole("link", { name: job.title, exact: true }) });
+  const jobRow = page.getByRole("row").filter({ has: jobLink });
   await expect(jobRow).toContainText(t("ai.high"));
   expect(errors).toEqual([]);
 });
