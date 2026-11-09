@@ -114,6 +114,47 @@ it("inserts Vietnamese variable buttons at the selected cursor and previews unsa
   expect(screen.queryByTitle(t("emailTemplates.preview"))).not.toBeInTheDocument();
 });
 
+it("keeps focus and subsequent insertions in the field the editor switches to", async () => {
+  show();
+  const dialog = await edit();
+  const body = within(dialog).getByLabelText(t("emailTemplates.body")) as HTMLTextAreaElement;
+  const subject = within(dialog).getByLabelText(t("emailTemplates.subject")) as HTMLInputElement;
+  // Reproduce CI timing: the editor switches fields before the next animation frame.
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => frames.push(callback));
+  body.focus();
+  body.setSelectionRange(5, 8);
+  await userEvent.click(
+    within(dialog).getByRole("button", {
+      name: t("emailTemplates.variable.candidate_name"),
+    }),
+  );
+  expect(body).toHaveValue("Chào {{ candidate_name }}");
+  subject.focus();
+  subject.setSelectionRange(0, subject.value.length);
+  act(() => {
+    frames.splice(0).forEach((callback) => callback(0));
+  });
+  expect(subject).toHaveFocus();
+  // Keyboard activation must restore the caret after React commits the new value.
+  await userEvent.tab();
+  expect(body).toHaveFocus();
+  await userEvent.tab({ shift: true });
+  subject.setSelectionRange(0, subject.value.length);
+  const button = within(dialog).getByRole("button", {
+    name: t("emailTemplates.variable.job_title"),
+  });
+  button.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(subject).toHaveFocus();
+  expect(subject).toHaveValue("{{ job_title }}");
+  expect(subject.selectionStart).toBe(subject.value.length);
+  expect(subject.selectionEnd).toBe(subject.value.length);
+  await userEvent.keyboard("!");
+  expect(subject).toHaveValue("{{ job_title }}!");
+  expect(body).toHaveValue("Chào {{ candidate_name }}");
+});
+
 it("keeps missing-variable errors actionable and input intact for retry", async () => {
   let failed = false;
   const original = vi.mocked(api).getMockImplementation()!;

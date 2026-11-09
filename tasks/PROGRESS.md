@@ -23,11 +23,39 @@
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
 | T21 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
-| T22 | review | 2026-11-09 | VERIFIED: hai bảng email/migration 0006, seed 5 mẫu Việt, sandbox/StrictUndefined/HTML an toàn, API và UI chèn biến/xem trước. Backend 1121 pass/12 skip OCR cũ, frontend 115 pass, 9 E2E pass tuần tự; lint/typecheck/migration/build sạch. Chờ Review T22, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
+| T22 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa race focus/caret khi chèn biến gây lỗi CI; regression tái hiện fail trước sửa, pass sau sửa. Review APPROVE WITH NITS; F1/F2 giữ nguyên có giải thích. Frontend 116 pass, T22 E2E 1 pass; lint/typecheck/build sạch. CI gốc backend xanh; chờ runner commit/push để kiểm CI bản sửa và merge vì sandbox chặn .git/index.lock. |
 | T23–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T22 · 2026-11-09 · review (Fix round 1 — CI)
+
+VERIFIED: theo `tasks/_fix.md`; review APPROVE WITH NITS, không có BLOCKER/MAJOR.
+Run GitHub CI `42591794171` tại `dd9829e` chỉ lỗi frontend Tests; backend đã xanh.
+Callback requestAnimationFrame của lần chèn nội dung có thể chạy sau lúc HR
+chuyển sang tiêu đề, kéo lại focus và khiến biến tiếp theo chèn sai ô. Lưu ô/
+caret bằng ref và khôi phục trong useLayoutEffect ngay sau commit draft.
+
+- VERIFIED: thêm regression giữ animation frame, tái hiện lỗi focus trước sửa;
+  sau sửa pass, gồm chuyển ô, bàn phím/Enter và gõ tiếp đúng caret. Test cũ giữ
+  nguyên, không đổi timeout, skip hoặc cấu hình CI.
+- VERIFIED: `npx vitest run src/components/email-templates-settings.test.tsx`:
+  **6 passed**; `npm test`: **116 passed / 14 files**, không skip.
+- VERIFIED: `npm run lint`, `npm run typecheck`, `npm run build` và
+  `git diff --check` đều pass. Chỉ sửa hai file component/test frontend.
+- VERIFIED: API fixture `uv run python -m tests.ranking_browser_server` migrate
+  DB tạm trống tới 0006, PostgreSQL thật/dữ liệu giả/FakeLLM; production web
+  `npm run start` và `npx playwright test email-templates.spec.ts`: **1 passed**.
+  Kiểm 1280px/script escape/lỗi Việt/không gửi thư/không đổi stage; đã xem ảnh
+  var/t22-email-templates.png. Không tràn ngang hoặc lỗi JS.
+- VERIFIED: F1 giữ Markdown đã được review chấp thuận theo spec 06; F2 giữ cách
+  lấy cùng get_settings vì chỉ khác phong cách. Chi tiết và bằng chứng trong
+  `tasks/reviews/T22.md`, mục Fix round 1. Không đổi contract/spec hoặc dependency.
+- VERIFIED: git add bị sandbox chặn `.git/index.lock`; theo ngoại lệ workflow
+  giữ thay đổi trong working tree để runner commit `T22: fix review findings`.
+  NOT TESTED: CI trên bản sửa chưa chạy vì chưa commit/push được. Giữ trạng thái
+  review tới khi CI xanh và merge, không đánh dấu done sớm.
 
 ## T22 · 2026-11-09 · review
 

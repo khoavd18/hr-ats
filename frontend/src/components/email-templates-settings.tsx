@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth-provider";
 import { PageHeader } from "@/components/page-header";
@@ -163,8 +163,18 @@ function TemplateEditor({
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const target = useRef<"subject" | "body">("body");
+  const insertion = useRef<{ field: "subject" | "body"; caret: number } | null>(null);
   const alive = useRef(true);
   const requestRef = useRef<AbortController | null>(null);
+  useLayoutEffect(() => {
+    const selection = insertion.current;
+    if (!selection) return;
+    insertion.current = null;
+    const input = selection.field === "subject" ? subjectRef.current : bodyRef.current;
+    // Restore the caret after the value commits, before another interaction can change focus.
+    input?.focus();
+    input?.setSelectionRange(selection.caret, selection.caret);
+  }, [draft]);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -195,11 +205,8 @@ function TemplateEditor({
     const start = input?.selectionStart ?? draft[field].length;
     const end = input?.selectionEnd ?? start;
     const value = `{{ ${name} }}`;
+    insertion.current = { field, caret: start + value.length };
     change(field, draft[field].slice(0, start) + value + draft[field].slice(end));
-    requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(start + value.length, start + value.length);
-    });
   }
   async function perform(mode: "save" | "preview") {
     if (pending) return;
