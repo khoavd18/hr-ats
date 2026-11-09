@@ -119,7 +119,7 @@ def build_context(
     assert job is not None
     unit = session.get(HiringUnit, job.hiring_unit_id)
     recruiter = session.get(User, application.owner_id)
-    context = {"candidate_name": candidate.full_name, "job_title": job.title}
+    context = {"candidate_name": candidate.full_name or "", "job_title": job.title}
     if unit:
         context["hiring_unit_name"] = unit.name
     if recruiter:

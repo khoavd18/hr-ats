@@ -610,3 +610,47 @@ Chi tiết công thức và các mặc định chưa được nghiệp vụ duy�
 ## Quản trị dữ liệu
 - `GET/POST /data-requests` · `POST /data-requests/{id}/execute` (admin): xoá vĩnh viễn file, text, embedding của ứng viên; giữ bản ghi ẩn danh cho thống kê
 - `GET /audit-log?entity=&actor_id=` (admin)
+
+### Contract T29 · Đồng ý, thời hạn lưu và xoá dữ liệu
+
+- Các endpoint cần đăng nhập; mutation kiểm CSRF/Origin T04, response thành công
+  `Cache-Control: no-store`. Quyền kiểm ở service. Không có public portal hay tự
+  suy diễn đồng ý từ email/upload. Mọi input thừa/sai trả 422 theo envelope chung.
+- POST `/candidates/{id}/consent` nhận `{consent_at, note, extend_retention?:false}`.
+  consent_at bắt buộc timestamp có offset, không tương lai; note trim 1–2000 ký
+  tự, HR ghi nguồn/nơi lưu bằng chứng. Recruiter cần quyền Job hiện tại, lead/admin
+  xem được mọi hồ sơ. Ứng viên đã gộp/xoá/đang purge trả 404. Ghi nhận đơn thuần
+  không thay hạn lưu. Lặp cùng timestamp/note không gia hạn là idempotent; timestamp
+  cũ hơn hoặc dùng lại để gia hạn trả 409 CONSENT_NOT_NEW.
+- `extend_retention=true` chỉ admin; cần đồng ý mới hơn bản đã ghi và trong 30 ngày
+  gần đây. Hạn mới = max(hạn hiện tại, hôm nay Việt Nam) + 12 tháng lịch, kẹp ngày
+  cuối tháng; xoá expired_at. Consent tương lai trả 422 INVALID_CONSENT. Trả 200
+  `{id,full_name,consent_at,retention_until,expired_at,purge_pending_at,purged_at}`.
+  Audit candidate.consent hoặc candidate.retention_extend chỉ ID, không note.
+- GET `/settings/retention?state=expiring&q=&page=1&page_size=20` chỉ admin.
+  state=expiring (hôm nay…+30 ngày inclusive), expired (trước hôm nay), all;
+  loại hồ sơ đã gộp/purge xong, vẫn cho xem hồ sơ đang chờ hoàn tất xoá. q trim
+  ≤200, substring literal tên; xếp hạn tăng/id. Trả `{items,total}` với DTO trên.
+- POST `/data-requests` chỉ admin, nhận `{candidate_id,kind?:"delete",
+  requested_by_note}`; note trim 1–2000, không cho chọn actor/status. Trả 201
+  `{id,candidate_id,candidate_name,kind,requested_by_note,status,handled_by,
+  handled_at,created_at}`. Một yêu cầu delete đang open/candidate; retry trả cùng
+  yêu cầu. T29 chỉ tạo/thực thi delete; export được dự trữ ở model, không tự xoá
+  nếu gặp kind khác. Nguồn đã gộp hoặc đã purge trả 404.
+- GET `/data-requests?page=1&page_size=20` chỉ admin, `{items,total}`; xếp
+  created_at giảm/id. Tên ứng viên lấy từ Candidate, trở thành null sau purge.
+- POST `/data-requests/{id}/execute` chỉ admin, là xác nhận xoá của người dùng;
+  không có body. Freeze được commit trước I/O Storage; sau đó xoá file/nội dung
+  và audit candidate.purge trong transaction riêng. Trả 200 DTO khi hoàn tất;
+  done replay không xoá/ghi audit lần hai. Storage lỗi → 503 STORAGE_UNAVAILABLE,
+  hồ sơ vẫn bị khoá và yêu cầu open, có thể thử lại; Beat cũng phục hồi trạng thái
+  pending. Kind/status khác → 409 INVALID_DATA_REQUEST. Note yêu cầu bị xoá khi
+  purge, giữ ID/kind/trạng thái/thời điểm/actor. Job nền xử lý xong đặt handled_by=null.
+- GET `/audit-log?entity=&actor_id=&action=&system=false&page=1&page_size=20`
+  chỉ admin. entity/action ≤100 và so khớp chính xác; system=true chỉ actor null.
+  Trả `{items,total}`; item id/actor_id/action/entity/entity_id/occurred_at, không
+  trả IP, note hay nội dung; xếp occurred_at giảm/id. Phân trang mọi danh sách
+  page≥1, page_size 1–100. UI dùng `/users` admin hiện có để hiện nhãn người lọc.
+
+ASSUMED: chi tiết thời hạn và bằng chứng tại câu hỏi #105–#108. Đây là cơ chế
+theo spec sản phẩm, không phải xác nhận pháp lý cho triển khai thật.

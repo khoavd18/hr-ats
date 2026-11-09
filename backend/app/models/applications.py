@@ -50,11 +50,11 @@ class Application(RecordMixin, SoftDeleteMixin, Base):
     )
     ai_level: Mapped[AiLevel | None] = mapped_column(Enum(AiLevel, name="ai_level"))
     ai_score: Mapped[int | None]
-    ai_criteria: Mapped[list[dict[str, Any]]] = mapped_column(
+    ai_criteria: Mapped[list[dict[str, Any]] | None] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )
-    ai_reasons: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
-    ai_flags: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    ai_reasons: Mapped[list[str] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    ai_flags: Mapped[list[str] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     ai_model: Mapped[str | None] = mapped_column(String(200))
     ai_prompt_version: Mapped[str | None] = mapped_column(String(100))
     ai_scored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

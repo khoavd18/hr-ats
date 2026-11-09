@@ -123,7 +123,7 @@ def reminder_html(session: Session, actor: User, now: datetime) -> str:
     return (
         "<p>Các việc đến hạn và quá hạn của bạn:</p><ul>"
         + "".join(
-            f"<li>{escape(row.title)} — {row.due_at.astimezone(VIETNAM):%d/%m/%Y %H:%M}</li>"
+            f"<li>{escape(row.title or '')} — {row.due_at.astimezone(VIETNAM):%d/%m/%Y %H:%M}</li>"
             for row in rows
             if row.due_at is not None
         )

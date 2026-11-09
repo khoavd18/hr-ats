@@ -19,8 +19,11 @@ from app.models.users import User
 from app.schemas.core import ApplicationRead
 
 
-def eligible_candidate(session: Session, candidate_id: UUID) -> Candidate:
-    candidate = session.get(Candidate, candidate_id)
+def eligible_candidate(session: Session, candidate_id: UUID, *, lock: bool = False) -> Candidate:
+    query = select(Candidate).where(Candidate.id == candidate_id)
+    if lock:
+        query = query.with_for_update()
+    candidate = session.scalar(query.execution_options(populate_existing=True))
     today = datetime.now(ZoneInfo(get_settings().tz)).date()
     if (
         candidate is None
@@ -137,7 +140,7 @@ def rescore_application(session: Session, actor: User, application_id: UUID) -> 
     if application is None:
         raise AppError("NOT_FOUND", "Không tìm thấy hồ sơ ứng tuyển.", 404)
     accessible_job(session, actor, application.job_id)
-    eligible_candidate(session, application.candidate_id)
+    eligible_candidate(session, application.candidate_id, lock=True)
     reset_score(application)
     session.flush()
     snapshot = ApplicationRead.model_validate(application)

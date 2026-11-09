@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai.extract import ExtractionError, extract_text
@@ -89,6 +89,14 @@ def process_cv_file(cv_file_id: str) -> None:
             ProcessingStatus.running,
         }:
             return
+        if cv_file.candidate_id is not None:
+            # Match freeze/merge lock order before locking the known identity.
+            session.execute(select(func.pg_advisory_xact_lock(0x4356, 10)))
+            try:
+                eligible_candidate(session, cv_file.candidate_id, lock=True)
+            except AppError:
+                # A delayed delivery must not rewrite even the erased error field.
+                return
         error = "Không thể đọc tệp CV đã lưu. Vui lòng thử lại."
         try:
             # Roll back every partial candidate/file change on failure, while
@@ -97,6 +105,8 @@ def process_cv_file(cv_file_id: str) -> None:
                 cv_file.status = ProcessingStatus.running
                 cv_file.error = None
                 session.flush()
+                if cv_file.storage_key is None:
+                    raise ValueError("File erased")
                 settings = get_settings()
                 data = build_storage(settings).get(cv_file.storage_key)
                 error = "Không đọc được nội dung CV"
@@ -184,9 +194,20 @@ def score_application(application_id: str) -> None:
         }:
             return
         try:
+            eligible_candidate(session, application.candidate_id, lock=True)
+        except AppError:
+            candidate = session.get(Candidate, application.candidate_id)
+            if candidate is None or candidate.purge_pending_at is None:
+                # Keep T12's failed-state contract for ordinary expired/merged
+                # records, while never rewriting erased fields on a purge.
+                reset_score(application)
+                application.ai_status = ProcessingStatus.failed
+                session.commit()
+            return
+        try:
             with session.begin_nested():
                 application.ai_status = ProcessingStatus.running
-                candidate = eligible_candidate(session, application.candidate_id)
+                candidate = eligible_candidate(session, application.candidate_id, lock=True)
                 job = session.get_one(Job, application.job_id)
                 # Missing anonymized data must never trigger a raw CV fallback.
                 if not candidate.anonymized_text:
@@ -262,7 +283,7 @@ def rescore_job(job_id: str) -> None:
             if application is None:
                 continue
             try:
-                eligible_candidate(session, application.candidate_id)
+                eligible_candidate(session, application.candidate_id, lock=True)
             except AppError:
                 continue
             reset_score(application)

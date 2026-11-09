@@ -40,16 +40,16 @@ class Candidate(RecordMixin, SoftDeleteMixin, Base):
         ),
     )
 
-    full_name: Mapped[str] = mapped_column(String(200))
+    full_name: Mapped[str | None] = mapped_column(String(200))
     email: Mapped[str | None] = mapped_column(String(254), index=True)
     phone: Mapped[str | None] = mapped_column(String(50), index=True)
     location: Mapped[str | None] = mapped_column(String(200))
     current_title: Mapped[str | None] = mapped_column(String(200))
     years_experience: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
-    skills: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
-    languages: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
-    education: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
-    experiences: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    skills: Mapped[list[str] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    languages: Mapped[list[Any] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    education: Mapped[list[Any] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    experiences: Mapped[list[Any] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     source: Mapped[CandidateSource] = mapped_column(
         Enum(
             CandidateSource,
@@ -60,10 +60,13 @@ class Candidate(RecordMixin, SoftDeleteMixin, Base):
     )
     consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     consent_note: Mapped[str | None] = mapped_column(Text)
-    retention_until: Mapped[date]
+    expired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purge_pending_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retention_until: Mapped[date] = mapped_column(index=True)
     anonymized_text: Mapped[str | None] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(get_settings().embedding_dim))
-    search_tsv: Mapped[str] = mapped_column(
+    search_tsv: Mapped[str | None] = mapped_column(
         TSVECTOR, server_default=FetchedValue(), server_onupdate=FetchedValue()
     )
     merged_into_id: Mapped[UUID | None] = mapped_column(ForeignKey("candidates.id"), index=True)
@@ -77,11 +80,11 @@ class CvFile(RecordMixin, SoftDeleteMixin, Base):
     )
 
     candidate_id: Mapped[UUID | None] = mapped_column(ForeignKey("candidates.id"), index=True)
-    storage_key: Mapped[str] = mapped_column(Text)
-    original_filename: Mapped[str] = mapped_column(Text)
+    storage_key: Mapped[str | None] = mapped_column(Text)
+    original_filename: Mapped[str | None] = mapped_column(Text)
     mime_type: Mapped[str] = mapped_column(String(200))
     size_bytes: Mapped[int] = mapped_column(BigInteger)
-    sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    sha256: Mapped[str | None] = mapped_column(String(64), unique=True)
     source: Mapped[CandidateSource] = mapped_column(
         Enum(
             CandidateSource,

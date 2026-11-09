@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { ConsentDialog } from "@/components/consent-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
@@ -64,6 +65,7 @@ export function ProfileInfo({
           {t("profile.noConsent")}
         </p>
       )}
+      <ConsentDialog candidateId={candidate.id} onSaved={onSaved} />
       {save.isSuccess && <p role="status">{t("profile.saved")}</p>}
       {editing ? (
         <form

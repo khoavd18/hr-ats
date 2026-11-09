@@ -28,7 +28,7 @@ class Activity(RecordMixin, SoftDeleteMixin, Base):
 class AuditLog(RecordMixin, Base):
     __tablename__ = "audit_log"
 
-    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    actor_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
     action: Mapped[str] = mapped_column(String(100))
     entity: Mapped[str] = mapped_column(String(100))
     entity_id: Mapped[UUID] = mapped_column(index=True)

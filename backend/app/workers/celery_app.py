@@ -19,6 +19,7 @@ def create_celery_app(settings: Settings) -> Celery:
             "app.email.inbound",
             "app.workers.reminders",
             "app.workers.reports",
+            "app.workers.retention",
         ],
     )
     application.conf.update(
@@ -55,6 +56,7 @@ def create_celery_app(settings: Settings) -> Celery:
                 if settings.imap_enabled
                 else {}
             ),
+            "retention": {"task": "enforce_retention", "schedule": crontab(hour=2, minute=0)},
             "followup-tasks": {"task": "generate_followup_tasks", "schedule": 3600.0},
             "due-tasks": {"task": "remind_due_tasks", "schedule": crontab(hour=8, minute=0)},
             "daily-report": {

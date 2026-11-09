@@ -127,7 +127,20 @@ test("Kanban: real pointer/keyboard moves, rollback, rejection and undo at 1280p
 
   await handle.focus();
   await page.keyboard.press("Space");
-  for (let index = 0; index < 6; index++) await page.keyboard.press("ArrowRight");
+  await expect(handle).toHaveAttribute("aria-pressed", "true");
+  for (const stage of [
+    "screening",
+    "submitted",
+    "interview",
+    "offer",
+    "hired",
+    "rejected",
+  ] as const) {
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("status")).toHaveText(
+      t("pipeline.over").replace("{stage}", t(`stage.${stage}`)),
+    );
+  }
   await page.keyboard.press("Space");
   const rejection = page.getByRole("dialog", { name: t("pipeline.rejectTitle") });
   await expect(rejection).toBeVisible();

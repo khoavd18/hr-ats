@@ -39,7 +39,7 @@ def accessible_application(session: Session, actor: User, application_id: UUID) 
     if application is None:
         raise AppError("NOT_FOUND", "Không tìm thấy hồ sơ ứng tuyển.", 404)
     accessible_job(session, actor, application.job_id)
-    eligible_candidate(session, application.candidate_id)
+    eligible_candidate(session, application.candidate_id, lock=True)
     return application
 
 
@@ -47,7 +47,7 @@ def detail(
     session: Session, actor: User, application_id: UUID, ip: str | None
 ) -> ApplicationDetail:
     application = accessible_application(session, actor, application_id)
-    candidate = eligible_candidate(session, application.candidate_id)
+    candidate = eligible_candidate(session, application.candidate_id, lock=True)
     files = list(
         session.scalars(
             select(CvFile)
@@ -158,7 +158,7 @@ def add_note(session: Session, actor: User, application_id: UUID, text: str) -> 
 def patch_candidate(
     session: Session, actor: User, candidate_id: UUID, body: CandidatePatch
 ) -> CandidateRead:
-    candidate = eligible_candidate(session, candidate_id)
+    candidate = eligible_candidate(session, candidate_id, lock=True)
     authorize(actor, "job_candidates.view", candidate, session=session)
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(candidate, key, value)

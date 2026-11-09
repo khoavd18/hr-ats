@@ -60,3 +60,43 @@ vẫn chỉ admin/lead. Chi tiết mặc định chưa chốt tại câu hỏi #
 
 ## Dữ liệu trong repo
 - Chỉ commit CV **giả** (`data/sample_cvs/`) và fixture giả. Không commit CV thật, dữ liệu Kaggle/Hugging Face (tải về `var/datasets/`, đã gitignore).
+
+## T29 · Vòng đời dữ liệu ứng viên
+
+Beat gọi `enforce_retention` lúc 02:00 hằng ngày, Asia/Ho_Chi_Minh, queue default.
+Hạn bằng hôm nay còn hợp lệ; ngày sau hạn đặt expired_at, hết hạn 30 ngày trở lên
+thì purge (tính từ retention_until, không từ lần Beat chạy được đầu tiên).
+Ứng viên hết hạn không đọc CV gốc; admin vẫn có thể ghi nhận đồng ý mới/gia hạn
+trong phần Lưu trữ dữ liệu trước khi purge bắt đầu. Hồ sơ tự hết hạn không đổi
+stage, gửi email hay tác động quyết định tuyển dụng.
+
+Freeze dùng cùng identity lock với parse/gộp, khoá Candidate và commit
+deleted_at/purge_pending_at trước khi xoá Storage. Mọi mutation có thể ghi lại
+PII giữ Candidate lock và kiểm lại trạng thái; Application creation giữ thứ tự
+khóa riêng của ensure_application. Purge serialize bằng advisory lock 290029;
+giai đoạn dọn không giữ Candidate row lock khi đợi child rows, tránh đảo thứ tự
+với worker/API đang hoàn tất. Khóa hồ sơ là bền vững khi Storage lỗi; retry delete
+idempotent, chỉ ghi candidate.purge sau khi toàn bộ file đã xoá và DB đã ẩn danh.
+Purge từ admin có actor; từ Beat actor null. Không ghi bằng chứng/PII vào audit/log.
+
+Xoá toàn bộ Candidate của identity (kể cả các nguồn đã gộp vào đích), mọi file
+kể cả đã soft delete, tên file/hash/storage key, extracted_text/parsed_json,
+anonymized_text/vector/search_tsv, liên hệ, tên, kinh nghiệm/học vấn/kỹ năng/ngôn
+ngữ, consent timestamp/note. Xoá nội dung lý do/tiêu chí/cờ AI, ghi chú stage,
+feedback, ghi chú phỏng vấn/offer, lương, nội dung Task, Activity và Email liên
+kết, kể cả receipt không Application nhưng có UUID của CV. Email đang chờ bị
+huỷ; snapshot email nhắc việc của những assignee liên quan cũng bị xoá vì title
+do HR viết có thể chứa tên. Giữ các fact, stage, verdict, số liệu và thời điểm
+phục vụ KPI; không thay deleted_at của Application/CvFile/StageEvent/Activity.
+
+Metadata inbox mới ghi liên kết InboundEmail UUID trong Activity cv_uploaded,
+kể cả khi attachment trùng file (bổ sung metadata, không thêm activity). Purge
+xoá sender/subject của những thư liên kết và của sender khớp liên hệ đã lưu;
+Message-ID gốc thay bằng `purged:<sha256>` làm marker chống đọc lại thư cũ và
+khôi phục CV. T24 poll kiểm cả marker lẫn Message-ID gốc. Marker không có header
+gốc/nội dung CV. Dữ liệu inbox trước T29 chỉ có fallback sender; cần rà metadata
+legacy trước triển khai thật (chưa có liên kết đủ để truy ngược mọi thư forward).
+
+Storage.delete hiện áp dụng local hoặc bucket S3 không bật versioning; nếu dùng
+S3 versioning/backup, vòng đời các version và bản backup phải được quy định ở
+triển khai/pháp chế, không coi xoá object hiện tại là xoá mọi bản backup.

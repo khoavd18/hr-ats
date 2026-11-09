@@ -77,7 +77,7 @@ def locked_application(session: Session, actor: User, application_id: UUID) -> A
     authorize(actor, "applications.move", application, session=session)
     # A merge may have completed while this request was waiting for the row lock.
     session.get(Candidate, application.candidate_id, populate_existing=True)
-    eligible_candidate(session, application.candidate_id)
+    eligible_candidate(session, application.candidate_id, lock=True)
     return application
 
 

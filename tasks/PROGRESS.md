@@ -30,10 +30,80 @@
 | T26 | done | 2026-11-09 | VERIFIED: 13 KPI draft, 5 endpoint và Excel, SQL nhóm theo recruiter/quyền Job, fixture tính tay/biên ngày Việt Nam. Backend 1257 pass/12 skip OCR cũ; bộ T26/config cuối 76 pass; Ruff/mypy/migration sạch. Chờ Review T26, CI và merge; sandbox chặn ghi .git. |
 | T27 | done | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
 | T28 | done | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
-| T29–T33 | todo | | |
+| T29 | review | 2026-11-10 | VERIFIED: consent/gia hạn, retention hằng ngày, yêu cầu xoá có xác nhận, audit và UI Việt. Purge xoá Storage/PII, giữ KPI; full backend 1316 pass/12 skip OCR cũ, frontend 156 pass, 14 E2E pass. Chờ Review T29, CI và merge. |
+| T30–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T29 · 2026-11-10 · review
+
+VERIFIED: theo `tasks/_implement.md`; T18 done, working tree sạch khi bắt đầu,
+nhánh `task/T29-consent-retention-data-requests`. Áp dụng backend-api-engineer,
+database-engineer, frontend-engineer, software-testing và secure-code-review.
+Chỉ T29, không thêm dependency, không đổi công thức/population KPI.
+
+- VERIFIED: migration 0009 thêm data_requests, các mốc expired/pending/purged,
+  nullable personal content và audit actor hệ thống. Trigger search đặt SQL NULL
+  khi freeze; downgrade từ chối khi đã có lịch sử privacy, không dựng lại PII.
+- VERIFIED: API consent cần timestamp offset và bằng chứng; ghi nhận đơn thuần
+  không kéo dài hạn. Admin gia hạn một năm bằng đồng ý mới. Settings retention,
+  data requests và audit chỉ admin, có phân trang/lọc, auth/CSRF và no-store.
+- VERIFIED: Beat 02:00 giờ Việt Nam đánh dấu hết hạn, purge từ hạn +30 ngày.
+  Freeze commit trước Storage; Storage lỗi giữ khoá truy cập, retry/Beat phục hồi
+  yêu cầu open. Xoá mọi file/alias gộp, contact/text/vector/search, ghi chú/AI/
+  email/Task và metadata inbox liên kết; giữ fact/stage/verdict và deleted_at của
+  dữ liệu đếm KPI. Audit candidate.purge chỉ sau hoàn tất, replay không ghi trùng.
+- VERIFIED: giao diện Việt trong drawer và Cài đặt > Lưu trữ dữ liệu; ghi consent,
+  gia hạn, tạo yêu cầu, xem trước/xác nhận xoá và audit theo người/hành động/hệ
+  thống. Trạng thái chờ/lỗi/huỷ giữ dữ liệu form; không tự xoá chỉ vì tạo yêu cầu.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Sau purge không còn file Storage và mọi trường cá nhân là null; số lượng KPI cũ vẫn đúng | VERIFIED — met | `test_purge_erases_storage_and_sql_nulls_preserving_all_kpis`: LocalStorage thật, PostgreSQL IS NULL gồm JSON/vector/search, đối chiếu toàn bộ báo cáo T26 trước/sau. E2E T29 kiểm download 404 và KPI Job không đổi. |
+
+### Xác minh và tự review
+
+- VERIFIED: `uv run pytest`: **1316 passed, 12 skipped**, 369.94s. Các skip
+  T08 do thiếu Tesseract giữ nguyên. Sau lượt đầy đủ, bổ sung regression inbox
+  có/chưa có Candidate và worker parse đến muộn; kiểm lại các nhóm liên quan
+  bằng các lệnh bên dưới. Warning cache pytest/Starlette có sẵn, không lỗi test.
+- VERIFIED: `uv run pytest tests/api/test_privacy.py tests/api/test_inbound_email.py
+  tests/test_privacy_concurrency.py -q`: **45 passed** sau sửa thứ tự dọn inbox.
+- VERIFIED: lượt cuối `uv run pytest tests/api/test_cv_worker.py
+  tests/api/test_cv_pipeline.py tests/api/test_privacy.py
+  tests/test_privacy_concurrency.py -q`: **50 passed**. `uv run ruff check .`,
+  `uv run ruff format --check .` (191 files), `uv run mypy app` (117 source
+  files): pass.
+- VERIFIED: `npm test` với VITEST_MAX_WORKERS=2: **156 passed**.
+  `npm run lint`, `npm run typecheck`, `npm run build`: pass.
+- VERIFIED: `npx playwright test` đã chạy; các lần đầu lộ locator auth trùng
+  navigation/overview và phím Kanban gửi trước cập nhật UI. Giới hạn đúng
+  navigation, chờ aria-pressed/thông báo từng cột, không bỏ assertion hoặc tăng
+  timeout. Fixture sạch + production web, `npx playwright test --workers=2`:
+  **14 passed**, 44.2s. Ảnh var/t29-retention.png và t29-audit.png đã xem: tiếng
+  Việt đọc rõ, 1280px không overflow/lỗi JavaScript.
+- VERIFIED: `uv run alembic upgrade head`: pass. Bộ database **7 passed** gồm
+  upgrade/downgrade/upgrade DB tạm và compare_metadata; test riêng từ chối
+  downgrade khi có privacy history. Không purge/downgrade DB dev thật.
+- VERIFIED: tự rà quyền, CSRF, SQL parameterization, nội dung log/audit, alias,
+  lỗi Storage/retry, giao dịch/concurrency và tương thích T12/T16. Sửa lỗi đọc
+  metadata inbox sau khi đã dọn Activity (regression tái hiện fail trước sửa),
+  giữ xử lý scoring cũ cho expired/merged, chặn worker muộn ghi lại PII.
+- VERIFIED: `git diff --check` sạch; kiểm chuỗi UTF-8 không có dấu lỗi encoding.
+  API/schema/chính sách/test đã cập nhật tại spec 02/03/07/08.
+- VERIFIED: đã thử `git add` để commit `T29: add consent retention and erasure
+  workflows`; sandbox từ chối tạo `.git/index.lock` (Permission denied).
+  Theo ngoại lệ workflow, giữ thay đổi trong working tree trên nhánh task cho
+  runner commit; chưa commit/merge/push. Server API/browser fixture đã dừng và
+  dọn đúng DB/storage tạm của lượt test; PostgreSQL/Redis dev được giữ nguyên.
+
+ASSUMED: các mặc định nhỏ tại open-questions #105–#108. NOT TESTED: S3
+versioning, xoá backup, thời gian migration ở quy mô production và pháp lý
+triển khai thật; metadata thư forward legacy cần rà trước rollout. Không dùng
+CV thật hay provider ngoài. T29 chờ review độc lập, CI và merge; chưa done.
 
 ## T28 · 2026-11-09 · review
 
