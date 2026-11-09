@@ -20,10 +20,75 @@
 | T16 | done | 2026-11-08 | VERIFIED: kho CV tìm không dấu/theo nghĩa và bộ lọc, top-50 gợi ý theo Job, chọn nhiều tạo/chấm hồ sơ, gộp nguyên tử có xác nhận/giữ lịch sử. 893 backend pass/12 skip OCR cũ, 85 Vitest và 5 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T16, CI và merge. |
 | T17 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1–F3; giữ cách escape an toàn của F4 theo review. Test export/migration PostgreSQL 8 pass, frontend 86 pass; lint/typecheck sạch. Xem nhật ký fix và tasks/reviews/T17.md. |
 | T18 | done | 2026-11-09 | VERIFIED: seed dev idempotent chạy pipeline thật/FakeLLM, README Demo nhanh, M1 smoke với Celery/Redis thật và 6 E2E pass. Backend 908 pass/12 skip OCR sẵn có, frontend 86 pass; lint/typecheck/build sạch. M1 hoàn thành về chức năng; chờ review, CI và merge. |
-| T19–T33 | todo | | |
+| T19 | review | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
+| T20–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T19 · 2026-11-09 · review
+
+VERIFIED: T18 đã done, working tree sạch khi bắt đầu, nhánh đã có sẵn là
+`task/T19-pipeline-service-api`; triển khai đúng một task theo `_implement.md`.
+Giữ T19 ở review đến khi được duyệt và merge main.
+
+- `services/pipeline.py` kiểm ma trận bước kế/lùi và kết thúc, khoá/đọc lại
+  Application trước khi kiểm quyền và ghi. Move/undo cùng transaction với
+  StageEvent và activity stage_changed, giữ owner/AI, rollback toàn bộ khi lỗi.
+  Undo chỉ lần đổi gần nhất trong 24 giờ, đúng actor hoặc admin/lead, ghi event
+  mới và metadata undo_of; không xoá lịch sử hoặc cho undo event hoàn tác.
+- API move trả ApplicationRead cùng suggested_email=null; undo trả
+  ApplicationRead. Lý do từ chối bắt buộc trong sáu chuỗi chuẩn. Pipeline trả
+  đủ tám cột/card tối thiểu, cùng quyền Job/eligibility T14; config thêm nhãn
+  theo spec 02 và HIRING_UNIT_LABEL. Không gọi AI, queue hoặc gửi email.
+- Lượt hồi quy đầu phát hiện log_activity nhận nhầm một phần UUID ngẫu nhiên
+  thành SĐT, cũng ảnh hưởng stage_event_id/undo_of mới. Đã tái hiện bằng ba
+  test thất bại trước sửa. Sửa hẹp helper nhận diện UUID v4 canonical chỉ ở
+  *_id/undo_of, giữ kiểm PII/khoá nhạy cảm cho dữ liệu khác; test âm và toàn bộ
+  fixture/assertion core_data cũ được giữ. Không đổi bộ lọc log chung.
+- Cập nhật contract spec 02/03, kiểm thử spec 08 và câu hỏi #68–#71; không thêm
+  migration, dependency, UI hoặc nghiệp vụ interview/offer/placement của T21.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Mọi cặp chuyển stage hợp lệ/không hợp lệ | VERIFIED — đạt | test_all_64_stage_pairs_and_undo_valid_changes: 64 cặp, ma trận kỳ vọng độc lập từ spec, undo mọi move hợp lệ và kiểm event/activity gốc còn nguyên |
+| Undo quá 24 giờ bị từ chối | VERIFIED — đạt | test_undo_24_hour_boundary: 24h ±1 microsecond, đúng 24h, mốc tương lai; đúng biên được phép, quá hạn bị UNDO_EXPIRED |
+| Recruiter khác người đổi bị từ chối undo | VERIFIED — đạt | test_other_recruiter_cannot_undo_but_lead_and_admin_can: recruiter member cùng Job nhận UNDO_FORBIDDEN, lead/admin có quyền hoàn tác |
+
+### Lệnh và kết quả
+
+- `docker compose up -d db redis mailpit`: DB/Redis local running; Mailpit
+  không bind được SMTP 1025 do Windows giữ cổng như T18. NOT TESTED: Mailpit
+  runtime; T19 kiểm không gửi email với outbox trong bộ nhớ.
+- `uv sync`: pass; `uv run alembic upgrade head`: pass, schema không đổi.
+- Trước sửa UUID: nhóm pipeline/system **116 passed**; core_data riêng
+  **60 passed**. Lượt `uv run pytest` đầu **1014 passed, 12 skipped, 1 error**
+  ở fixture core_data do UUID, không phải assertion được nới để bỏ qua.
+- `uv run pytest tests/api/test_pipeline.py -k uuid_metadata -q`: **3 failed**
+  trước sửa, tái hiện đúng lỗi #71. Sau sửa,
+  `uv run pytest tests/api/test_pipeline.py tests/api/test_core_data.py tests/api/test_system.py -q`:
+  **184 passed**, một cảnh báo Starlette/httpx có sẵn.
+- `uv run pytest` sau sửa: **1023 passed, 12 skipped** (1035 collected),
+  một cảnh báo Starlette/httpx có sẵn. Chỉ 12 OCR T08 skip do thiếu Tesseract
+  trên Windows; giữ nguyên điều kiện skip. Toàn bộ test cũ và mới pass.
+- `uv run ruff check .`, `uv run ruff format --check .`: pass, 137 file.
+  `uv run mypy app`: pass, 81 source file. `git diff --check`: pass.
+- Tự review theo secure-code-review: service kiểm quyền từ DB, auth/CSRF,
+  input whitelist, query bind, DTO tối thiểu, note chỉ ở event DB nghiệp vụ,
+  không log CV/ghi chú; rollback và hai session PostgreSQL độc lập kiểm move/
+  undo đồng thời chỉ ghi một lượt. Không thay điều kiện skip hoặc xoá test cũ.
+- `git add backend/app/services/pipeline.py` không tạo được `.git/index.lock`
+  (Permission denied). Theo fallback `_implement.md`, giữ toàn bộ thay đổi
+  trong working tree trên nhánh T19 để runner commit
+  `T19: implement pipeline service and APIs`.
+
+ASSUMED: mặc định về single undo, response shape, note/lý do và thứ tự card ở
+#68–#70. NOT TESTED: tải/hiệu năng production, giao diện kanban T20, provider
+thật. Review T19, CI và merge còn chờ; không tự chuyển trạng thái done.
+Fixture test đã tự dọn DB tạm; không khởi động API/worker/web hoặc xoá dữ liệu
+dev trong lượt này. Frontend/E2E không chạy vì T19 chỉ thay backend và spec.
 
 ## T18 · 2026-11-09 · review
 

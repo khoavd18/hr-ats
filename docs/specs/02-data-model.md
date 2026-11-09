@@ -41,6 +41,16 @@ Mọi bảng có `id uuid pk` (UUID v4 do ứng dụng cấp), `created_at times
 
 Chuyển stage hợp lệ: từ bất kỳ stage "mở" (`new`→`offer`) sang stage kế tiếp, lùi lại một bước, hoặc sang `rejected`/`withdrawn`. Từ `hired`/`rejected`/`withdrawn` chỉ được "khôi phục" về stage trước đó (hoàn tác). Logic đặt trong `services/pipeline.py`, có test cho mọi cặp chuyển.
 
+T19: `offer` → `hired` là bước kế tiếp; cùng stage/nhảy bước không hợp lệ.
+Move và undo cập nhật stage_entered_at ở thời điểm thao tác, ghi StageEvent mới
+và activity stage_changed cùng transaction dưới row lock Application. Undo chỉ
+event đổi gần nhất trong 24 giờ, đúng actor hoặc admin/lead, mỗi lần đổi một lần;
+event undo không bị undo tiếp. Từ stage kết thúc chỉ đi qua API undo, không move.
+Không sửa/xoá event cũ; activity metadata stage_event_id/undo_of liên kết hai event
+mà không cần thêm cột. Event khởi tạo from_stage=null không thể undo. Lý do từ
+chối dùng sáu giá trị chuẩn tại contract T19 spec 03; undo về bước mở xoá lý do.
+Các bảng interview/offer/placement và nghiệp vụ tương ứng vẫn thuộc T21.
+
 ## Bảng
 ### users
 `email (unique, lowercase)`, `full_name`, `role user_role`, `password_hash` (argon2), `is_active bool`, `last_login_at`.
@@ -88,6 +98,11 @@ T05 dùng trigger BEFORE INSERT OR UPDATE (kể cả sửa trực tiếp search_
 `actor_id null` (null = hệ thống), `type activity_type`, `job_id null`, `application_id null`, `candidate_id null`, `payload jsonb` (không chứa nội dung CV), `occurred_at`.
 
 `services/activity.py:log_activity(session, ...)` thêm và flush bản ghi, không commit; caller phải kiểm quyền trước và commit/rollback chung với thao tác nghiệp vụ. Payload là metadata JSON; helper từ chối khoá nhạy cảm/CV/parsed_json và giá trị bị bộ lọc PII nhận diện, không đưa input vào thông báo lỗi hay log. Caller không được đưa nội dung CV vào trường tự do. Note nghiệp vụ phải tuân thủ cùng giới hạn dữ liệu cá nhân. `occurred_at` mặc định now, cho phép caller truyền thời điểm sự kiện; actor null dành cho hệ thống.
+
+T19 sửa false positive khi đoạn số trong UUID khớp mẫu SĐT: chỉ tham chiếu
+UUID v4 dạng canonical ở khoá `*_id`/`undo_of` được nhận diện là ID trước khi
+kiểm PII giá trị. Khoá nhạy cảm, giá trị không đúng UUID và mọi trường tự do
+vẫn bị kiểm như trước; không đổi bộ lọc log ứng dụng hoặc lưu nội dung CV.
 
 T15: ghi chú HR chủ động nhập qua endpoint `/applications/{id}/notes` là
 activity `note` với payload `{text}`; service kiểm quyền Job trước khi lưu vào

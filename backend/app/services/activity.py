@@ -11,6 +11,18 @@ from app.models.activity import Activity
 from app.models.enums import ActivityType
 
 
+def _uuid_reference(key: str, value: Any) -> bool:
+    # A numeric UUID segment can match the phone detector. Exempt only exact,
+    # canonical v4 references in ID fields, never free text or arbitrary values.
+    if not (key.endswith("_id") or key == "undo_of") or not isinstance(value, str):
+        return False
+    try:
+        reference = UUID(value)
+    except ValueError:
+        return False
+    return reference.version == 4 and str(reference) == value
+
+
 def _safe_payload(value: Any, depth: int = 0) -> bool:
     # Free text must never be used to copy CV contents into the activity stream.
     if depth > 8:
@@ -19,15 +31,18 @@ def _safe_payload(value: Any, depth: int = 0) -> bool:
         return all(
             isinstance(key, str)
             and not sensitive_key(key)
+            and redact(key) == key
             and key not in {"cv", "parsed_json", "education", "experiences", "skills"}
-            and _safe_payload(item, depth + 1)
+            and (_uuid_reference(key, item) or _safe_payload(item, depth + 1))
             for key, item in value.items()
         )
     if isinstance(value, list):
         return all(_safe_payload(item, depth + 1) for item in value)
     if isinstance(value, float):
         return isfinite(value)
-    return value is None or isinstance(value, (str, bool, int))
+    if isinstance(value, str):
+        return redact(value) == value
+    return value is None or isinstance(value, (bool, int))
 
 
 def log_activity(
@@ -46,11 +61,7 @@ def log_activity(
     Rejection errors intentionally contain neither the offending key nor its value.
     """
     metadata = deepcopy(payload) if payload is not None else {}
-    if (
-        not isinstance(metadata, dict)
-        or not _safe_payload(metadata)
-        or redact(metadata) != metadata
-    ):
+    if not isinstance(metadata, dict) or not _safe_payload(metadata):
         raise ValueError("Activity payload must contain non-sensitive JSON metadata only")
     activity = Activity(
         type=type,

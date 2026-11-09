@@ -239,6 +239,27 @@ recruiter riêng; không thu hồi phiên hoặc sửa dữ liệu test khác. D
 được kiểm riêng bằng CLI trên DB trống và demo với worker thật. Không thêm
 schema, dependency, thay điều kiện skip OCR hoặc tự seed khi khởi động app.
 
+## Kiểm thử T19
+
+`tests/api/test_pipeline.py` trong `uv run pytest` kiểm đủ 64 cặp stage bằng
+ma trận kỳ vọng độc lập từ spec, undo mọi cặp move hợp lệ, giữ event gốc và
+ghi event/activity đảo chiều. Kiểm sáu lý do chuẩn, validation/note/input thừa,
+biên 24 giờ ±1 microsecond/đúng biên/mốc tương lai, actor recruiter khác bị từ
+chối và quyền override lead/admin. Chỉ undo event mới nhất một lần, lịch sử
+khởi tạo/thiếu/sai/đã xoá không được undo; move mới có lượt undo mới.
+
+API PostgreSQL kiểm đủ tám cột kể cả rỗng, thứ tự/thông tin card tối thiểu,
+owner/member/thu hồi quyền/owner Application riêng, auth/CSRF/Origin, hồ sơ
+đã xoá/gộp/hết hạn, lỗi activity rollback cả stage/timestamp/reason/event và
+note không lọt log. Hai session DB tạm đã migrate, đồng bộ bằng Barrier,
+kiểm hai move/undo trùng chỉ thành công một lượt và đọc lại identity map sau
+khi chờ lock. `test_system.py` kiểm đầy đủ nhãn config, gồm HIRING_UNIT_LABEL
+tuỳ chỉnh. Không gọi AI/mạng ngoài/gửi email hoặc thêm migration/dependency/UI.
+Test hồi quy dùng UUID gây lỗi #71 ở cv_file_id/stage_event_id/undo_of và
+giữ các kiểm tra từ chối SĐT/email/khoá nhạy cảm/UUID nối thêm PII. Bộ
+core_data cũ tiếp tục kiểm payload metadata và transaction, không đổi fixture
+hoặc nới assertion để tránh UUID ngẫu nhiên.
+
 ## Definition of Done cho mỗi task
 
 1. Đáp ứng toàn bộ tiêu chí nghiệm thu trong file task.

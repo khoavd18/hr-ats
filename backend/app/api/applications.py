@@ -6,6 +6,7 @@ from app.api.cv_files import client_ip
 from app.api.dependencies import DB, CurrentUser
 from app.schemas.applications import ApplicationCreate
 from app.schemas.core import AiFeedbackRead, ApplicationRead, CandidateRead
+from app.schemas.pipeline import MoveInput, MoveResponse
 from app.schemas.profile import (
     ApplicationDetail,
     CandidatePatch,
@@ -13,9 +14,25 @@ from app.schemas.profile import (
     NoteInput,
     ProfileActivity,
 )
-from app.services import applications, profile
+from app.services import applications, pipeline, profile
 
 router = APIRouter(tags=["applications"])
+
+
+@router.post("/applications/{application_id}/move", response_model=MoveResponse)
+def move(
+    application_id: UUID, body: MoveInput, response: Response, session: DB, actor: CurrentUser
+):
+    response.headers["Cache-Control"] = "no-store"
+    return MoveResponse(
+        application=pipeline.move(session, actor, application_id, **body.model_dump())
+    )
+
+
+@router.post("/applications/{application_id}/undo", response_model=ApplicationRead)
+def undo(application_id: UUID, response: Response, session: DB, actor: CurrentUser):
+    response.headers["Cache-Control"] = "no-store"
+    return pipeline.undo(session, actor, application_id)
 
 
 @router.get("/applications/{application_id}", response_model=ApplicationDetail)

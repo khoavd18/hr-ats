@@ -44,12 +44,26 @@ def test_dependency_failures_return_safe_503(app: FastAPI, client: TestClient, f
     redis_client.ping.assert_called_once()
 
 
-def test_public_configuration_exposes_only_the_configured_label(app, client, account) -> None:
+def test_public_configuration_exposes_only_label_and_ordered_stage_labels(
+    app, client, account
+) -> None:
     app.dependency_overrides[get_settings] = lambda: Settings(hiring_unit_label="Phòng tuyển dụng")
     assert sign_in(client).status_code == 200
     response = client.get("/api/v1/config/public")
     assert response.status_code == 200
-    assert response.json() == {"hiring_unit_label": "Phòng tuyển dụng"}
+    assert response.json() == {
+        "hiring_unit_label": "Phòng tuyển dụng",
+        "stages": [
+            {"code": "new", "label": "Mới nhận"},
+            {"code": "screening", "label": "Đang sàng lọc"},
+            {"code": "submitted", "label": "Đã gửi Phòng tuyển dụng"},
+            {"code": "interview", "label": "Phỏng vấn"},
+            {"code": "offer", "label": "Offer"},
+            {"code": "hired", "label": "Nhận việc"},
+            {"code": "rejected", "label": "Không phù hợp"},
+            {"code": "withdrawn", "label": "Ứng viên rút"},
+        ],
+    }
 
 
 def test_cors_accepts_only_the_configured_origin(client: TestClient) -> None:
