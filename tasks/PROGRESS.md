@@ -18,7 +18,7 @@
 | T14 | done | 2026-11-08 | VERIFIED: API xếp hạng/thống kê đúng quyền, upload nhiều file/polling 3 giây và UI chi tiết Job tiếng Việt. 841 backend pass/12 skip OCR cũ, 69 Vitest và 3 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T14, CI và merge. |
 | T15 | done | 2026-11-08 | VERIFIED: API hồ sơ/audit, phản hồi AI upsert theo user, ghi chú và sửa ứng viên; drawer PDF/DOCX, tiêu chí/cờ Việt và lịch sử. 866 backend pass/12 skip OCR cũ, 77 Vitest và 4 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T15, CI và merge. |
 | T16 | done | 2026-11-08 | VERIFIED: kho CV tìm không dấu/theo nghĩa và bộ lọc, top-50 gợi ý theo Job, chọn nhiều tạo/chấm hồ sơ, gộp nguyên tử có xác nhận/giữ lịch sử. 893 backend pass/12 skip OCR cũ, 85 Vitest và 5 E2E pass; lint/typecheck/migration/build sạch. Chờ Review T16, CI và merge. |
-| T17 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa F1–F3; giữ cách escape an toàn của F4 theo review. Test export/migration PostgreSQL 8 pass, frontend 86 pass; lint/typecheck sạch. Xem nhật ký fix và tasks/reviews/T17.md. |
+| T17 | done | 2026-11-09 | VERIFIED: Fix round 1 sửa F1–F3; giữ cách escape an toàn của F4 theo review. Test export/migration PostgreSQL 8 pass, frontend 86 pass; lint/typecheck sạch. Xem nhật ký fix và tasks/reviews/T17.md. |
 | T18–T33 | todo | | |
 
 ## Nhật ký
