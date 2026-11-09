@@ -43,6 +43,44 @@ def accessible_job(session: Session, actor: User, job_id: UUID) -> Job:
     return job
 
 
+def application_for_update(session: Session, application_id: UUID) -> Application | None:
+    """Lock Candidate before Application, matching creation and human merges.
+
+    The initial identity is only a hint: merge can reassign the application
+    before we lock it. Release this attempt's locks and reread the new identity
+    in that case. Callers check eligibility while both row locks remain held.
+    """
+    while True:
+        candidate_id = session.scalar(
+            select(Application.candidate_id).where(
+                Application.id == application_id, Application.deleted_at.is_(None)
+            )
+        )
+        if candidate_id is None:
+            return None
+        with session.begin_nested() as attempt:
+            candidate = session.scalar(
+                select(Candidate)
+                .where(Candidate.id == candidate_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            # Erasure updates child rows before Candidate. A frozen identity
+            # must exit before taking any child lock, not just before writing.
+            if candidate is None or candidate.purge_pending_at is not None:
+                return None
+            application = session.scalar(
+                select(Application)
+                .where(Application.id == application_id, Application.deleted_at.is_(None))
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if application is not None and application.candidate_id != candidate_id:
+                attempt.rollback()
+                continue
+            return application
+
+
 def ensure_application(
     session: Session, candidate: Candidate, job: Job
 ) -> tuple[Application, bool]:
@@ -132,15 +170,11 @@ def create_application(
 
 
 def rescore_application(session: Session, actor: User, application_id: UUID) -> ApplicationRead:
-    application = session.scalar(
-        select(Application)
-        .where(Application.id == application_id, Application.deleted_at.is_(None))
-        .with_for_update()
-    )
+    application = application_for_update(session, application_id)
     if application is None:
         raise AppError("NOT_FOUND", "Không tìm thấy hồ sơ ứng tuyển.", 404)
     accessible_job(session, actor, application.job_id)
-    eligible_candidate(session, application.candidate_id, lock=True)
+    eligible_candidate(session, application.candidate_id)
     reset_score(application)
     session.flush()
     snapshot = ApplicationRead.model_validate(application)

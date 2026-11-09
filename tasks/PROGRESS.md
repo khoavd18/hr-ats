@@ -30,11 +30,48 @@
 | T26 | done | 2026-11-09 | VERIFIED: 13 KPI draft, 5 endpoint và Excel, SQL nhóm theo recruiter/quyền Job, fixture tính tay/biên ngày Việt Nam. Backend 1257 pass/12 skip OCR cũ; bộ T26/config cuối 76 pass; Ruff/mypy/migration sạch. Chờ Review T26, CI và merge; sandbox chặn ghi .git. |
 | T27 | done | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
 | T28 | done | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
-| T29 | review | 2026-11-10 | VERIFIED: consent/gia hạn, retention hằng ngày, yêu cầu xoá có xác nhận, audit và UI Việt. Purge xoá Storage/PII, giữ KPI; full backend 1316 pass/12 skip OCR cũ, frontend 156 pass, 14 E2E pass. Chờ Review T29, CI và merge. |
+| T29 | review | 2026-11-10 | VERIFIED: Fix round 1 sửa F1–F3: đồng bộ snapshot reminder/purge, thứ tự khoá Candidate → Application, chặn merge khi có delete request open. Backend 1332 pass/12 skip OCR cũ, bộ liên quan 197 pass; Ruff/mypy/Alembic sạch. Xem tasks/reviews/T29.md; chờ review lại, CI và merge. |
 | T30–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T29 · 2026-11-10 · review · Fix round 1
+
+VERIFIED: theo `tasks/_fix.md`, giữ nhánh
+`task/T29-consent-retention-data-requests`; review có sẵn và chưa được Git theo
+dõi được giữ nguyên, chỉ thêm Fix round 1. Áp dụng backend-api-engineer,
+software-testing và secure-code-review; không đổi schema/dependency/UI/KPI.
+
+- F1 — fixed: purge và producer nhắc việc giữ chung advisory transaction lock
+  250026 từ trước lúc đọc task/lấy child lock đến commit; producer đến sau kiểm
+  eligibility hiện tại. Test hai session dừng sau render chứng minh không còn
+  snapshot PII khi cả hai xong, replay không tạo lại.
+- F2 — fixed: helper khoá Candidate trước Application cho rescore/stage/undo/
+  worker. Identity thay đổi thì rollback savepoint rồi đọc/khoá lại; freeze
+  được kiểm trước khi lấy child lock. Bốn ca merge/writer, hai ca merge thắng
+  trước khoá, một ca purge đang giữ child lock kiểm không deadlock/ghi lại PII.
+- F3 — fixed: 409 DATA_REQUEST_OPEN chặn merge khi nguồn hoặc đích có yêu cầu
+  xoá đang open, kiểm dưới Candidate lock chung với create_request. Giữ đúng
+  đối tượng xác nhận và lịch sử; test API/service và cạnh tranh request/merge.
+  Contract/lock/test cập nhật spec 03/07/08, mặc định ghi câu hỏi #109.
+- VERIFIED: bảy ca tái hiện ban đầu fail trước sửa và pass sau sửa. Bộ liên
+  quan `uv run pytest -p no:cacheprovider tests/test_privacy_review_regressions.py
+  tests/api/test_privacy.py tests/api/test_scoring.py tests/api/test_pipeline.py
+  tests/api/test_cv_bank.py -q --tb=short`: **197 passed**, gồm 14 ca mới.
+- VERIFIED: lượt cuối `uv run pytest -p no:cacheprovider`: **1332 passed,
+  12 skipped**, 438.13s. Skip T08 có sẵn vì thiếu Tesseract; giữ nguyên điều kiện.
+  Gồm toàn bộ test KPI/purge, migration/schema/rollback, phân quyền và concurrency.
+- VERIFIED: Ruff check/format (192 files), mypy (117 files), Alembic upgrade
+  head trên hr_ats_test đạt. Dùng UV_CACHE_DIR trong backend/var, UV_OFFLINE=1,
+  PYTHONDONTWRITEBYTECODE=1; không đổi/skip test, chỉ tắt cache pytest.
+- VERIFIED: tự rà quyền, lock/rollback, freeze và snapshot/request/audit.
+  NOT TESTED: pip-audit chưa cài; frontend/E2E không chạy lại trong vòng fix
+  vì không sửa UI. Giữ yêu cầu review độc lập và CI trước khi merge/done.
+- VERIFIED: `git diff --check` sạch. Đã thử stage để commit
+  `T29: fix review findings`, nhưng sandbox chặn `.git/index.lock` (Permission
+  denied). Theo ngoại lệ `tasks/_fix.md`, giữ mọi thay đổi trên task branch
+  cho runner commit; chưa commit/merge/push.
 
 ## T29 · 2026-11-10 · review
 

@@ -201,6 +201,8 @@ ASSUMED: mặc định T14 ở câu hỏi #55–#57; không đổi schema DB ho�
   recruiter → 403. CSRF/Origin như T04; tự gộp → 422 `INVALID_MERGE`, một trong
   hai ứng viên thiếu/xoá/gộp/hết hạn → 404. Thành công 200 tóm tắt đích, no-store.
   Đây là thao tác HR xác nhận, không dựa vào AI để tự gộp.
+  T29: nếu nguồn hoặc đích có yêu cầu delete đang open → 409 DATA_REQUEST_OPEN;
+  giữ nguyên identity, hồ sơ và yêu cầu để admin xác nhận xoá đúng ứng viên.
 - Gộp khoá identity T10 rồi Candidate theo id và Application theo id. Một
   transaction chuyển mọi cv_files/applications/activities sang đích, đánh dấu
   nguồn merged_into_id + deleted_at. Nếu cùng Job có hai Application đang hoạt
@@ -637,6 +639,8 @@ Chi tiết công thức và các mặc định chưa được nghiệp vụ duy�
   handled_at,created_at}`. Một yêu cầu delete đang open/candidate; retry trả cùng
   yêu cầu. T29 chỉ tạo/thực thi delete; export được dự trữ ở model, không tự xoá
   nếu gặp kind khác. Nguồn đã gộp hoặc đã purge trả 404.
+  Khi yêu cầu còn open, không cho gộp ứng viên này ở cả phía nguồn lẫn đích
+  (409 DATA_REQUEST_OPEN); request/audit và đối tượng của bước xác nhận giữ nguyên.
 - GET `/data-requests?page=1&page_size=20` chỉ admin, `{items,total}`; xếp
   created_at giảm/id. Tên ứng viên lấy từ Candidate, trở thành null sau purge.
 - POST `/data-requests/{id}/execute` chỉ admin, là xác nhận xoá của người dùng;

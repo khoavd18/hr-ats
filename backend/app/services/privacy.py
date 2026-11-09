@@ -268,7 +268,12 @@ def purge_candidate(
     actor_id: UUID | None,
     now: datetime,
 ) -> None:
+    from app.workers.reminders import is_reminder, lock_reminder_snapshots
+
     _privacy_lock(session)
+    # A producer that already read personal titles must commit before we scan
+    # snapshots; a later producer must reread eligibility after erasure commits.
+    lock_reminder_snapshots(session)
     candidate = _candidate(session, candidate_id)
     if candidate.purge_pending_at is None:
         raise ValueError("Freeze required before erasure")
@@ -342,8 +347,6 @@ def purge_candidate(
         )
         # Daily task-reminder snapshots can contain HR-authored candidate names.
         # They have no application FK, so erase snapshots for affected assignees.
-        from app.workers.reminders import is_reminder
-
         assignees = select(Task.assignee_id).where(Task.application_id.in_(apps))
         reminder_ids = [
             row.id

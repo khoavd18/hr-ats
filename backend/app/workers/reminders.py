@@ -131,8 +131,15 @@ def reminder_html(session: Session, actor: User, now: datetime) -> str:
     )
 
 
-def queue_reminders(session: Session, now: datetime) -> list:
+def lock_reminder_snapshots(session: Session) -> None:
+    # Both the producer and purge acquire this before reading tasks or taking
+    # child-row locks, and retain it through the snapshot/erasure commit.
     session.execute(select(func.pg_advisory_xact_lock(250026)))
+
+
+def queue_reminders(session: Session, now: datetime) -> list:
+    lock_reminder_snapshots(session)
+    # Read eligibility after waiting: a completed freeze/purge hides these tasks.
     day = now.astimezone(VIETNAM).date()
     messages = []
     for actor in session.scalars(select(User).where(User.is_active.is_(True)).order_by(User.id)):

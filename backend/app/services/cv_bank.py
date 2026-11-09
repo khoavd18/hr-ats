@@ -13,6 +13,7 @@ from app.ai.embed import EmbeddingError, get_embedder, validate_vectors
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.core.permissions import authorize
+from app.models import DataRequest
 from app.models.activity import Activity
 from app.models.applications import Application
 from app.models.candidates import Candidate, CvFile
@@ -203,6 +204,18 @@ def merge(session: Session, actor: User, source_id: UUID, target_id: UUID) -> Ca
     ).all()
     source = eligible_candidate(session, source_id)
     target = eligible_candidate(session, target_id)
+    # Request creation holds the same Candidate lock. Check both identities
+    # after waiting, so an accepted deletion request never loses its subject.
+    if session.scalar(
+        select(DataRequest.id)
+        .where(
+            DataRequest.candidate_id.in_([source_id, target_id]),
+            DataRequest.kind == "delete",
+            DataRequest.status == "open",
+        )
+        .limit(1)
+    ):
+        raise AppError("DATA_REQUEST_OPEN", "Không thể gộp hồ sơ đang có yêu cầu xoá dữ liệu.", 409)
     with session.begin_nested():
         applications = session.scalars(
             select(Application)

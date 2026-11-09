@@ -24,6 +24,7 @@ from app.models.enums import ActivityType, ProcessingStatus
 from app.models.jobs import Job
 from app.services.activity import log_activity
 from app.services.applications import (
+    application_for_update,
     dispatch_score,
     eligible_candidate,
     ensure_application,
@@ -182,19 +183,14 @@ def score_application(application_id: str) -> None:
     except (ValueError, TypeError, AttributeError):
         return
     with worker_session() as session:
-        application = session.scalar(
-            select(Application)
-            .where(Application.id == record_id, Application.deleted_at.is_(None))
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
+        application = application_for_update(session, record_id)
         if application is None or application.ai_status not in {
             ProcessingStatus.pending,
             ProcessingStatus.running,
         }:
             return
         try:
-            eligible_candidate(session, application.candidate_id, lock=True)
+            eligible_candidate(session, application.candidate_id)
         except AppError:
             candidate = session.get(Candidate, application.candidate_id)
             if candidate is None or candidate.purge_pending_at is None:
@@ -207,7 +203,7 @@ def score_application(application_id: str) -> None:
         try:
             with session.begin_nested():
                 application.ai_status = ProcessingStatus.running
-                candidate = eligible_candidate(session, application.candidate_id, lock=True)
+                candidate = eligible_candidate(session, application.candidate_id)
                 job = session.get_one(Job, application.job_id)
                 # Missing anonymized data must never trigger a raw CV fallback.
                 if not candidate.anonymized_text:
@@ -236,7 +232,7 @@ def score_application(application_id: str) -> None:
                 application.ai_level = computed.level
                 application.ai_criteria = [c.model_dump() for c in result.judged.criteria]
                 application.ai_reasons = result.judged.reasons
-                application.ai_flags = result.judged.flags
+                application.ai_flags = list(result.judged.flags)
                 application.ai_model = result.model
                 application.ai_prompt_version = result.prompt_version
                 application.ai_scored_at = datetime.now(UTC)
@@ -275,15 +271,11 @@ def rescore_job(job_id: str) -> None:
     # One transaction per application: one failure cannot abort the other scores.
     for application_id in ids:
         with worker_session() as session:
-            application = session.scalar(
-                select(Application)
-                .where(Application.id == application_id, Application.deleted_at.is_(None))
-                .with_for_update()
-            )
+            application = application_for_update(session, application_id)
             if application is None:
                 continue
             try:
-                eligible_candidate(session, application.candidate_id, lock=True)
+                eligible_candidate(session, application.candidate_id)
             except AppError:
                 continue
             reset_score(application)

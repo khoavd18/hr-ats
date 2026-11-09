@@ -24,7 +24,7 @@ from app.schemas.pipeline import (
     StageLabel,
 )
 from app.services.activity import log_activity
-from app.services.applications import accessible_job, eligible_candidate
+from app.services.applications import accessible_job, application_for_update, eligible_candidate
 from app.services.ranking import visible_applications
 
 OPEN_STAGES = (
@@ -66,18 +66,11 @@ def can_move(from_stage: ApplicationStage, to_stage: ApplicationStage) -> bool:
 
 
 def locked_application(session: Session, actor: User, application_id: UUID) -> Application:
-    application = session.scalar(
-        select(Application)
-        .where(Application.id == application_id, Application.deleted_at.is_(None))
-        .with_for_update()
-        .execution_options(populate_existing=True)
-    )
+    application = application_for_update(session, application_id)
     if application is None:
         raise AppError("NOT_FOUND", "Không tìm thấy hồ sơ ứng tuyển.", 404)
     authorize(actor, "applications.move", application, session=session)
-    # A merge may have completed while this request was waiting for the row lock.
-    session.get(Candidate, application.candidate_id, populate_existing=True)
-    eligible_candidate(session, application.candidate_id, lock=True)
+    eligible_candidate(session, application.candidate_id)
     return application
 
 

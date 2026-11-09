@@ -72,8 +72,12 @@ stage, gửi email hay tác động quyết định tuyển dụng.
 
 Freeze dùng cùng identity lock với parse/gộp, khoá Candidate và commit
 deleted_at/purge_pending_at trước khi xoá Storage. Mọi mutation có thể ghi lại
-PII giữ Candidate lock và kiểm lại trạng thái; Application creation giữ thứ tự
-khóa riêng của ensure_application. Purge serialize bằng advisory lock 290029;
+PII giữ Candidate lock và kiểm lại trạng thái. Creation, rescore, scoring worker
+và đổi stage cùng khoá Candidate trước Application, khớp thứ tự gộp. Nếu merge
+đổi candidate_id giữa lần đọc đầu và lúc lấy khoá, bỏ khoá của lần thử bằng
+savepoint rồi đọc/khoá lại identity hiện tại; không ghi dựa trên identity cũ.
+Writer thấy purge_pending_at dừng trước khi lấy child lock.
+Purge serialize bằng advisory lock 290029;
 giai đoạn dọn không giữ Candidate row lock khi đợi child rows, tránh đảo thứ tự
 với worker/API đang hoàn tất. Khóa hồ sơ là bền vững khi Storage lỗi; retry delete
 idempotent, chỉ ghi candidate.purge sau khi toàn bộ file đã xoá và DB đã ẩn danh.
@@ -86,8 +90,18 @@ ngữ, consent timestamp/note. Xoá nội dung lý do/tiêu chí/cờ AI, ghi ch
 feedback, ghi chú phỏng vấn/offer, lương, nội dung Task, Activity và Email liên
 kết, kể cả receipt không Application nhưng có UUID của CV. Email đang chờ bị
 huỷ; snapshot email nhắc việc của những assignee liên quan cũng bị xoá vì title
-do HR viết có thể chứa tên. Giữ các fact, stage, verdict, số liệu và thời điểm
+do HR viết có thể chứa tên. Producer nhắc việc và purge dùng chung advisory
+transaction lock 250026 trước khi đọc task/lấy child lock, giữ đến commit.
+Producer đọc lại eligibility sau khi lấy khoá: snapshot đã đọc phải commit
+trước lượt dọn, producer đến sau không lấy task của hồ sơ đã freeze/purge.
+Giữ các fact, stage, verdict, số liệu và thời điểm
 phục vụ KPI; không thay deleted_at của Application/CvFile/StageEvent/Activity.
+
+Yêu cầu delete đang open chặn gộp cả nguồn lẫn đích (409 DATA_REQUEST_OPEN).
+Merge kiểm yêu cầu sau khi khoá hai Candidate; create_request giữ cùng row
+lock nên không có khoảng đua bỏ sót yêu cầu vừa tạo. Không chuyển yêu cầu hoặc
+mở rộng phạm vi xoá sang identity khác; giữ lịch sử request/audit và bước HR
+xác nhận thực thi trên ứng viên ban đầu. Mặc định T29 ở câu hỏi #109.
 
 Metadata inbox mới ghi liên kết InboundEmail UUID trong Activity cv_uploaded,
 kể cả khi attachment trùng file (bổ sung metadata, không thêm activity). Purge

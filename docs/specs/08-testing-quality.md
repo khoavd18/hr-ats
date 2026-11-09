@@ -434,6 +434,15 @@ kiểm compare_metadata và migration upgrade/downgrade/upgrade trên DB trống
 T29 không chạy downgrade hoặc purge trên dữ liệu dev thật. Regression T12/T16
 giữ nguyên yêu cầu với ứng viên expired/merged và creation chờ merge.
 
+Fix T29: `tests/test_privacy_review_regressions.py` thêm các giao dịch độc lập
+cho producer email dừng sau render rồi chạy purge, gộp đồng thời với rescore/
+đổi stage/scoring worker/bulk worker, identity đổi hoặc hồ sơ bị archive trước
+khi writer lấy khoá, writer đến khi purge giữ child lock, và create_request
+đồng thời với merge. Đồng bộ bằng Event và pg_blocking_pids; không giả lập DB
+hoặc suy đoán thứ tự bằng sleep cố định. Kiểm không còn snapshot PII sau cả hai
+commit, không deadlock, không ghi lại PII sau freeze. Test API request → merge
+409 → danh sách xác nhận giữ đúng ứng viên → execute done cho cả nguồn và đích.
+
 Vitest `privacy-settings.test.tsx`: ẩn admin UI với lead/recruiter, danh sách/
 filter/phân trang/tải/rỗng/lỗi, nhập bằng chứng/giờ Việt/flag gia hạn, lỗi giữ
 form, tạo request riêng khỏi execute, huỷ xác nhận không POST, audit lọc actor/

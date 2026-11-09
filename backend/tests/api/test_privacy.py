@@ -324,6 +324,44 @@ def test_consent_leap_day_replay_old_future_and_stale(db_session, account):
     assert error.value.code == "CONSENT_NOT_NEW"
 
 
+@pytest.mark.parametrize("request_side", [0, 1])
+def test_api_merge_conflict_preserves_deletion_confirmation(
+    db_session, account, client, tmp_path, monkeypatch, request_side
+):
+    monkeypatch.setattr("app.api.privacy.build_storage", lambda settings: LocalStorage(tmp_path))
+    candidates = [
+        add(db_session, Candidate, full_name=f"Ứng viên giả {i}", retention_until=date(2099, 1, 1))
+        for i in range(2)
+    ]
+    sign_in(client)
+    headers = csrf_headers(client)
+    selected = candidates[request_side]
+    response = client.post(
+        "/api/v1/data-requests",
+        headers=headers,
+        json={"candidate_id": str(selected.id), "requested_by_note": FAKE},
+    )
+    assert response.status_code == 201
+    request_id = response.json()["id"]
+    response = client.post(
+        f"/api/v1/candidates/{candidates[0].id}/merge",
+        headers=headers,
+        json={"into_id": str(candidates[1].id)},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "DATA_REQUEST_OPEN"
+    confirmation = client.get("/api/v1/data-requests").json()["items"][0]
+    assert confirmation["candidate_id"] == str(selected.id)
+    assert confirmation["candidate_name"] == selected.full_name
+    assert confirmation["status"] == "open"
+    response = client.post(f"/api/v1/data-requests/{request_id}/execute", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["candidate_id"] == str(selected.id)
+    assert response.json()["status"] == "done"
+    assert response.json()["candidate_name"] is None
+    assert client.get("/api/v1/data-requests").json()["total"] == 1
+
+
 def test_merged_aliases_are_erased_too(db_session, account, records):
     candidate, storage, _ = records
     alias = add(
