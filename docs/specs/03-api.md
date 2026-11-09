@@ -4,7 +4,7 @@ Base `/api/v1`. JSON, xác thực bằng cookie HttpOnly chứa JWT (access 30 p
 
 ## Hệ thống
 - `GET /health` → HTTP 200 `{"status":"ok","db":"ok","redis":"ok"}` khi truy vấn DB và Redis ping đều thành công. Nếu một trong hai không khả dụng: HTTP 503 `{"error":{"code":"SERVICE_UNAVAILABLE","message":"Dịch vụ tạm thời không khả dụng."}}`; không trả lỗi kết nối nội bộ.
-- `GET /config/public` → nhãn đơn vị tuyển, danh sách stage và nhãn tiếng Việt. Trong T02 chưa có stage: chỉ trả `{"hiring_unit_label":"Đơn vị tuyển"}` theo `HIRING_UNIT_LABEL`; chưa trả thông tin nghiệp vụ hoặc secret. Xác thực được triển khai tại T04 theo quy tắc chung ở đầu spec.
+- `GET /config/public` → `{hiring_unit_label, stages: [{code, label}]}`; cần đăng nhập. T19 bổ sung đủ tám stage theo thứ tự ở spec 02, gồm cả cột kết thúc; nhãn `submitted` là `Đã gửi {HIRING_UNIT_LABEL}`. Không trả cấu hình nội bộ hoặc secret.
 
 ### Chuẩn lỗi nền (T02)
 
@@ -227,6 +227,52 @@ ASSUMED: các chi tiết chưa chốt trước T07 được ghi tại câu hỏi
 - `POST /applications/{id}/ai-feedback` {verdict, corrected_level?, comment?}
 - `POST /applications/{id}/rescore`
 - `POST /applications/{id}/notes` {text} → activity `note`
+
+### Contract pipeline T19
+
+- Ba endpoint move/undo/pipeline cần đăng nhập; POST kiểm CSRF/Origin theo T04.
+  Admin/lead có quyền toàn bộ, recruiter phải là owner/member Job ở DB;
+  `applications.owner_id` riêng không cấp quyền. Ngoài quyền → 403. Hồ sơ thiếu/
+  đã xoá, ứng viên đã xoá/gộp/hết hạn → 404; Job thiếu → 404. Phản hồi thành công
+  có `Cache-Control: no-store`. Không gọi AI, xếp hàng hoặc gửi email.
+- POST `/applications/{id}/move` nhận đúng `{to_stage, note?, rejected_reason?}`.
+  `to_stage` theo enum, note nullable hoặc trim 1–10000 ký tự. `rejected_reason`
+  chỉ nhận sáu chuỗi chuẩn: `thiếu kỹ năng`, `thiếu kinh nghiệm`, `lương không phù hợp`,
+  `ứng viên không phản hồi`, `đơn vị tuyển từ chối`, `khác`; bắt buộc khi đích
+  `rejected`, phải bỏ qua/null ở đích khác. Field thừa/input sai → 422
+  `VALIDATION_ERROR`, không phản chiếu input. Thành công 200
+  `{application: ApplicationRead, suggested_email: null}`; T23 mới bổ sung nháp.
+- Các cặp hợp lệ theo spec 02: bước kế tiếp/lùi một bước trên chuỗi
+  new → screening → submitted → interview → offer → hired; từ năm bước mở
+  new…offer còn được sang rejected/withdrawn. Cùng bước, nhảy bước hoặc move từ
+  hired/rejected/withdrawn → 409 `INVALID_STAGE_TRANSITION`; stage kết thúc chỉ
+  khôi phục qua undo. T19 chưa tạo interview/offer/placement (T21 sở hữu).
+- Move khoá hàng Application, đọc lại trạng thái và kiểm quyền/ứng viên sau khi
+  chờ. Một transaction cập nhật stage/stage_entered_at/rejected_reason, thêm
+  StageEvent và activity `stage_changed`. Event lưu from/to/actor/note/occurred_at;
+  activity chỉ metadata from_stage/to_stage/stage_event_id/undo_of (null với move).
+  Note chủ động HR nhập chỉ lưu DB nghiệp vụ ở event, không sao chép sang payload
+  hoặc log ứng dụng. Giữ owner và toàn bộ kết quả AI. Lỗi ghi event/activity
+  rollback cả stage, mốc thời gian và lý do.
+- POST `/applications/{id}/undo` không cần body → 200 ApplicationRead. Chỉ undo
+  event mới nhất chưa xoá, có from_stage hợp lệ và to_stage khớp trạng thái hiện
+  tại. Event khởi tạo from_stage=null, lịch sử thiếu/không khớp hoặc đã undo →
+  409 `UNDO_NOT_AVAILABLE`. Recruiter khác actor của event → 403 `UNDO_FORBIDDEN`,
+  kể cả có quyền cùng Job. Lead/admin vẫn phải tuân thủ giới hạn thời gian.
+- Cho undo khi 0 ≤ hiện tại − occurred_at ≤ 24 giờ (đúng 24 giờ vẫn được);
+  quá hạn hoặc mốc tương lai → 409 `UNDO_EXPIRED`. Ghi event đảo chiều mới và
+  activity mới với undo_of trỏ event gốc; không sửa/xoá lịch sử. Stage trở về
+  bước mở trước đó, rejected_reason=null, stage_entered_at là lúc undo. Một
+  lần đổi chỉ undo một lần, không undo tiếp event hoàn tác; move mới mở lượt
+  undo mới. Khoá cùng hàng đảm bảo hai move/undo trùng đồng thời chỉ ghi một lượt.
+- GET `/jobs/{id}/pipeline` → 200 `{columns: [{stage, items, total}], total}`,
+  đủ tám cột theo thứ tự enum kể cả rỗng. Item chỉ gồm id/candidate_id/
+  candidate_name/stage/stage_entered_at/owner_id/ai_status/ai_level; không có
+  liên hệ, CV, ghi chú, vector hoặc thông tin provider. Chưa phân trang/filter;
+  xếp trong cột theo stage_entered_at tăng dần rồi id. Cùng eligibility với
+  bảng xếp hạng T14; kiểm quyền Job trước kể cả không có hồ sơ.
+
+ASSUMED: các mặc định undo/shape/lý do tại câu hỏi #68–#70; không đổi schema.
 
 ### Contract thêm hồ sơ và chấm lại T12
 

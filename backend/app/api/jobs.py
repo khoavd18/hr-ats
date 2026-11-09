@@ -18,9 +18,10 @@ from app.schemas.jobs import (
     JobPatch,
     JobResponse,
 )
+from app.schemas.pipeline import JobPipeline
 from app.schemas.ranking import ApplicationRanking
 from app.services import export as job_export
-from app.services import jobs, ranking
+from app.services import jobs, pipeline, ranking
 
 
 def no_store(response: Response) -> None:
@@ -104,6 +105,11 @@ def export_ranking(job_id: UUID, request: Request, session: DB, actor: CurrentUs
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@router.get("/jobs/{job_id}/pipeline", response_model=JobPipeline)
+def job_pipeline(job_id: UUID, session: DB, actor: CurrentUser):
+    return pipeline.for_job(session, actor, job_id)
 
 
 @router.patch("/jobs/{job_id}", response_model=JobResponse)

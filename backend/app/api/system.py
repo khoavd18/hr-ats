@@ -10,6 +10,7 @@ from app.core.db import get_session
 from app.core.errors import ErrorResponse
 from app.core.redis import get_redis
 from app.schemas.system import HealthResponse, PublicConfigResponse
+from app.services.pipeline import stage_labels
 from app.services.system import check_dependencies
 
 router = APIRouter()
@@ -28,4 +29,7 @@ def health(
     "/config/public", response_model=PublicConfigResponse, dependencies=[Depends(current_user)]
 )
 def public_config(settings: Annotated[Settings, Depends(get_settings)]) -> PublicConfigResponse:
-    return PublicConfigResponse(hiring_unit_label=settings.hiring_unit_label)
+    return PublicConfigResponse(
+        hiring_unit_label=settings.hiring_unit_label,
+        stages=stage_labels(settings.hiring_unit_label),
+    )
