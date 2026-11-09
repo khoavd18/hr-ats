@@ -1,5 +1,5 @@
 ﻿<#
-Tự động hoá nhiều task liên tiếp: Codex code → kiểm tra → Claude Code review → Codex sửa → CI → merge + push.
+Tự động hoá nhiều task liên tiếp: Codex code → kiểm tra → review (mặc định Codex, phiên riêng) → Codex sửa → CI → merge + push.
 
 Ví dụ:
   .\scripts\auto-task.ps1 -Tasks T03                 # một task
@@ -8,11 +8,14 @@ Ví dụ:
   .\scripts\auto-task.ps1 -Tasks T03 -NoMerge        # làm + review, không merge
   .\scripts\auto-task.ps1 -Tasks T02 -SkipImplement  # task đã code xong, chỉ review/sửa/merge
 
-Điểm dừng an toàn (mặc định):
-  - Task nhạy cảm ($ApproveBeforeMerge): làm và review xong thì dừng, chờ bạn tự merge.
-  - Cuối mốc ($Milestones): merge xong thì dừng để bạn dùng thử trước khi chạy tiếp.
-  - Task blocked, kiểm tra lỗi, CI đỏ, hoặc hết số vòng sửa: dừng ngay.
-  Bỏ qua các điểm dừng mốc bằng -IgnoreMilestones (không bỏ qua được task nhạy cảm).
+Mặc định script tự merge mọi task đạt review + kiểm tra trên máy + CI.
+Luôn dừng khi: task blocked, kiểm tra lỗi, CI đỏ, hoặc hết số vòng sửa.
+Điểm dừng tuỳ chọn:
+  -RequireApproval   task nhạy cảm ($ApproveBeforeMerge) làm + review xong thì dừng, chờ bạn merge.
+  -StopAtMilestones  dừng sau mỗi mốc ($Milestones) để dùng thử.
+
+Reviewer: -Reviewer codex (mặc định, phiên Codex mới, chỉ được ghi báo cáo) hoặc -Reviewer claude.
+  -ReviewModel <tên> chọn model cho reviewer (nên khác model code, vd. model mạnh hơn).
 
 Hiển thị (-Output):
   compact (mặc định): mỗi bước một dòng: Codex nói gì, chạy lệnh nào, sửa file nào, lệnh nào lỗi,
@@ -35,7 +38,11 @@ param(
   [int]$MaxRounds = 3,
   [switch]$NoMerge,
   [switch]$SkipImplement,
-  [switch]$IgnoreMilestones,
+  [switch]$IgnoreMilestones,  # giữ cho tương thích; giờ mặc định không dừng ở mốc
+  [switch]$RequireApproval,
+  [switch]$StopAtMilestones,
+  [ValidateSet('codex', 'claude')][string]$Reviewer = 'codex',
+  [string]$ReviewModel,
   [ValidateSet('compact', 'full', 'quiet')][string]$Output = 'compact',
   [switch]$ShowAgentOutput,  # giữ cho tương thích: tương đương -Output full
   [string]$CodexModel,       # vd. -CodexModel gpt-6.1-sol (để trống: mặc định của Codex)
@@ -50,7 +57,7 @@ Set-Location $root
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-$ApproveBeforeMerge = @('T04', 'T05', 'T23', 'T24', 'T29')
+$ApproveBeforeMerge = if ($RequireApproval) { @('T04', 'T05', 'T23', 'T24', 'T29') } else { @() }
 $Milestones = @('T04', 'T18', 'T21', 'T24', 'T28', 'T33')
 
 # ---------- Danh sách task ----------
@@ -73,7 +80,8 @@ $install = @{
   docker = 'Cài Docker Desktop và mở nó lên'
   uv     = 'winget install astral-sh.uv'
 }
-foreach ($tool in @('codex', 'claude', 'git', 'docker', 'uv')) {
+$needed = @('codex', 'git', 'docker', 'uv'); if ($Reviewer -eq 'claude') { $needed += 'claude' }
+foreach ($tool in $needed) {
   if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { $missing += "  - $tool : $($install[$tool])" }
 }
 if ($missing) {
@@ -152,7 +160,7 @@ function Write-ToolOutput {
     if ($Output -eq 'full') { Write-Host $text -ForegroundColor DarkGray }
     elseif ($Output -eq 'compact') {
       if ($Kind -eq 'codex') { Format-CodexLine $text }
-      elseif ($Kind -eq 'claude') { Format-ClaudeLine $text }
+      # Phát hiện của reviewer được in từ file báo cáo (Show-Findings), không in ở đây.
     }
   }
 }
@@ -235,6 +243,45 @@ function Invoke-ClaudeReview([string]$task) {
   }
   $changed = git status --porcelain | Where-Object { $_ -notmatch "tasks/reviews/$task\.md" }
   if ($changed) { throw "Reviewer đã sửa file ngoài báo cáo, dừng lại để bạn kiểm tra:`n$changed" }
+}
+
+function Invoke-CodexReview([string]$task) {
+  Say "Codex (review, phiên mới): Review $task"
+  $prompt = "Review $task following tasks/_review.md exactly. You are an independent reviewer in a fresh session: " +
+    "you did not write this code, so do not trust tasks/PROGRESS.md or commit messages; verify every claim yourself by " +
+    "reading the diff and running the checks. Write ONLY tasks/reviews/$task.md. Do not modify any other file, do not fix " +
+    "the code, and do not commit."
+  $env:GIT_OPTIONAL_LOCKS = '0'  # git chỉ đọc, không tạo file khoá
+  for ($attempt = 1; $attempt -le 8; $attempt++) {
+    $modelArgs = @(); if ($ReviewModel) { $modelArgs = @('-m', $ReviewModel) }
+    $prompt | codex exec --approve-for-me @modelArgs -C $root - 2>&1 | Write-ToolOutput -Kind codex
+    if ($LASTEXITCODE -eq 0) { break }
+    if (-not (Wait-IfLimited 'Codex (review)')) { throw "Codex review lỗi (exit $LASTEXITCODE). Xem $log" }
+    if ($attempt -eq 8) { throw "Codex vẫn hết hạn mức sau nhiều lần chờ. Xem $log" }
+    Say "Codex: review lại $task sau khi hết chờ"
+  }
+  Remove-Item Env:GIT_OPTIONAL_LOCKS -ErrorAction SilentlyContinue
+  $changed = git status --porcelain | Where-Object { $_ -notmatch "tasks/reviews/$task\.md" }
+  if ($changed) { throw "Reviewer đã sửa file ngoài báo cáo, dừng lại để bạn kiểm tra:`n$changed" }
+}
+
+function Invoke-Review([string]$task) {
+  if ($Reviewer -eq 'claude') { Invoke-ClaudeReview $task } else { Invoke-CodexReview $task }
+  Show-Findings $task
+}
+
+# In các phát hiện từ file báo cáo (gọn, không phụ thuộc reviewer nào).
+function Show-Findings([string]$task) {
+  $report = Join-Path $root "tasks/reviews/$task.md"
+  if (-not (Test-Path $report)) { return }
+  $colors = @{ BLOCKER = 'Red'; MAJOR = 'Yellow'; MINOR = 'DarkGray' }
+  foreach ($m in (Select-String -Path $report -Pattern '\[(BLOCKER|MAJOR|MINOR)\]' -Encoding utf8)) {
+    $line = $m.Line.Trim() -replace '^[-*]\s*', ''
+    if ($line -match '^\[(BLOCKER|MAJOR|MINOR)\]\s+F?\d|^\*\*\[(BLOCKER|MAJOR|MINOR)\]') {
+      $level = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+      Show "- $(Get-Short $line 150)" $colors[$level]
+    }
+  }
 }
 
 function Get-Verdict([string]$task) {
@@ -342,7 +389,7 @@ function Invoke-OneTask([string]$task) {
   for ($round = 1; $round -le $MaxRounds; $round++) {
     Say "--- $task · vòng review $round ---"
     $checksOk = Invoke-Checks
-    Invoke-ClaudeReview $task
+    Invoke-Review $task
     $verdict = Get-Verdict $task
     Say "Verdict: $verdict | Kiểm tra trên máy: $(if ($checksOk) {'PASS'} else {'FAIL'})"
 
@@ -385,7 +432,7 @@ Say "Bắt đầu: $($Tasks -join ', '). Log: $log"
 foreach ($task in $Tasks) {
   $result = Invoke-OneTask $task
   if ($result -ne 'merged') { Say "Dừng sau $task ($result)." 'Yellow'; exit 1 }
-  if (-not $IgnoreMilestones -and ($Milestones -contains $task)) {
+  if ($StopAtMilestones -and ($Milestones -contains $task)) {
     Say "Xong mốc ở $task. Dừng để bạn dùng thử; chạy tiếp từ task sau khi sẵn sàng." 'Green'
     exit 0
   }

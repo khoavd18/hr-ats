@@ -59,7 +59,7 @@ Kế hoạch đầy đủ: `docs/product/plan.md`. Paper tham khảo: `docs/rese
 - Spec là nguồn sự thật: `docs/specs/` (bắt đầu từ `00-overview.md`).
 - Công việc chia thành task có thứ tự trong `tasks/` (đọc `tasks/README.md` trước); mỗi lần làm một task, ghi kết quả vào `tasks/PROGRESS.md`.
 - Câu hỏi phát sinh ghi vào `docs/specs/open-questions.md`, không tự đổi stack hay phạm vi.
-- Tự động nhiều task (Codex code, Claude Code review, script merge + push sau khi CI xanh): `.\scripts\auto-task.ps1 -From T03 -To T18`. Giao một task thủ công cho Codex: `.\scripts\run-task.ps1 -Task T01`.
+- Tự động nhiều task (Codex code, Codex review ở phiên riêng, script tự merge + push sau khi review đạt và CI xanh): `.\scripts\auto-task.ps1 -From T25 -To T33`. Thêm `-Reviewer claude` để review bằng Claude Code, `-RequireApproval` để dừng chờ duyệt ở task nhạy cảm. Giao một task thủ công cho Codex: `.\scripts\run-task.ps1 -Task T01`.
 
 **KPI báo cáo:** danh sách nháp ở `docs/metrics/kpi-list.md`; chỉ định nghĩa có `status: approved` mới là chuẩn.
 
