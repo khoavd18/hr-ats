@@ -105,14 +105,19 @@ IMAP_ENABLED=false IMAP_HOST= IMAP_USER= IMAP_PASSWORD= IMAP_FOLDER=INBOX
 HIRING_UNIT_LABEL=Đơn vị tuyển
 DATA_RETENTION_MONTHS=24
 FRONTEND_ORIGIN=http://localhost:3000
-TZ=Asia/Ho_Chi_Minh
+APP_TIMEZONE=Asia/Ho_Chi_Minh
 ```
 Khi `EMBEDDING_DIM` đổi, cần migration đổi cột vector; ghi rõ trong README.
 
 ## Quy ước code
 - Router mỏng; logic nằm ở `services/`, có test unit riêng.
 - Mọi endpoint trả lỗi theo dạng `{"error": {"code": "...", "message": "<tiếng Việt cho người dùng>"}}`.
-- ID dùng UUID v4; thời gian lưu UTC (`timestamptz`), hiển thị theo `TZ`.
+- ID dùng UUID v4; thời gian lưu UTC (`timestamptz`), hiển thị theo `APP_TIMEZONE`.
+- T26: không đọc biến hệ thống `TZ` để tính ngày nghiệp vụ. `APP_TIMEZONE`
+  mặc định và hiện chỉ hỗ trợ `Asia/Ho_Chi_Minh` theo phạm vi sản phẩm; giá trị
+  khác báo lỗi cấu hình. `.env` cũ chỉ có TZ vẫn dùng mặc định Việt Nam; khi
+  cập nhật cấu hình đổi tên sang APP_TIMEZONE. Thuộc tính Python `Settings.tz`
+  giữ tương thích với các service trước đó; không thêm dependency/dịch vụ.
 - Phân trang: `?page=&page_size=` (mặc định 20, tối đa 100), trả `{"items": [...], "total": n}`.
 - Không đặt nội dung CV, email, số điện thoại vào log; logger có filter che PII (xem `07`).
 - Frontend: mọi chuỗi hiển thị lấy từ `src/i18n/vi.ts`.

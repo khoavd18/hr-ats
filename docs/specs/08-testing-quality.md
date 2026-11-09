@@ -415,6 +415,35 @@ cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên 
 7. Nếu thay đổi hợp đồng (API, schema, KPI) thì cập nhật spec tương ứng trong cùng commit.
 8. Cuối task, ghi tóm tắt vào `tasks/PROGRESS.md`: task id, việc đã làm, file chính, lệnh test đã chạy và kết quả, việc còn lại / câu hỏi.
 
+## Kiểm thử T26
+
+`tests/api/test_reports.py` và `test_reports_access.py` chạy trong lệnh chuẩn
+`uv run pytest` trên PostgreSQL thật. Fixture dựng tay hoàn toàn giả: 2 Job,
+4 Application, 2 recruiter và admin, 13 StageEvent ở thời điểm tường minh;
+có entry new thiếu (fallback), vào lại submitted, event actor khác owner,
+file chưa gán, fee=0/null, feedback do người khác viết, lịch đúng as_of.
+Kỳ 01/11/2026 00:00 đến 04/11/2026 00:00 Việt Nam cho kết quả tính tay:
+CV=5, screen=2, submitted=3, interview=3 (1 đã đến giờ/2 sắp tới), offer=2,
+placement=4, funnel=[2,1,2,2,1,0,1,0], time-to-fill=4 ngày (4 mẫu), median
+new/screen/submitted/interview=0.75/0.5/0.5/1 ngày; overdue=1 tại 02/11,
+fee đã biết=400 VND (3 biết/1 thiếu), AI=4/5=0.8, 5 activity theo loại/người.
+Team median 4 không bằng trung bình cá nhân 3.75; team AI 0.8 không bằng 0.75.
+
+Test kiểm tất cả biên [from,to), trước from 1 microsecond, đúng to, đúng nửa
+đêm Việt Nam khi TZ=UTC, deadline đúng hôm nay, Job đủ người tính toàn Job,
+placement không theo start_date, offer draft không đếm; zero/missing, mở lại
+Job/thiếu opened_at, soft delete, fact lịch sử không phụ thuộc retention CV.
+So API summary/funnel/agreement/export với cùng dữ liệu, đọc workbook bằng
+openpyxl kiểm Unicode/số/ô trống, công thức Excel không được thực thi từ tên.
+Test cả 5 endpoint chưa đăng nhập/đòi số người khác/thu hồi quyền Job, admin/
+lead/recruiter, UUID/khoảng/field thừa sai, user inactive và hàng unassigned.
+Đếm câu SQL khi thêm 10 recruiter để bắt N+1; không đặt SLA production từ
+fixture nhỏ. Unit config chứng minh TZ hệ thống không đổi múi giờ ứng dụng.
+
+Không schema/migration/frontend/dependency mới. Chạy Ruff/mypy và Alembic
+upgrade head; suite database có compare_metadata, upgrade/downgrade/upgrade
+trên DB tạm như trước. Không gọi mạng ngoài; không tạo/tải CV thật hoặc gọi AI.
+
 ## Kiểm thử T25
 
 `tests/api/test_tasks.py` trong `uv run pytest` dùng PostgreSQL thật, clock

@@ -129,7 +129,7 @@ ASSUMED: chi tiết chưa chốt được ghi ở câu hỏi #52–#54; không �
   `candidate_name`, `skills`, `years_experience` (decimal dạng chuỗi hoặc null),
   `stage`, `created_at`, `ai_status`, `ai_level`. Không trả liên hệ, text CV,
   vector, điểm số, tiêu chí hay metadata provider trên bảng tóm tắt.
-- Chỉ lấy Application chưa xoá và Candidate chưa xoá/gộp/hết hạn (ngày theo TZ).
+- Chỉ lấy Application chưa xoá và Candidate chưa xoá/gộp/hết hạn (ngày theo APP_TIMEZONE).
   `stage`/`ai_level` theo enum; lọc mức AI chỉ lấy `ai_status=done`. q trim tối đa
   200 ký tự, substring không phân biệt hoa thường trong tên/chức danh/kỹ năng;
   `%`/`_` là ký tự thường, chưa bỏ dấu. `total` tính sau lọc, trước phân trang.
@@ -179,7 +179,7 @@ ASSUMED: mặc định T14 ở câu hỏi #55–#57; không đổi schema DB ho�
   (tối đa 200, substring literal), source (enum), page ≥1, page_size 1–100
   (mặc định 20). Bộ lọc kỹ năng/địa điểm không phân biệt hoa/thường/dấu; unknown
   years không đạt min_years. Field query thừa/sai bị từ chối 422. Luôn bỏ ứng viên
-  xoá/gộp/hết hạn (ngày theo TZ, retention_until bằng hôm nay vẫn hợp lệ).
+  xoá/gộp/hết hạn (ngày theo APP_TIMEZONE, retention_until bằng hôm nay vẫn hợp lệ).
 - Full-text: q trim, `plainto_tsquery('simple', unaccent(q))` đối chiếu search_tsv
   hiện có, xếp rank giảm dần rồi created_at giảm dần/id tăng dần. q rỗng liệt kê
   theo ngày/id. Không diễn giải q thành cú pháp SQL hoặc tsquery do người dùng viết.
@@ -559,6 +559,53 @@ chưa nằm trong T25; lịch sử hồ sơ dùng GET applications/{id} hiện c
 - `GET /reports/recruiters?from=&to=` → bảng theo recruiter
 - `GET /reports/ai-agreement?from=&to=` → tỉ lệ đồng ý với AI
 - `GET /reports/export.xlsx?...`
+
+### Contract T26
+
+Năm endpoint cùng query model: `from` và `to` bắt buộc dạng YYYY-MM-DD;
+khoảng `[from,to)` theo Asia/Ho_Chi_Minh dài 1–366 ngày. Ngày đầu năm 0001
+không nhận vì không biểu diễn được UTC−7 giờ của mốc nửa đêm đó. Optional
+`recruiter_id`, `job_id`, `hiring_unit_id` là UUID; bỏ tham số nếu không lọc.
+Field thừa/UUID/ngày/khoảng sai → 422 VALIDATION_ERROR (envelope an toàn).
+Tất cả cần đăng nhập, no-store, quyền reports.view tại service. Recruiter
+không truyền ID thì suy ra chính mình; ID khác → 403; Job ngoài scope → 403
+kể cả kết quả rỗng; Job hoặc recruiter tường minh không tồn tại → 404.
+Đơn vị không khớp/không có trong scope → kết quả rỗng, không lộ danh mục riêng.
+Admin/lead xem team; mọi fact recruiter đọc vẫn trong quyền Job hiện tại.
+
+- `summary` → `{period,metrics,new_cvs_by_day}`. `period` gồm from_date/to_date,
+  timezone, as_of (timestamp có offset), definition_status=`draft` và ba ID
+  bộ lọc hiệu lực. `new_cvs_by_day:[{date,count}]` đủ từng ngày trong kỳ,
+  ngày không có CV là 0, xếp ngày tăng dần.
+- `metrics` gồm new_cvs/screened/submitted/offers/placements/overdue_jobs là
+  integer; interviews=`{total,elapsed,upcoming}`; time_to_fill=
+  `{days:number|null,sample_count,excluded_count}`; stage_duration là map đủ
+  tám stage với cùng shape median; placement_revenue=
+  `{amount:integer|null,known_count,missing_count}` (VND); ai_agreement=
+  `{agree,disagree,total,rate:number|null}`; activities là map đủ ActivityType
+  sang số đếm; funnel như endpoint funnel bên dưới.
+- `funnel` → `{period,stages:[{stage,count,next_stage,next_count,conversion_rate}]}`.
+  Đủ tám stage theo thứ tự enum; next_stage/next_count null ở hired/rejected/
+  withdrawn. Rate dạng phần số, ví dụ 0.8 là 80%, không làm tròn/cap. Mẫu số
+  bằng 0 → null; flow ratio có thể >1, không phải cohort conversion.
+- `recruiters` → `{period,items:[{recruiter_id,recruiter_name,metrics}]}`;
+  mỗi item có đủ bộ metrics, xếp tên/ID. Recruiter chỉ một hàng của mình;
+  team giữ inactive và admin/lead có dữ liệu, các recruiter chưa có dữ liệu
+  có hàng 0/null. Hàng recruiter_id/name=null là chưa gán/hệ thống, xếp cuối.
+  Không trả email/quyền/user credential. SQL nhóm toàn roster, không N+1.
+- `ai-agreement` → `{period,agreement:{agree,disagree,total,rate}}`; cùng công
+  thức/population với summary. Ratio dùng tổng tử/mẫu, không trung bình cá nhân.
+- `export.xlsx` → MIME xlsx, attachment `bao-cao-<from>-<to>.xlsx`. Cùng bộ
+  lọc/quyền/metric functions; sheet Thông tin ghi draft/kỳ/as_of/ID bộ lọc và
+  ý nghĩa ô trống; Tổng hợp, Theo người phụ trách, Phễu, Thời gian ở bước,
+  CV theo ngày, Hoạt động, Hoạt động theo người. Unicode Việt, header đậm,
+  freeze hàng đầu, auto-filter. Số là numeric; undefined để ô trống; tên
+  recruiter luôn OOXML string, không biến thành formula/hyperlink. Không có
+  dữ liệu ứng viên và không dùng audit candidate.export của export CV T17.
+
+Chi tiết công thức và các mặc định chưa được nghiệp vụ duyệt: spec 06,
+`docs/metrics/kpi-list.md`, câu hỏi #94–#99. Không thay endpoint/schema trước
+đó, không migration; không thêm giao diện T27 hay lịch gửi T28 trong T26.
 
 ## Quản trị dữ liệu
 - `GET/POST /data-requests` · `POST /data-requests/{id}/execute` (admin): xoá vĩnh viễn file, text, embedding của ứng viên; giữ bản ghi ẩn danh cho thống kê

@@ -7,8 +7,7 @@ from app.core.config import REPO_ROOT, Settings
 
 
 def test_example_configuration_loads(monkeypatch: pytest.MonkeyPatch) -> None:
-    # TZ is a common OS variable (CI, containers) and would override the example file.
-    monkeypatch.delenv("TZ", raising=False)
+    monkeypatch.setenv("TZ", "UTC")
     settings = Settings(_env_file=REPO_ROOT / ".env.example")
     assert settings.llm_provider == settings.embedding_provider == "fake"
     assert settings.embedding_dim == 1024
@@ -16,6 +15,17 @@ def test_example_configuration_loads(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.smtp_from == "Tuyển dụng <tuyendung@example.com>"
     assert settings.storage_local_dir == REPO_ROOT / "var/storage"
     assert settings.tz == "Asia/Ho_Chi_Minh"
+
+
+def test_app_timezone_is_independent_of_host_timezone(monkeypatch):
+    monkeypatch.setenv("TZ", "America/New_York")
+    monkeypatch.delenv("APP_TIMEZONE", raising=False)
+    assert Settings(_env_file=None).tz == "Asia/Ho_Chi_Minh"
+    monkeypatch.setenv("APP_TIMEZONE", "Asia/Ho_Chi_Minh")
+    assert Settings(_env_file=None).tz == "Asia/Ho_Chi_Minh"
+    monkeypatch.setenv("APP_TIMEZONE", "Not/A_Timezone")
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
 
 
 def test_settings_read_utf8_dotenv_with_environment_precedence(
