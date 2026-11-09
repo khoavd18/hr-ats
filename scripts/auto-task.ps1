@@ -21,6 +21,9 @@ Hiển thị (-Output):
   quiet:              chỉ các dòng trạng thái của script.
 Toàn bộ output luôn được ghi vào file log trong var/auto-task/.
 
+Model: script in ra model Codex và Claude thực tế dùng ở mỗi bước.
+Chọn model: -CodexModel <tên> (truyền cho codex exec -m), -ClaudeModel <tên> (truyền cho claude --model).
+
 Yêu cầu: codex và claude CLI đã đăng nhập; Docker đang chạy; repo sạch.
 Khuyên dùng GitHub CLI để đợi CI:  winget install GitHub.cli ; gh auth login
 Kiểm tra cờ CLI trên máy bạn:  codex exec --help ; claude --help
@@ -34,7 +37,9 @@ param(
   [switch]$SkipImplement,
   [switch]$IgnoreMilestones,
   [ValidateSet('compact', 'full', 'quiet')][string]$Output = 'compact',
-  [switch]$ShowAgentOutput  # giữ cho tương thích: tương đương -Output full
+  [switch]$ShowAgentOutput,  # giữ cho tương thích: tương đương -Output full
+  [string]$CodexModel,       # vd. -CodexModel gpt-6.1-sol (để trống: mặc định của Codex)
+  [string]$ClaudeModel       # vd. -ClaudeModel opus hoặc sonnet (để trống: mặc định của Claude Code)
 )
 if ($ShowAgentOutput) { $Output = 'full' }
 # 'Continue': git/gh ghi tiến trình ra stderr; Windows PowerShell 5.1 coi đó là lỗi nếu đặt 'Stop'.
@@ -107,6 +112,8 @@ function Format-CodexLine([string]$text) {
     '^exec$' { $script:fmt.State = 'exec'; return }
     '^apply patch$' { $script:fmt.State = 'patch'; return }
     '^(user|thinking)$' { $script:fmt.State = 'skip'; return }
+    '^model:\s*(.+)$' { $script:codexModel = $Matches[1]; return }
+    '^reasoning effort:\s*(.+)$' { Show "model: $($script:codexModel) · reasoning: $($Matches[1])" 'Magenta'; return }
     '^tokens used' { $script:fmt.State = 'tokens'; return }
     '^web search:\s*(.+)$' { Show "? tìm: $(Get-Short $Matches[1] 100)" 'DarkGray'; return }
     '^web search:\s*$' { return }
@@ -191,7 +198,8 @@ function Invoke-Codex([string]$prompt) {
   Say "Codex: $prompt"
   for ($attempt = 1; $attempt -le 8; $attempt++) {
     # CLI hiện tại dùng sandbox workspace-write và xét yêu cầu cấp quyền tự động.
-    $prompt | codex exec --approve-for-me -C $root - 2>&1 | Write-ToolOutput -Kind codex
+    $modelArgs = @(); if ($CodexModel) { $modelArgs = @('-m', $CodexModel) }
+    $prompt | codex exec --approve-for-me @modelArgs -C $root - 2>&1 | Write-ToolOutput -Kind codex
     if ($LASTEXITCODE -eq 0) { Say "  Codex xong (chi tiết trong log)." 'DarkGray'; return }
     if (-not (Wait-IfLimited 'Codex')) { break }
     Say "Codex: chạy lại sau khi hết chờ: $prompt"
@@ -202,9 +210,25 @@ function Invoke-Codex([string]$prompt) {
 function Invoke-ClaudeReview([string]$task) {
   Say "Claude Code: Review $task"
   for ($attempt = 1; $attempt -le 8; $attempt++) {
-    claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
-      --allowedTools "Read,Grep,Glob,Write,Bash" 2>&1 | Write-ToolOutput -Kind claude
-    if ($LASTEXITCODE -eq 0) { break }
+    $modelArgs = @(); if ($ClaudeModel) { $modelArgs = @('--model', $ClaudeModel) }
+    # JSON để biết model thực tế; phần "result" (báo cáo review) vẫn được hiển thị và ghi log như văn bản.
+    $raw = claude -p "Review $task following tasks/_review.md exactly." --permission-mode acceptEdits `
+      --allowedTools "Read,Grep,Glob,Write,Bash" --output-format json @modelArgs 2>&1
+    $code = $LASTEXITCODE
+    $text = ($raw | ForEach-Object { "$_" }) -join "`n"
+    $parsed = $null
+    try { $parsed = $text.Substring([math]::Max(0, $text.IndexOf('{'))) | ConvertFrom-Json } catch { $parsed = $null }
+    if ($parsed -and $parsed.PSObject.Properties['result']) {
+      ("$($parsed.result)" -split "`r?`n") | Write-ToolOutput -Kind claude
+      $models = @()
+      if ($parsed.PSObject.Properties['modelUsage'] -and $parsed.modelUsage) { $models = @($parsed.modelUsage.PSObject.Properties.Name) }
+      $cost = if ($parsed.PSObject.Properties['total_cost_usd']) { ' · ~$' + [math]::Round([double]$parsed.total_cost_usd, 2) } else { '' }
+      if ($models) { Say "  Claude model: $($models -join ', ')$cost" 'Magenta' }
+    } else {
+      ($text -split "`r?`n") | Write-ToolOutput -Kind claude
+    }
+    $LASTEXITCODE = $code
+    if ($code -eq 0) { break }
     if (-not (Wait-IfLimited 'Claude Code')) { throw "Claude Code lỗi (exit $LASTEXITCODE). Xem $log" }
     if ($attempt -eq 8) { throw "Claude Code vẫn hết hạn mức sau nhiều lần chờ. Xem $log" }
     Say "Claude Code: review lại $task sau khi hết chờ"
