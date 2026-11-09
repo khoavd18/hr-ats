@@ -167,15 +167,21 @@ function Wait-IfLimited([string]$who) {
   $tail = ($script:recent -join "`n")
   if ($tail -notmatch '(?i)(hit your .{0,30}limit|usage limit|rate.?limit|limit reached|quota exceeded)') { return $false }
   $wait = 15
-  if ($tail -match '(?i)resets?\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*[ap]\.?m)') {
+  $now = Get-Date
+  $inv = [Globalization.CultureInfo]::InvariantCulture
+  if ($tail -match '(?i)try again (?:at|after)\s+([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4},?\s+\d{1,2}:\d{2}\s*[AP]M)') {
+    # Codex: "try again at Nov 9th, 2026 1:09 AM"
+    $raw = ($Matches[1] -replace '(?i)(\d)(st|nd|rd|th)', '$1') -replace ',', '' -replace '\s+', ' '
+    try { $wait = [math]::Ceiling(([datetime]::Parse($raw, $inv) - $now).TotalMinutes) + 2 } catch { $wait = 15 }
+  } elseif ($tail -match '(?i)resets?\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*[ap]\.?m)') {
+    # Claude Code: "resets 7:40pm (Asia/Saigon)"
     try {
-      $at = [datetime]::Parse(($Matches[1] -replace '\.', '').ToUpper(), [Globalization.CultureInfo]::InvariantCulture)
-      $now = Get-Date
+      $at = $now.Date + [datetime]::Parse(($Matches[1] -replace '\.', '').ToUpper(), $inv).TimeOfDay
       if ($at -lt $now) { $at = if (($now - $at).TotalHours -lt 12) { $now } else { $at.AddDays(1) } }
       $wait = [math]::Ceiling(($at - $now).TotalMinutes) + 2
     } catch { $wait = 15 }
   }
-  $wait = [math]::Max(2, [math]::Min($wait, 6 * 60))
+  $wait = [math]::Max(2, [math]::Min($wait, 8 * 60))
   Say "$who hết hạn mức sử dụng. Chờ $wait phút (đến khoảng $((Get-Date).AddMinutes($wait).ToString('HH:mm'))) rồi chạy lại. Có thể để máy chạy, đừng tắt cửa sổ." 'Yellow'
   Start-Sleep -Seconds ($wait * 60)
   return $true
