@@ -102,7 +102,8 @@ def test_interviews_stage_history_results_and_ics_round_trip(
     assert calendar_response.content == client.get(f"/api/v1/interviews/{row['id']}/ics").content
     detail = client.get(f"/api/v1/applications/{records.application.id}").json()
     assert len(detail["interviews"]) == 2
-    assert detail["interviews"][0]["feedback"] == "Phản hồi giả"
+    updated_interview = next(item for item in detail["interviews"] if item["id"] == row["id"])
+    assert updated_interview["feedback"] == "Phản hồi giả"
     assert detail["offers"] == [] and detail["placement"] is None
     for activity in db_session.scalars(select(Activity)):
         assert "feedback" not in activity.payload and "interviewers" not in activity.payload

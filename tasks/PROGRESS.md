@@ -22,11 +22,38 @@
 | T18 | done | 2026-11-09 | VERIFIED: seed dev idempotent chạy pipeline thật/FakeLLM, README Demo nhanh, M1 smoke với Celery/Redis thật và 6 E2E pass. Backend 908 pass/12 skip OCR sẵn có, frontend 86 pass; lint/typecheck/build sạch. M1 hoàn thành về chức năng; chờ review, CI và merge. |
 | T19 | done | 2026-11-09 | VERIFIED: service move/undo nguyên tử, API pipeline tám cột và nhãn config; đủ 64 cặp stage, biên 24 giờ và quyền undo. Backend 1023 pass/12 skip OCR sẵn có, nhóm pipeline/core_data/system 184 pass; Ruff/mypy/migration sạch. Chờ Review T19, CI và merge. |
 | T20 | done | 2026-11-09 | VERIFIED: Kanban dnd-kit chuột/bàn phím, cập nhật lạc quan/rollback, lý do từ chối, toast undo, drawer và email slot. Frontend 101 test và 7 E2E pass; lint/typecheck/build sạch. Chờ Review T20, CI và merge; sandbox chặn ghi .git nên thay đổi còn trong working tree. |
-| T21 | review | 2026-11-09 | VERIFIED: model/migration/API/drawer cho phỏng vấn, offer và placement; transaction chung pipeline, ICS giờ Việt Nam, UNIQUE/concurrency. Backend 1052 pass/12 skip OCR cũ, frontend 106 pass, 8 E2E pass; lint/typecheck/build/migration sạch. Chờ Review T21, CI và merge; sandbox chỉ đọc .git nên runner cần commit. |
+| T21 | review | 2026-11-09 | VERIFIED: Fix round 1 sửa F1, kiểm feedback theo interview ID thay vì vị trí theo UUID. Test F1 10/10 pass; toàn bộ backend 1052 pass/12 skip OCR cũ; Ruff/mypy sạch. Xem tasks/reviews/T21.md và nhật ký; chờ review lại, CI và merge. |
 | T22–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T21 · 2026-11-09 · fix round 1 · review
+
+VERIFIED: làm theo `tasks/_fix.md` trên nhánh
+`task/T21-interviews-offers-placements`; review có duy nhất F1 (BLOCKER).
+Tái hiện assertion feedback lỗi do hai interview trùng scheduled_at nhưng ID
+ngẫu nhiên quyết định thứ tự. Sửa `backend/tests/api/test_recruitment.py` để tìm
+interview vừa PATCH theo ID trước khi kiểm feedback; giữ cả hai lịch trùng giờ
+và toàn bộ assertion stage/history/ICS/quyền riêng tư/không gửi thư.
+
+- VERIFIED: test nghiệm thu chạy riêng trước sửa có 2 pass rồi 1 fail tại
+  assertion cũ; sau sửa chạy 10 lần độc lập liên tiếp đều pass.
+- VERIFIED: `uv run ruff check .`, `uv run ruff format --check .` (143 file)
+  và `uv run mypy app` (85 file) đều pass.
+- VERIFIED: `uv run pytest` **1052 passed, 12 skipped, 1 warning / 1064 collected**
+  trong 251,28 giây; gồm 29 recruitment, 115 pipeline và 7 migration test.
+  Chỉ 12 test OCR T08 skip vì thiếu Tesseract theo ngoại lệ cũ; cảnh báo
+  Starlette/httpx có sẵn. Không thêm skip, xoá test hoặc nới tiêu chí.
+- VERIFIED: cache uv chuyển vào `var/uv-cache`, bật `UV_OFFLINE=1`. Lượt full
+  đầu dừng vì sandbox chặn khoá thư mục tạm pytest; chẩn đoán xác nhận lỗi
+  setup này. Chạy lại lệnh chuẩn với quyền được duyệt đã pass toàn bộ.
+- NOT TESTED: frontend/E2E không chạy lại vì chỉ sửa assertion backend và hồ sơ task.
+- VERIFIED: không đổi runtime, API, schema hoặc frontend; trạng thái giữ review
+  đến khi được duyệt và merge. Chi tiết finding ở `tasks/reviews/T21.md`.
+- VERIFIED: `git diff --check` pass. `git add` trước commit bị chặn
+  `.git/index.lock` (Permission denied); theo ngoại lệ `_fix.md`, giữ thay đổi
+  trong working tree trên nhánh T21, runner cần commit `T21: fix review findings`.
 
 ## T21 · 2026-11-09 · review
 
