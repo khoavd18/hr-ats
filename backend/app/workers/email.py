@@ -61,16 +61,23 @@ def send_email_message(
                 raise AppError("FORBIDDEN", "Tài khoản đã ngừng dùng.", 403)
             template = session.get(EmailTemplate, row.template_id) if row.template_id else None
             from app.email.inbound import receipt_candidate
+            from app.reports.scheduled import MANAGERS, report_kind
             from app.workers.reminders import is_reminder, reminder_html
 
             # Intake receipts use a CV's UUID as their record UUID. Human drafts
             # always have independent UUIDs and still require the T23 send action.
             intake_receipt = session.get(CvFile, row.id) is not None
             task_reminder = is_reminder(row)
+            scheduled_report = report_kind(row) is not None
             application = None
             candidate_id = None
             job_id = None
-            if task_reminder:
+            if scheduled_report:
+                if actor.role not in MANAGERS or row.to_email != actor.email:
+                    raise AppError("FORBIDDEN", "Không còn quyền nhận báo cáo.", 403)
+                # Keep the original period/snapshot through retries, including
+                # a retry after midnight or a Monday week boundary.
+            elif task_reminder:
                 if row.to_email != actor.email:
                     raise AppError("FORBIDDEN", "Người nhận đã thay đổi.", 403)
                 row.body_html = reminder_html(session, actor, now)
@@ -138,7 +145,9 @@ def send_email_message(
                 log_activity(
                     session,
                     type=ActivityType.email_sent,
-                    actor_id=None if intake_receipt or task_reminder else actor.id,
+                    actor_id=None
+                    if intake_receipt or task_reminder or scheduled_report
+                    else actor.id,
                     job_id=job_id,
                     application_id=application.id if application else row.application_id,
                     candidate_id=candidate_id,

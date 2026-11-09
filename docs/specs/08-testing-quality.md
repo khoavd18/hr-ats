@@ -415,6 +415,26 @@ cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên 
 7. Nếu thay đổi hợp đồng (API, schema, KPI) thì cập nhật spec tương ứng trong cùng commit.
 8. Cuối task, ghi tóm tắt vào `tasks/PROGRESS.md`: task id, việc đã làm, file chính, lệnh test đã chạy và kết quả, việc còn lại / câu hỏi.
 
+## Kiểm thử T28
+
+`tests/api/test_scheduled_reports.py` chạy PostgreSQL thật, dùng lại fixture
+tính tay hoàn toàn giả T26 và SMTP bộ nhớ. Kiểm HTML ngày khớp queries/grouped
+rows, tuần có hai kỳ/đồng thuận AI/top 5 Job cùng điều kiện KPI, escape tên,
+draft, null/zero, không có tên/liên hệ ứng viên. Kiểm biên nửa đêm Việt Nam,
+thứ Hai, đổi năm và năm nhuận; test Beat `is_due` với clock UTC ở trước/đúng
+18:00 hằng ngày và 08:30 thứ Hai, queue default và đăng ký worker.
+
+Producer/worker test kiểm admin/lead active, không recruiter/inactive,
+role/email đổi trước gửi, marker sai, replay, publish recovery, rate limit
+chung và SMTP retry giữ snapshot/checkpoint qua ngày/tuần. Trên DB tạm đã
+migrate, hai producer đồng thời chỉ tạo một thư/người/kỳ; observer kết nối
+độc lập chứng minh commit trước publish và args chỉ metadata. Hai subprocess
+chạy đúng `uv run python -m app.scripts.send_report --daily|--weekly --dry-run`
+với `--output` vào thư mục tạm: HTML UTF-8, không ghi DB hay gửi SMTP. Kiểm
+input sai, thiếu manager, lỗi an toàn và không ghi đè file. Mọi dữ liệu giả,
+không mạng ngoài hoặc provider thật. Chạy `uv run pytest`, Ruff check/format,
+mypy và `uv run alembic upgrade head` theo lệnh chuẩn; không đổi schema/UI.
+
 ## Kiểm thử T27
 
 `src/components/reports.test.tsx` dùng dữ liệu giả tại boundary API, không gọi

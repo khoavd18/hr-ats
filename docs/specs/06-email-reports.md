@@ -282,3 +282,57 @@ nhiệm bảo toàn thống kê ẩn danh khi thiết kế xoá thật. Không x
 - `generate_daily_report` 18:00 hằng ngày: email cho lead/admin bảng KPI trong ngày theo recruiter.
 - `generate_weekly_report` 8:30 thứ Hai: KPI tuần trước, so với tuần trước nữa, top Job trễ hạn, tỉ lệ đồng thuận AI.
 - Nội dung dạng bảng HTML đơn giản, kèm link mở trang Báo cáo.
+
+### Contract triển khai T28
+
+Beat dùng `Asia/Ho_Chi_Minh`, `enable_utc=true`; hai task tạo báo cáo ở queue
+`default`, thư đi qua `send_email_message` queue `email`. Không phụ thuộc cờ
+IMAP; vận hành đúng một Beat như T25. Không thêm bảng, endpoint hoặc dependency.
+
+ASSUMED (#102–#104): báo cáo ngày dùng `[00:00 hôm nay, 00:00 ngày mai)` giờ
+Việt Nam, đọc dữ liệu hiện có lúc lập (18:00 khi chạy lịch), ghi rõ thời điểm
+trong thư. Phỏng vấn còn lịch trong ngày vẫn được tính và tách đã đến giờ/sắp
+tới như T26. Báo cáo tuần dùng thứ Hai 00:00 đến thứ Hai kế tiếp 00:00 của tuần
+vừa kết thúc, kể cả khi chạy CLI giữa tuần; so sánh số liệu hai tuần liền kề
+bằng hai cột, không tự đặt mục tiêu hoặc ngưỡng tăng giảm.
+
+`app/reports/scheduled.py` gọi `queries.prepare/collect` và
+`service.recruiter_rows`, giữ định nghĩa `draft`, null/zero, mẫu số, phí thiếu,
+flow có thể >100% và attribution T26. Bảng tổng hợp bao đủ 13 nhóm KPI; bảng
+recruiter là các số chính (CV/sàng lọc/gửi/phỏng vấn/offer/nhận việc, thời gian
+tuyển trung vị, Job trễ hạn, phí đã biết, đồng thuận AI), có hàng chưa gán.
+Job trễ hạn là snapshot hiện tại, không so với trạng thái lịch sử tuần trước.
+Tuần liệt kê tối đa 5 Job từ đúng population của KPI, deadline tăng dần rồi
+UUID để ổn định thứ tự. Không đọc nội dung CV hoặc thông tin ứng viên.
+Tên recruiter/Job và URL đều escape HTML; MIME có text dễ đọc và HTML.
+Link là `FRONTEND_ORIGIN/reports` (không có token, vẫn cần đăng nhập).
+
+Chỉ user active có role lead/admin được tạo thư. Mỗi người một EmailMessage
+cho mỗi loại/kỳ, UUID tất định theo user/loại/ngày bắt đầu (biểu diễn version 4
+như T25), Message-ID riêng; application_id/template_id null. Producer giữ
+advisory lock, commit toàn bộ thư trước publish và chỉ đưa ID/checkpoint vào
+Celery. Chạy lại cùng kỳ phục hồi queued, không sửa snapshot hoặc gửi lại sent,
+cancelled, deleted; failed tiếp tục cơ chế retry T23, không tự tạo lượt gửi mới.
+Worker kiểm marker đầy đủ, user active, role lead/admin và email hiện tại ngay
+trước SMTP; đổi role/email thì failed, không gửi. API nháp của ứng viên không
+nhận ID/created_at/Message-ID nên không thể tạo marker báo cáo. Luồng xác nhận
+offer/từ chối giữ nguyên. Activity email_sent actor=null, payload chỉ ID thư.
+Rate limit/retry/checkpoint và giới hạn exactly-once SMTP theo T23; retry qua
+nửa đêm hoặc qua thứ Hai giữ nguyên kỳ/nội dung đã lập. Publish lỗi giữ queued;
+chạy lại producer trong cùng ngày/tuần hiện tại để phục hồi như nhắc việc T25.
+
+CLI tại `backend/`:
+
+```powershell
+uv run python -m app.scripts.send_report --daily --dry-run
+uv run python -m app.scripts.send_report --weekly --dry-run
+```
+
+Dry-run chỉ đọc DB, chọn một lead/admin active để dựng cùng báo cáo team,
+ghi HTML UTF-8 vào `var/reports/bao-cao-<loại>-<ngày>-<mã>.html` (gitignored),
+in đường dẫn, không tạo EmailMessage/activity hoặc publish/gọi SMTP. Có thể
+truyền `--output <file-mới>`; không ghi đè tệp có sẵn. Không có người nhận hợp
+lệ → `NO_REPORT_RECIPIENTS`, exit 1. Chọn đúng một `--daily`/`--weekly`;
+bỏ `--dry-run` thì đưa thư vào hàng đợi theo producer tương ứng, trả số message
+publish thành công (0 cũng có thể do đã gửi hoặc broker lỗi, queued vẫn giữ).
+Lỗi CLI chỉ có mã cố định, không in địa chỉ/nội dung báo cáo/connection string.
