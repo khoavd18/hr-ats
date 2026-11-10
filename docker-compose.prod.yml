@@ -1,0 +1,176 @@
+# Production Docker Compose – hr-ats
+# Dùng: docker compose -f docker-compose.prod.yml up -d
+# Yêu cầu: file .env.prod (copy từ .env.example và điền giá trị thật)
+#
+# Services:
+#   db       – PostgreSQL 16 + pgvector
+#   redis    – Redis 7
+#   api      – FastAPI (uvicorn, 2 workers)
+#   worker   – Celery worker (queue ai,email,default)
+#   beat     – Celery beat (lịch định kỳ)
+#   web      – Next.js 15 (standalone)
+#   caddy    – Reverse proxy + HTTPS tự động (Let's Encrypt hoặc nội bộ)
+
+x-backend-common: &backend-common
+  image: hr-ats-backend:${APP_VERSION:-latest}
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  env_file: .env.prod
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+  networks:
+    - internal
+
+services:
+  # ── Database ────────────────────────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    env_file: .env.prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD phải được đặt trong .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:-hr_ats}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./scripts/backup:/backup
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hr} -d ${POSTGRES_DB:-hr_ats}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ── API ─────────────────────────────────────────────────────────────────────
+  api:
+    <<: *backend-common
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --workers
+      - "2"
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - "*"
+    volumes:
+      - storage_data:/app/var/storage
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  # ── Celery worker ───────────────────────────────────────────────────────────
+  worker:
+    <<: *backend-common
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app
+      - worker
+      - -Q
+      - ai,email,default
+      - --concurrency
+      - "4"
+      - --loglevel
+      - info
+    volumes:
+      - storage_data:/app/var/storage
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.workers.celery_app", "inspect", "ping", "-d",
+             "celery@$$HOSTNAME", "--timeout", "5"]
+      interval: 60s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+
+  # ── Celery beat ─────────────────────────────────────────────────────────────
+  beat:
+    <<: *backend-common
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app
+      - beat
+      - --loglevel
+      - info
+      - --scheduler
+      - celery.schedulers:PersistentScheduler
+
+  # ── Frontend (Next.js standalone) ───────────────────────────────────────────
+  web:
+    image: hr-ats-frontend:${APP_VERSION:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_OUTPUT=standalone
+    env_file: .env.prod
+    environment:
+      NEXT_OUTPUT: standalone
+      # API URL phải khớp với đường dẫn Caddy proxy
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ── Caddy (reverse proxy + HTTPS) ───────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3 (QUIC)
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    networks:
+      - internal
+    depends_on:
+      - api
+      - web
+
+volumes:
+  db_data:
+  redis_data:
+  storage_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
+    driver: bridge

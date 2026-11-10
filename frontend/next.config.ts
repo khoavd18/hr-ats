@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   poweredByHeader: false,
+  // Standalone output cho Docker deployment (copy minimal files)
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   async headers() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
     let apiOrigin = "";

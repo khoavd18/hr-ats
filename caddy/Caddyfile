@@ -1,0 +1,52 @@
+# Caddyfile – hr-ats production reverse proxy
+#
+# Thay {$DOMAIN} bằng domain thật trong .env.prod: DOMAIN=ats.example.com
+# Caddy tự cấp và gia hạn chứng chỉ Let's Encrypt.
+# Với mạng nội bộ không có domain public, dùng: tls internal
+#
+# Biến môi trường đọc từ .env.prod qua Docker Compose (env_file).
+
+{$DOMAIN:localhost} {
+    # TLS tự động (Let's Encrypt nếu có domain public, nội bộ nếu dùng localhost)
+    # Để dùng nội bộ: thêm biến CADDY_TLS=internal vào .env.prod và bỏ comment dòng dưới
+    # tls internal
+
+    # Giới hạn kích thước request (upload CV tối đa 20 MB)
+    request_body {
+        max_size 20MB
+    }
+
+    # Header bảo mật chung
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Frame-Options DENY
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        -Server
+    }
+
+    # API backend (FastAPI)
+    handle /api/* {
+        reverse_proxy api:8000 {
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # Health check endpoint (không log)
+    handle /health {
+        reverse_proxy api:8000
+        log_skip
+    }
+
+    # Frontend (Next.js)
+    handle {
+        reverse_proxy web:3000 {
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # Gzip compression
+    encode gzip
+}
