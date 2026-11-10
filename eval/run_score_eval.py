@@ -350,8 +350,8 @@ def main(argv: list[str] | None = None) -> None:
     print("=== Kết quả đánh giá chấm điểm ===")
     print(f"  Tổng mẫu: {len(results)}, ok: {len(ok)}, lỗi: {len(results) - len(ok)}")
     if ok and all(r.get("expected_level", "unknown") != "unknown" for r in ok):
-        all_true = [r["expected_level"] for r in ok]
-        all_pred = [r["ai_level"] for r in ok]
+        all_true = [str(r["expected_level"]) for r in ok]
+        all_pred = [str(r["ai_level"]) for r in ok]
         print(f"  precision@10: {_precision_at_k(ok, 10):.1%}")
         print(f"  Cohen's kappa: {_kappa(all_true, all_pred, LEVEL_ORDER):.3f}")
     print(f"\nBáo cáo: {report}")
