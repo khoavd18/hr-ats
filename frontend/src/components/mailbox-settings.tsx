@@ -13,6 +13,7 @@ type MailboxStatus = {
   last_error:
     | "IMAP_NOT_CONFIGURED"
     | "IMAP_READ_FAILED"
+    | "IMAP_SIZE_READ_FAILED"
     | "IMAP_MESSAGE_TOO_LARGE"
     | "IMAP_STATUS_UNAVAILABLE"
     | null;

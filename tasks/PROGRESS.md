@@ -31,10 +31,103 @@
 | T27 | done | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
 | T28 | done | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
 | T29 | done | 2026-11-10 | VERIFIED: merged sau Fix round 4 (F1 CV trong hàng đợi trước lúc xoá không tạo lại người đã xoá, marker HMAC erased_contacts + migration 0010; F2 khoá lại actor FOR NO KEY UPDATE, hết deadlock 40P01). Backend 1352 pass (1 test byte .docx chỉ lệch ở môi trường cloud, cũng lệch trên main; CI pass); ruff/format/mypy/alembic sạch; CI backend+frontend xanh. Pháp chế cần xác nhận marker HMAC ngắn hạn (câu hỏi #110). |
-| T30–T33 | todo | | |
+| T30 | done | 2026-11-10 | VERIFIED: merged sau Fix round 1 (F1 URL API tương đối/CSP, F2 tách dữ liệu E2E). Giới hạn login/upload bằng Redis, chặn kích thước upload, header bảo mật web/API, ma trận quyền, kiểm log không PII, Pillow 13. Backend 2002 pass, frontend 172 pass, CI xanh. Xem tasks/reviews/T30.md và docs/security/review-2026-11-10.md. |
+| T31–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T30 · 2026-11-10 · review · Fix round 1
+
+- VERIFIED: theo `tasks/_fix.md`, giữ nhánh `task/T30-security-hardening`.
+  F1: hỗ trợ lại API `/api/v1` qua CSP `connect-src 'self'`; vẫn kiểm giao thức
+  HTTP(S)/credentials với URL tuyệt đối. Ba regression URL tương đối fail trước
+  sửa, toàn bộ 11 test CSP pass sau sửa; bộ nạp production config Next cũng pass.
+- VERIFIED: F2 khôi phục đơn vị tuyển riêng và ID trả về trong E2E T25; file này
+  khớp `main`, không đổi assertion báo cáo. SQL chỉ đọc sau E2E xác nhận đơn vị
+  báo cáo có 2 CV/0 CV từ T25, đơn vị T25 có 1 CV và ID riêng.
+- VERIFIED: `npm.cmd test` (VITEST_MAX_WORKERS=2) **172 passed**;
+  `npm.cmd run lint`, `npm.cmd run typecheck`, `npm.cmd run build` pass;
+  `npx.cmd playwright test --workers=2` **15 passed** với API thật, production
+  web, fake AI và Mailpit local. `git diff --check` pass.
+- VERIFIED: fixture chạy migration trên DB tạm; đã dừng API/web và dọn đúng
+  DB/storage của lượt chạy. Không thay đổi backend/schema/dependency, không
+  chạy lại bộ backend trong vòng sửa này. NOT TESTED: proxy/TLS production.
+- Xem `tasks/reviews/T30.md`, mục `Fix round 1`, để biết lệnh và bằng chứng.
+  Giữ `review`; chờ review độc lập, CI và merge trước khi chuyển `done`.
+- VERIFIED: `git add` để commit `T30: fix review findings` bị sandbox chặn
+  `.git/index.lock` (Permission denied). Theo ngoại lệ `tasks/_fix.md`, giữ
+  thay đổi trong working tree trên task branch cho runner commit.
+
+## T30 · 2026-11-10 · review
+
+VERIFIED: theo `tasks/_implement.md`; T29 done, nhánh
+`task/T30-security-hardening`, baseline `ae63ab2`. Áp dụng secure-code-review,
+backend-api-engineer, software-testing và frontend-engineer. Chỉ T30; không đổi
+schema, stack hoặc KPI. Giữ các file runtime có sẵn trong backend/var và thêm
+gitignore; không xoá dữ liệu hay volume.
+
+- VERIFIED: inventory spec 07 gồm 78 ca × 8 trạng thái (624 kiểm tra) và một
+  test đối chiếu OpenAPI; dùng JWT/CSRF, membership và PostgreSQL thật. Bao
+  owner/member/ngoài scope/thu hồi/inactive/anonymous, dữ liệu trả về có scope,
+  kiểm tác dụng phụ cụ thể và queue khi bị từ chối.
+- VERIFIED: pipeline HTTP upload → extract/parse → ẩn danh → embedding/score →
+  đọc/download chạy với fake providers; log qua formatter/filter production
+  không có tên/email/SĐT mẫu, prompt scoring và embedding chỉ có nội dung ẩn danh.
+- VERIFIED: CSP/nosniff/no-referrer trên API/web gồm lỗi/preflight; Lua Redis
+  nguyên tử với key HMAC/TTL, login 30 và upload 20 mỗi phút, 429/Retry-After,
+  Redis lỗi trả 503. Multipart giới hạn luồng 501 MiB, header part 16 KiB và
+  spool mỗi file 10 MiB+1 byte; giữ lỗi từng file, thêm 413 có thông báo Việt.
+- VERIFIED: sửa hai ghi chú T24: IMAP_SIZE_READ_FAILED riêng; recovery lọc
+  thiếu email/hồ sơ không eligible, kiểm >100 bản ghi và HR bổ sung email sau đó.
+- VERIFIED: báo cáo `docs/security/review-2026-11-10.md` ghi hai finding High đã
+  xử lý (upload không có giới hạn trước spool và Pillow PNG EXIF). Nâng riêng
+  Pillow 13.0.0; audit runtime 61 package và npm đều không còn advisory đã biết.
+  Không thêm thư viện runtime; review độc lập vẫn chờ phiên riêng.
+
+### Tiêu chí nghiệm thu
+
+| Tiêu chí | Kết quả | Bằng chứng |
+|---|---|---|
+| Bộ test quyền pass | VERIFIED: đạt | 625 ca trong `test_permission_matrix.py`, gồm inventory; nằm trong full suite. |
+| Không còn finding mức cao chưa xử lý | VERIFIED: đạt trong phạm vi tự review | Báo cáo bảo mật H1/H2 FIXED, regression upload/extraction và dependency audit sau sửa. |
+
+### Kiểm chứng
+
+| Lệnh | Kết quả |
+|---|---|
+| `uv run pytest` | 1991 passed, 12 skipped, 1 warning; 1291.95s. Skip T08 do thiếu Tesseract; exit 0. |
+| Focused matrix/log/rate | 633 passed. |
+| Bài đánh giá T12 + HTTP hardening + rate limit | 16 passed sau khi đặt quota riêng cho bài tải 50 CV. |
+| `uv run ruff check .`, `uv run ruff format --check .` | Pass; 203 file đúng format. |
+| `uv run mypy app`, `uv run alembic upgrade head` | Pass; mypy 122 source file; không có migration mới. |
+| `npm test` | 163 passed. |
+| `npm run lint`, `npm run typecheck`, `npm run build` | Pass. |
+| `npx playwright test --workers=2` | 15 passed với API thật, web production, chỉ localhost; gồm header/CSP và các workflow cũ. |
+| `uvx pip-audit --no-deps --disable-pip -r ../var/t30-requirements.txt`, `npm audit --json` | Exit 0 sau nâng Pillow; không có lỗ hổng đã biết trong phạm vi audit. |
+
+VERIFIED: lượt full đầu phát hiện bài T12 tải 50 CV nhận 429 với mặc định mới
+20/phút. Chỉ bài đánh giá đó dùng cấu hình quota 50, vẫn chạy Redis limiter thật;
+không sửa ngưỡng chấm điểm, không bỏ test hoặc tắt kiểm soát. Lượt cuối ghi trong
+bảng trên. Log kiểm chứng ở var/ (gitignored).
+
+VERIFIED: PostgreSQL/Redis/Mailpit local qua Docker Desktop; Windows giữ cổng
+5432/1025 nên dùng Compose override gitignored ở var/t30-compose.yml, cổng DB
+15432 và SMTP 11025, giữ volume. UV_CACHE_DIR dùng var/uv-cache. Các fixture DB
+và provider giả giữ nguyên nguyên tắc không gọi mạng ngoài. Các server browser
+fixture/web đã dừng sau E2E; không dừng DB/Redis dùng chung.
+
+ASSUMED: mặc định hạn mức/CSP và giới hạn multipart ghi câu hỏi #111–#113; nâng
+Pillow theo advisory ghi #114. NOT TESTED: OCR thật trên Windows thiếu Tesseract
+(12 skip T08 có sẵn), production proxy/TLS/tải lớn/provider thật; CI Linux cần
+kiểm OCR. CSP cơ bản còn unsafe-inline; proxy chỉ tin nguồn cấu hình rõ ràng.
+Không coi tự review này là chứng nhận an toàn production.
+
+VERIFIED: đã thử stage để commit
+`T30: harden permissions, uploads, rate limits and security headers`, nhưng
+sandbox từ chối `.git/index.lock` (Permission denied). Theo ngoại lệ workflow,
+giữ mọi thay đổi trên task branch để runner commit; chưa commit/merge/push.
+Chờ Review T30 độc lập, CI và merge; chỉ sau đó mới chuyển `done`.
 
 ## T29 · 2026-11-10 · review · Fix round 1
 

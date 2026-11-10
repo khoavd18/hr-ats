@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     smtp_from: str = "Tuyển dụng <tuyendung@example.com>"
     smtp_tls: bool = False
     email_rate_limit_per_hour: int = Field(default=200, ge=1)
+    login_rate_limit_per_minute: int = Field(default=30, ge=1, le=10000)
+    upload_rate_limit_per_minute: int = Field(default=20, ge=1, le=10000)
     imap_enabled: bool = False
     imap_host: str = ""
     imap_user: str = ""

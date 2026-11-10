@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 
 from app.ai.llm import FakeLLM
 from app.api.cv_files import storage_dependency
-from app.core.config import REPO_ROOT
+from app.core.config import REPO_ROOT, get_settings
 from app.core.security import hash_password
 from app.models import Activity, Application, Candidate, CvFile, HiringUnit, Job, JobMember, User
 from app.models.enums import ActivityType, ApplicationStage, HiringUnitKind, ProcessingStatus
@@ -377,9 +377,13 @@ def test_worker_ignores_invalid_or_missing_ids(task, runtime):
 
 
 def test_fake_llm_end_to_end_sample_jobs_matches_at_least_seventy_percent(
-    client, account, db_session, runtime, caplog, record_property
+    app, client, account, db_session, runtime, caplog, record_property
 ):
     """Count the ten scan-only CVs against the denominator, without requiring OCR here."""
+    # This evaluation uploads 50 digital CVs. Keep the limiter active with an explicit
+    # budget for this test; production defaults and scoring assertions remain unchanged.
+    settings = get_settings().model_copy(update={"upload_rate_limit_per_minute": 50})
+    app.dependency_overrides[get_settings] = lambda: settings
     caplog.set_level(logging.WARNING)
     sign_in(client)
     fixture = json.loads((SAMPLES / "jobs.json").read_text(encoding="utf-8"))

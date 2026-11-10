@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 
 from app.api.dependencies import CSRF, DB, Config, CurrentUser
+from app.api.rate_limits import limit_login
 from app.core import security
 from app.core.errors import AppError
 from app.models.users import User
@@ -67,7 +68,7 @@ def csrf_token(request: Request, response: Response, settings: Config) -> None:
     set_csrf(response, token, settings)
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post("/login", response_model=UserResponse, dependencies=[Depends(limit_login)])
 def login(data: LoginInput, response: Response, session: DB, settings: Config, csrf: CSRF) -> User:
     user, version = auth.login(session, data.email, data.password.get_secret_value())
     set_session(response, user, settings, auth_version=version)

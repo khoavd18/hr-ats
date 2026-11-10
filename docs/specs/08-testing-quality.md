@@ -415,6 +415,41 @@ cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên 
 7. Nếu thay đổi hợp đồng (API, schema, KPI) thì cập nhật spec tương ứng trong cùng commit.
 8. Cuối task, ghi tóm tắt vào `tasks/PROGRESS.md`: task id, việc đã làm, file chính, lệnh test đã chạy và kết quả, việc còn lại / câu hỏi.
 
+## Kiểm thử T30
+
+`tests/api/test_permission_matrix.py` là inventory độc lập spec 07: 78 ca × 8
+trạng thái admin/lead/recruiter owner/member/ngoài scope/thu hồi member/inactive/
+anonymous. Dữ liệu và membership thật trong PostgreSQL, JWT/CSRF thật; mock chỉ
+biên publish Celery. Bao mọi business endpoint với request hợp lệ để kiểm quyền
+thực, không coi 422 là bằng chứng bị từ chối. Khi 401/403, kiểm số bản ghi ở tám
+model, tên Candidate/title và owner Job không đổi, không publish queue. Kiểm
+scope danh sách và báo cáo của mình, DTO kho CV không có liên hệ/CV gốc. Một test
+đối chiếu OpenAPI bắt endpoint mới chưa có case. Auth/health có bộ test riêng.
+
+`test_pipeline_logging.py` chạy HTTP upload → storage/extract/parse/anonymize/
+embedding/score → đọc/download bằng FakeLLM/FakeEmbedder và eager Celery; ghi qua
+PiiFilter/JsonFormatter thật, kiểm không có tên/email/SĐT mẫu, metadata HTTP/LLM
+có tồn tại; kiểm scoring/embedding chỉ nhận nội dung đã ẩn danh.
+`test_security_hardening.py`, `test_rate_limit.py`, `test_upload_parser.py` kiểm
+header kể cả 500/preflight, hạn mức chia sẻ giữa app/client và cạnh tranh Lua
+trên Redis thật, TTL/reset, HMAC, XFF không đổi hạn mức, fail-closed, upload 413,
+luồng chunked/header giả và dọn spool. Redis mỗi test có prefix UUID hết hạn,
+không FLUSHDB; localhost IPv4 tránh timeout IPv6 ở Docker Desktop.
+Riêng bài đánh giá T12 tải 50 CV số trong một test dùng quota cấu hình 50;
+limiter Redis vẫn chạy, không đổi mặc định production 20 hoặc tiêu chí chấm điểm.
+T24 bổ sung >100 file thiếu email/correction và lỗi RFC822.SIZE riêng.
+
+Chạy `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`,
+`uv run mypy app`, `uv run alembic upgrade head`; migration test cũ vẫn chạy
+upgrade/downgrade/upgrade DB trống, không đổi schema T30. Frontend chạy
+`npm test`, `npm run lint`, `npm run typecheck`, `npm run build` và
+`npx playwright test --workers=2` trên ranking_browser_server + web production.
+Vitest kiểm CSP config/thông báo rate limit/IMAP; `security.spec.ts` kiểm header
+thật và không có vi phạm CSP ở trang đăng nhập, toàn E2E cũ kiểm các workflow.
+Chỉ localhost, CV giả; audit dependency là bước riêng ngoài test, không dùng
+provider/ứng viên thật. Nếu Windows giữ cổng 5432/1025, dùng Compose override
+gitignored ở var/ và DATABASE_URL/SMTP_PORT trỏ cổng local thay thế, giữ volume.
+
 ## Kiểm thử T29
 
 `tests/api/test_privacy.py` dùng fixture tính tay T26, PostgreSQL và LocalStorage

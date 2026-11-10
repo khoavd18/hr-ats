@@ -11,6 +11,7 @@ from email.parser import BytesParser
 from email.utils import make_msgid, parseaddr, parsedate_to_datetime
 from pathlib import PurePosixPath
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 from redis import Redis
@@ -359,10 +360,19 @@ def recover_intake(session: Session, settings: Settings) -> None:
             session.rollback()
     done = list(
         session.scalars(
-            select(CvFile.id).where(
+            select(CvFile.id)
+            .join(Candidate, Candidate.id == CvFile.candidate_id)
+            .where(
                 CvFile.source == CandidateSource.email,
                 CvFile.deleted_at.is_(None),
                 CvFile.status == ProcessingStatus.done,
+                Candidate.email.is_not(None),
+                func.length(func.trim(Candidate.email)) > 0,
+                Candidate.deleted_at.is_(None),
+                Candidate.expired_at.is_(None),
+                Candidate.merged_into_id.is_(None),
+                Candidate.purge_pending_at.is_(None),
+                Candidate.retention_until >= datetime.now(ZoneInfo(settings.tz)).date(),
                 ~select(EmailMessage.id)
                 .where(EmailMessage.id == CvFile.id, EmailMessage.status != EmailStatus.queued)
                 .exists(),
@@ -426,11 +436,10 @@ def poll_inbox() -> None:
                             rb"RFC822.SIZE (\d+)",
                             b" ".join(item for item in size_data if isinstance(item, bytes)),
                         )
-                        if (
-                            result != "OK"
-                            or not size_match
-                            or int(size_match[1]) > MAX_MESSAGE_BYTES
-                        ):
+                        if result != "OK" or not size_match:
+                            error = "IMAP_SIZE_READ_FAILED"
+                            continue
+                        if int(size_match[1]) > MAX_MESSAGE_BYTES:
                             error = "IMAP_MESSAGE_TOO_LARGE"
                             continue
                         result, payload = mailbox.uid("fetch", uid, "(BODY.PEEK[])")

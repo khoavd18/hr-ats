@@ -318,6 +318,77 @@ def test_oversized_message_is_not_downloaded_and_configuration_failure_is_visibl
     runtime.factory.assert_not_called()
 
 
+@pytest.mark.parametrize("size_result", [("NO", []), ("OK", [b"malformed"]), ("OK", [None])])
+def test_size_read_failure_is_distinct_from_message_too_large(runtime, size_result):
+    runtime.messages.append(b"synthetic envelope")
+    original = runtime.box.uid.side_effect
+
+    def uid(operation, *args):
+        if operation == "fetch":
+            assert args[1] == "(RFC822.SIZE)"
+            return size_result
+        return original(operation, *args)
+
+    runtime.box.uid.side_effect = uid
+    inbound.poll_inbox.run()
+    assert runtime.status["error"] == "IMAP_SIZE_READ_FAILED"
+
+
+def test_recovery_excludes_over_100_missing_email_files_and_recovers_later_receipt(
+    runtime,
+    db_session,
+    monkeypatch,
+):
+    from datetime import date
+    from uuid import uuid4
+
+    missing = Candidate(full_name="Ứng viên giả thiếu liên hệ", retention_until=date(2099, 1, 1))
+    ready = Candidate(
+        full_name="Ứng viên giả có liên hệ",
+        email="ready@example.invalid",
+        retention_until=date(2099, 1, 1),
+    )
+    db_session.add_all([missing, ready])
+    db_session.flush()
+    files = [
+        CvFile(
+            candidate_id=missing.id,
+            source=CandidateSource.email,
+            status=ProcessingStatus.done,
+            storage_key=uuid4().hex,
+            original_filename="synthetic.docx",
+            sha256=uuid4().hex,
+            mime_type="application/octet-stream",
+            size_bytes=1,
+        )
+        for _ in range(101)
+    ]
+    eligible = CvFile(
+        candidate_id=ready.id,
+        source=CandidateSource.email,
+        status=ProcessingStatus.done,
+        storage_key=uuid4().hex,
+        original_filename="synthetic.docx",
+        sha256=uuid4().hex,
+        mime_type="application/octet-stream",
+        size_bytes=1,
+    )
+    db_session.add_all([*files, eligible])
+    db_session.commit()
+    queued = []
+    monkeypatch.setattr(
+        inbound, "queue_receipt", lambda session, file_id, settings: queued.append(file_id)
+    )
+    inbound.recover_intake(db_session, runtime.settings)
+    assert queued == [eligible.id]
+    # A later HR correction makes the previously missing addresses eligible again.
+    missing.email = "corrected@example.invalid"
+    db_session.commit()
+    queued.clear()
+    inbound.recover_intake(db_session, runtime.settings)
+    assert set(queued) == {row.id for row in [*files, eligible]}
+
+
 def test_concurrent_intake_and_commit_before_dispatch(empty_engine, tmp_path, monkeypatch):
     with empty_engine.begin() as connection:
         config = migration_config()

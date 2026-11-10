@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { t, type TranslationKey } from "@/i18n/vi";
 import type { CvFile, CvFileStatus, UploadResponse } from "@/lib/ranking-types";
 
@@ -88,10 +88,20 @@ export function CvUpload({ jobId }: { jobId: string }) {
       void client.invalidateQueries({ queryKey: ["cv-file-status"] });
       void client.invalidateQueries({ queryKey: ["job-ranking", jobId] });
     },
-    onError: (_, { added }) =>
+    onError: (error, { added }) =>
       setRows((current) =>
         current.map((row) =>
-          added.some((item) => item.key === row.key) ? { ...row, error: "upload.failed" } : row,
+          added.some((item) => item.key === row.key)
+            ? {
+                ...row,
+                error:
+                  error instanceof ApiError && error.status === 429
+                    ? "api.rateLimit"
+                    : error instanceof ApiError && error.status === 413
+                      ? "upload.batchTooLarge"
+                      : "upload.failed",
+              }
+            : row,
         ),
       ),
   });
