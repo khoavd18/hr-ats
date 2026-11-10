@@ -275,8 +275,13 @@ function Show-Findings([string]$task) {
   $report = Join-Path $root "tasks/reviews/$task.md"
   if (-not (Test-Path $report)) { return }
   $colors = @{ BLOCKER = 'Red'; MAJOR = 'Yellow'; MINOR = 'DarkGray' }
-  foreach ($m in (Select-String -Path $report -Pattern '\[(BLOCKER|MAJOR|MINOR)\]' -Encoding utf8)) {
-    $line = $m.Line.Trim() -replace '^[-*]\s*', ''
+  # Báo cáo được ghi nối tiếp qua nhiều vòng: chỉ in phát hiện của vòng review mới nhất.
+  $lines = @(Get-Content -Path $report -Encoding utf8)
+  $start = 0
+  for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '\*\*Verdict:\*\*') { $start = $i } }
+  foreach ($raw in $lines[$start..($lines.Count - 1)]) {
+    if ($raw -notmatch '\[(BLOCKER|MAJOR|MINOR)\]') { continue }
+    $line = $raw.Trim() -replace '^[-*]\s*', ''
     if ($line -match '^\[(BLOCKER|MAJOR|MINOR)\]\s+F?\d|^\*\*\[(BLOCKER|MAJOR|MINOR)\]') {
       $level = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
       Show "- $(Get-Short $line 150)" $colors[$level]
@@ -287,7 +292,8 @@ function Show-Findings([string]$task) {
 function Get-Verdict([string]$task) {
   $report = Join-Path $root "tasks/reviews/$task.md"
   if (-not (Test-Path $report)) { throw "Không thấy báo cáo $report" }
-  $m = Select-String -Path $report -Pattern '\*\*Verdict:\*\*\s*(APPROVE WITH NITS|APPROVE|CHANGES REQUIRED)' | Select-Object -First 1
+  $m = Select-String -Path $report -Pattern '\*\*Verdict:\*\*\s*(APPROVE WITH NITS|APPROVE|CHANGES REQUIRED)' | Select-Object -Last 1
+  # Nhiều vòng review ghi nối tiếp vào cùng file: verdict mới nhất là dòng cuối.
   if (-not $m) { throw "Báo cáo review $task không có dòng Verdict hợp lệ" }
   return $m.Matches[0].Groups[1].Value
 }
