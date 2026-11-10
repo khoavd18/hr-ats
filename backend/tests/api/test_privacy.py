@@ -600,3 +600,153 @@ def test_retention_beat_is_due_at_two_am_vietnam_time():
     finally:
         application.close()
         celery_app.set_current()
+
+
+def _pending_revision(session, storage, contacts_text):
+    """A CV accepted before deletion; its identity is unknown until parsing."""
+    from app.models import CvFile
+    from app.models.enums import CandidateSource
+
+    file = add(
+        session,
+        CvFile,
+        candidate_id=None,
+        source=CandidateSource.upload,
+        status=ProcessingStatus.pending,
+        storage_key=storage.put(contacts_text.encode(), "application/pdf"),
+        original_filename="ban-sua-gia.pdf",
+        mime_type="application/pdf",
+        size_bytes=len(contacts_text),
+        sha256=uuid4().hex + uuid4().hex,
+    )
+    session.commit()
+    return file
+
+
+def _run_worker(session, storage, monkeypatch, file_id, text_value):
+    from contextlib import contextmanager
+
+    from app.ai.extract import ExtractResult
+    from app.models.enums import ExtractionMethod
+
+    @contextmanager
+    def session_scope():
+        yield session
+
+    monkeypatch.setattr("app.workers.tasks.worker_session", session_scope)
+    monkeypatch.setattr("app.workers.tasks.build_storage", lambda settings: storage)
+    monkeypatch.setattr(
+        "app.workers.tasks.extract_text",
+        lambda data, mime: ExtractResult(text_value, ExtractionMethod.pdf_text, 1),
+    )
+    process_cv_file(str(file_id))
+
+
+REVISION = (
+    "Nguyen Van Gia T29\nEmail: T29-Synthetic@Example.invalid\n"
+    "Kỹ năng: Python, kiểm thử\n" + "Kinh nghiệm phân tích dữ liệu giả. " * 20
+)
+
+
+def test_pending_upload_from_before_deletion_cannot_recreate_erased_person(
+    db_session, account, records, monkeypatch
+):
+    from app.models import CvFile
+
+    candidate, storage, _ = records
+    revision = _pending_revision(db_session, storage, REVISION)
+    request = privacy.create_request(
+        db_session, account, DataRequestInput(candidate_id=candidate.id, requested_by_note=FAKE)
+    )
+    privacy.execute_request(db_session, account, request.id, storage)
+
+    # The earlier Celery delivery runs only after erasure reported done.
+    _run_worker(db_session, storage, monkeypatch, revision.id, REVISION)
+
+    active = db_session.scalars(
+        select(Candidate).where(
+            Candidate.deleted_at.is_(None),
+            func.lower(Candidate.email) == "t29-synthetic@example.invalid",
+        )
+    ).all()
+    assert active == []
+    file = db_session.get_one(CvFile, revision.id, populate_existing=True)
+    assert file.candidate_id is None
+    assert file.status != ProcessingStatus.done
+    assert file.storage_key is None and file.original_filename is None and file.sha256 is None
+    assert file.extracted_text is None and file.parsed_json is None
+    assert not any(path.is_file() for path in (storage.root).rglob("*"))
+
+
+def test_upload_after_deletion_is_a_new_submission(db_session, account, records, monkeypatch):
+    from app.models import CvFile
+
+    candidate, storage, _ = records
+    request = privacy.create_request(
+        db_session, account, DataRequestInput(candidate_id=candidate.id, requested_by_note=FAKE)
+    )
+    privacy.execute_request(db_session, account, request.id, storage)
+    # Same person applies again after erasure: this is new, consented intake.
+    later = _pending_revision(db_session, storage, REVISION)
+    # Tests share one outer transaction, so server now() would predate the
+    # purge; a real upload after the deletion has a later created_at.
+    later.created_at = datetime.now(UTC) + timedelta(seconds=1)
+    db_session.commit()
+    _run_worker(db_session, storage, monkeypatch, later.id, REVISION)
+
+    file = db_session.get_one(CvFile, later.id, populate_existing=True)
+    assert file.status == ProcessingStatus.done
+    assert file.candidate_id is not None and file.candidate_id != candidate.id
+    assert db_session.get_one(Candidate, candidate.id).full_name is None
+
+
+def test_erasure_markers_hold_no_contact_and_are_pruned_after_intake_drains(
+    db_session, account, records, monkeypatch
+):
+    from app.models import ErasedContact
+
+    candidate, storage, _ = records
+    revision = _pending_revision(db_session, storage, REVISION)
+    request = privacy.create_request(
+        db_session, account, DataRequestInput(candidate_id=candidate.id, requested_by_note=FAKE)
+    )
+    privacy.execute_request(db_session, account, request.id, storage)
+    markers = db_session.scalars(select(ErasedContact)).all()
+    assert len(markers) == 2  # one email, one phone
+    stored = " ".join(row.contact_hash for row in markers)
+    assert "example.invalid" not in stored and "84000000029" not in stored
+
+    # Still needed while a CV received before the deletion is queued.
+    privacy.enforce_retention(db_session, storage, now=datetime.now(UTC))
+    assert db_session.scalar(select(func.count()).select_from(ErasedContact)) == 2
+
+    _run_worker(db_session, storage, monkeypatch, revision.id, REVISION)
+    privacy.enforce_retention(db_session, storage, now=datetime.now(UTC))
+    assert db_session.scalar(select(func.count()).select_from(ErasedContact)) == 0
+
+
+def test_storage_failure_on_erased_intake_is_retried_by_daily_job(
+    db_session, account, records, monkeypatch
+):
+    from app.models import CvFile
+
+    candidate, storage, _ = records
+    revision = _pending_revision(db_session, storage, REVISION)
+    request = privacy.create_request(
+        db_session, account, DataRequestInput(candidate_id=candidate.id, requested_by_note=FAKE)
+    )
+    privacy.execute_request(db_session, account, request.id, storage)
+
+    class Broken(LocalStorage):
+        def delete(self, key):
+            raise StorageError()
+
+    _run_worker(db_session, Broken(storage.root), monkeypatch, revision.id, REVISION)
+    file = db_session.get_one(CvFile, revision.id, populate_existing=True)
+    assert file.deleted_at is not None and file.sha256 is None and file.storage_key is not None
+    assert file.extracted_text is None and file.parsed_json is None
+
+    privacy.enforce_retention(db_session, storage, now=datetime.now(UTC))
+    file = db_session.get_one(CvFile, revision.id, populate_existing=True)
+    assert file.storage_key is None
+    assert not any(path.is_file() for path in storage.root.rglob("*"))

@@ -38,6 +38,11 @@ from app.schemas.privacy import (
     RetentionRead,
 )
 from app.services.audit import record_audit
+from app.services.erasure import (
+    prune_erased_contacts,
+    record_erased_contacts,
+    sweep_erased_files,
+)
 from app.storage import Storage, StorageError
 from app.workers.tasks import retention_date
 
@@ -246,16 +251,23 @@ def freeze_candidate(session: Session, candidate_id: UUID, now: datetime) -> Non
     candidate = _candidate(session, candidate_id, lock=True)
     if candidate.merged_into_id:
         raise AppError("NOT_FOUND", "Hồ sơ đã được gộp. Hãy chọn hồ sơ đang sử dụng.", 404)
-    for row in session.scalars(
-        select(Candidate)
-        .where(Candidate.id.in_(_family(session, candidate_id)))
-        .order_by(Candidate.id)
-        .with_for_update()
-    ):
+    family = list(
+        session.scalars(
+            select(Candidate)
+            .where(Candidate.id.in_(_family(session, candidate_id)))
+            .order_by(Candidate.id)
+            .with_for_update()
+        )
+    )
+    first_freeze = [row for row in family if row.purge_pending_at is None]
+    for row in family:
         if row.purge_pending_at is None:
             row.purge_pending_at = now
         if row.deleted_at is None:
             row.deleted_at = now
+    # CVs received before now but not yet parsed cannot be found by candidate
+    # id; keyed contact markers let the worker erase them instead (review F1).
+    record_erased_contacts(session, first_freeze, now)
     # Durable denial of access even if storage is unavailable or the process dies.
     session.commit()
 
@@ -478,7 +490,25 @@ def execute_request(
     now = datetime.now(UTC)
     candidate_id = row.candidate_id
     freeze_candidate(session, candidate_id, now)
-    purge_candidate(session, storage, candidate_id, actor_id=actor.id, now=now)
+    # The freeze commit released the request's User row lock (taken by
+    # authentication). Lock the actor again before the privacy lock so both
+    # phases keep the order User -> privacy lock. Otherwise a concurrent
+    # authenticated request holds the User row while waiting for the privacy
+    # lock, and this purge's audit INSERT waits for that User row: deadlock.
+    # FOR NO KEY UPDATE: blocks other authenticated requests (FOR UPDATE) but
+    # not foreign-key checks, e.g. the reminder producer inserting messages
+    # for this user while holding the reminder lock that purge waits for.
+    current = session.scalar(
+        select(User)
+        .where(User.id == actor.id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if current is None or not current.is_active:
+        session.rollback()
+        raise AppError("UNAUTHORIZED", "Vui lòng đăng nhập lại.", 401)
+    authorize(current, "data_requests.manage")
+    purge_candidate(session, storage, candidate_id, actor_id=current.id, now=now)
     return _request_read(session, session.get_one(DataRequest, request_id, populate_existing=True))
 
 
@@ -519,3 +549,6 @@ def enforce_retention(session: Session, storage: Storage, *, now: datetime | Non
             session.rollback()
             # Retry on the next daily run; one storage failure cannot stop peers.
             continue
+    # Housekeeping for CVs that arrived before a deletion (review F1).
+    sweep_erased_files(session, storage)
+    prune_erased_contacts(session)

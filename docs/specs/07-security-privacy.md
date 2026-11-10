@@ -101,6 +101,22 @@ trước lượt dọn, producer đến sau không lấy task của hồ sơ đ�
 Giữ các fact, stage, verdict, số liệu và thời điểm
 phục vụ KPI; không thay deleted_at của Application/CvFile/StageEvent/Activity.
 
+CV đã nhận trước lúc xoá nhưng còn trong hàng đợi chưa có candidate_id nên
+purge không tìm được theo id. Freeze ghi `erased_contacts` (HMAC email/SĐT, không
+liên hệ đọc được) trong cùng transaction. Worker parse xong (ngoài khoá, không
+giữ khoá khi gọi LLM) mới lấy identity lock và so liên hệ: trùng marker có
+frozen_at ≥ created_at của file thì xoá file đó (blob, tên file, hash, nội dung,
+activity, metadata inbox liên kết), không tạo lại hồ sơ. CV nhận sau lúc xoá là
+lần nộp mới và được xử lý bình thường. Nếu Storage lỗi, giữ storage_key để job
+hằng ngày xoá lại. Marker bị xoá khi hàng đợi trước mốc xoá đã cạn.
+Giới hạn: CV trong hàng đợi không có email/SĐT nào trùng thì không nhận ra
+được và được xử lý như hồ sơ mới (câu hỏi #110).
+
+Execute giữ thứ tự khoá User → khoá privacy ở cả hai transaction: sau khi freeze
+commit, khoá lại actor bằng FOR NO KEY UPDATE, kiểm active/quyền rồi mới purge.
+FOR NO KEY UPDATE không xung đột với FK check (KEY SHARE) của producer nhắc việc
+đang giữ 250026, nên hai yêu cầu thực thi đồng thời không deadlock.
+
 Yêu cầu delete đang open chặn gộp cả nguồn lẫn đích (409 DATA_REQUEST_OPEN).
 Merge kiểm yêu cầu sau khi khoá hai Candidate; create_request giữ cùng row
 lock nên không có khoảng đua bỏ sót yêu cầu vừa tạo. Không chuyển yêu cầu hoặc

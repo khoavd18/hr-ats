@@ -245,6 +245,14 @@ Sau khi đã xử lý phải dùng forward migration; không thể hoàn tác pu
 downgrade. Kiểm upgrade/downgrade/upgrade chỉ trên DB tạm; thời gian khóa ở quy
 mô production và quy trình xoá backup: NOT TESTED.
 
+### erased_contacts
+T29 revision `0010_erased_contacts`: RecordMixin, `contact_hash` varchar(64)
+(index), `frozen_at` timestamptz. Mỗi dòng là HMAC-SHA256 (khoá SECRET_KEY) của
+một email/SĐT đã chuẩn hoá của người vừa bị freeze; không lưu liên hệ dạng đọc
+được, không FK tới Candidate. Chỉ dùng để nhận ra CV đã nhận trước lúc xoá nhưng
+còn trong hàng đợi (chưa có candidate_id). Job hằng ngày xoá marker khi không còn
+CvFile pending/running chưa gắn hồ sơ có created_at ≤ frozen_at.
+
 ## Seed dev
 Lệnh seed tạo: 1 admin, 1 lead, 2 recruiter (mật khẩu chỉ cho dev), 3 đơn vị tuyển, 5 Job, ~40 ứng viên giả từ `data/sample_cvs/`, applications ở nhiều stage, vài interview/offer/placement, task và email mẫu.
 

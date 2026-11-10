@@ -25,7 +25,7 @@ def test_migration_upgrades_empty_database_and_preserves_extensions_on_rollback(
         command.upgrade(config, "head")
         assert set(connection.execute(extensions_query).scalars()) == {"vector", "unaccent"}
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0009_data_privacy"
+            "0010_erased_contacts"
         )
         assert set(inspect(connection).get_table_names()) == set(Base.metadata.tables) | {
             "alembic_version"

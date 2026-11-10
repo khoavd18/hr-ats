@@ -28,3 +28,17 @@ class DataRequest(RecordMixin, Base):
     status: Mapped[str] = mapped_column(String(8), server_default=text("'open'"))
     handled_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ErasedContact(RecordMixin, Base):
+    """Short-lived erasure marker: keyed hash of an erased email/phone.
+
+    Lets a CV accepted before the deletion (still queued, identity unknown) be
+    recognised and erased instead of recreating the person. Holds no readable
+    contact. Rows are removed once no CV from before `frozen_at` is still queued.
+    """
+
+    __tablename__ = "erased_contacts"
+
+    contact_hash: Mapped[str] = mapped_column(String(64), index=True)
+    frozen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

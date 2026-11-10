@@ -32,8 +32,13 @@ from app.services.applications import (
 )
 from app.services.dedupe import IdentityConflict, possible_duplicate, save_candidate
 from app.services.embeddings import embed_candidate
+from app.services.erasure import erase_unlinked_file, erased_before
 from app.storage import build_storage
 from app.workers.celery_app import celery_app
+
+
+class ErasedIntake(Exception):
+    """A queued CV belongs to a person erased after it was received."""
 
 
 @contextmanager
@@ -122,6 +127,14 @@ def process_cv_file(cv_file_id: str) -> None:
                 cv_file.parsed_json = result.parsed.model_dump(mode="json")
                 cv_file.parse_model = result.model
                 cv_file.parse_prompt_version = result.prompt_version
+                # Take the identity lock only now (it is global; never hold it
+                # across the LLM call). Freeze/merge take the same lock, so a
+                # deletion cannot commit between this check and the save (F1).
+                session.execute(select(func.pg_advisory_xact_lock(0x4356, 10)))
+                if erased_before(
+                    session, emails=emails, phones=phones, received_at=cv_file.created_at
+                ):
+                    raise ErasedIntake()
                 error = "Không thể lưu thông tin ứng viên. Vui lòng kiểm tra CV."
                 candidate = save_candidate(
                     session,
@@ -152,6 +165,11 @@ def process_cv_file(cv_file_id: str) -> None:
                 cv_file.status = ProcessingStatus.done
                 cv_file.error = None
                 session.flush()
+        except ErasedIntake:
+            # Received before this person's deletion: erase, never recreate.
+            erase_unlinked_file(session, build_storage(get_settings()), cv_file, datetime.now(UTC))
+            session.commit()
+            return
         except ExtractionError as exc:
             # ExtractionError is produced locally with fixed Vietnamese messages.
             cv_file.status = ProcessingStatus.failed

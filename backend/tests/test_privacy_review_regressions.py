@@ -599,3 +599,178 @@ def test_frozen_writer_exits_before_waiting_on_purge_child_locks(records, tmp_pa
     with Session(r.engine) as session:
         assert session.get_one(Application, r.application).ai_criteria is None
         assert session.get_one(Candidate, r.source).full_name is None
+
+
+def test_concurrent_authenticated_executions_both_succeed(records, tmp_path, monkeypatch):
+    """Same admin, same session, two overlapping execute requests (double click)."""
+    from fastapi.testclient import TestClient
+
+    from app.core import security
+    from app.core.db import get_session
+    from app.main import create_app
+    from tests.auth_helpers import PASSWORD, csrf_headers, sign_in
+
+    r = records
+    storage = LocalStorage(tmp_path)
+    with Session(r.engine) as session:
+        actor = session.get_one(User, r.actor)
+        actor.password_hash = security.hash_password(PASSWORD)
+        session.add(
+            CvFile(
+                candidate_id=r.source,
+                source=CandidateSource.upload,
+                status=ProcessingStatus.done,
+                storage_key=storage.put(b"synthetic CV only", "application/pdf"),
+                original_filename="gia.pdf",
+                mime_type="application/pdf",
+                size_bytes=17,
+                sha256="c" * 64,
+            )
+        )
+        session.commit()
+        request_id = privacy.create_request(
+            session, actor, DataRequestInput(candidate_id=r.source, requested_by_note="Giả")
+        ).id
+
+    entered, release = Event(), Event()
+
+    class PausingStorage(LocalStorage):
+        def delete(self, key):
+            # Inside the second (purge) phase, after the freeze committed.
+            if not entered.is_set():
+                entered.set()
+                assert release.wait(15)
+            super().delete(key)
+
+    monkeypatch.setattr(
+        "app.api.privacy.build_storage", lambda settings: PausingStorage(storage.root)
+    )
+    app = create_app()
+
+    def fresh_session():
+        with Session(r.engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = fresh_session
+    with TestClient(app, raise_server_exceptions=False) as first:
+        assert sign_in(first, email="privacy-review@example.invalid").status_code == 200
+        headers = csrf_headers(first)
+        url = f"/api/v1/data-requests/{request_id}/execute"
+        with TestClient(app, raise_server_exceptions=False) as second:
+            second.cookies.update(first.cookies)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                one = pool.submit(first.post, url, headers=headers)
+                try:
+                    assert entered.wait(10)
+                    two = pool.submit(second.post, url, headers=headers)
+                    deadline, overlapped = monotonic() + 10, False
+                    with r.engine.connect() as probe:
+                        while monotonic() < deadline and not two.done():
+                            if probe.scalar(
+                                text("SELECT count(*) FROM pg_locks WHERE NOT granted")
+                            ):
+                                overlapped = True
+                                break
+                            sleep(0.01)
+                    # The second request must really wait on the first one.
+                    assert overlapped
+                finally:
+                    release.set()
+                statuses = sorted([one.result(20).status_code, two.result(20).status_code])
+    assert statuses == [200, 200]
+    with Session(r.engine) as session:
+        audits = session.scalar(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(AuditLog.action == "candidate.purge", AuditLog.entity_id == r.source)
+        )
+        assert audits == 1
+        assert session.get_one(DataRequest, request_id).status == "done"
+
+
+def test_deletion_waits_for_a_parse_that_is_saving_and_then_erases_it(
+    records, tmp_path, monkeypatch
+):
+    """Worker saves first (identity lock held): the file links, then is purged."""
+    from contextlib import contextmanager as _cm
+
+    from app.ai.extract import ExtractResult
+    from app.models.enums import ExtractionMethod
+
+    r = records
+    storage = LocalStorage(tmp_path)
+    contact = "t29-saving@example.invalid"
+    text_value = f"Nguồn giả T29\nEmail: {contact}\n" + "Kỹ năng Python giả. " * 30
+    with Session(r.engine) as session:
+        session.get_one(Candidate, r.source).email = contact
+        pending = CvFile(
+            candidate_id=None,
+            source=CandidateSource.upload,
+            status=ProcessingStatus.pending,
+            storage_key=storage.put(text_value.encode(), "application/pdf"),
+            original_filename="ban-sua.pdf",
+            mime_type="application/pdf",
+            size_bytes=len(text_value),
+            sha256="d" * 64,
+        )
+        session.add(pending)
+        session.commit()
+        file_id = pending.id
+        request_id = privacy.create_request(
+            session,
+            session.get_one(User, r.actor),
+            DataRequestInput(candidate_id=r.source, requested_by_note="Giả"),
+        ).id
+
+    saved, release = Event(), Event()
+    original_save = tasks.save_candidate
+
+    def pause_after_save(*args, **kwargs):
+        candidate = original_save(*args, **kwargs)
+        saved.set()
+        assert release.wait(15)
+        return candidate
+
+    @_cm
+    def worker_session():
+        with Session(r.engine) as session:
+            yield session
+
+    monkeypatch.setattr(tasks, "save_candidate", pause_after_save)
+    monkeypatch.setattr(tasks, "worker_session", worker_session)
+    monkeypatch.setattr(tasks, "build_storage", lambda settings: storage)
+    monkeypatch.setattr(
+        tasks,
+        "extract_text",
+        lambda data, mime: ExtractResult(text_value, ExtractionMethod.pdf_text, 1),
+    )
+    monkeypatch.setattr(tasks, "dispatch_score", lambda *args: None)
+    pids = Queue()
+
+    def purge():
+        with Session(r.engine) as session:
+            pids.put(session.scalar(select(func.pg_backend_pid())))
+            return privacy.execute_request(
+                session, session.get_one(User, r.actor), request_id, storage
+            ).status
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        worker = pool.submit(tasks.process_cv_file, str(file_id))
+        try:
+            assert saved.wait(10)
+            executor = pool.submit(purge)
+            wait_for_block_or_completion(r.engine, pids.get(timeout=10), executor)
+            assert not executor.done()
+        finally:
+            release.set()
+        worker.result(10)
+        assert executor.result(10) == "done"
+    with Session(r.engine) as session:
+        file = session.get_one(CvFile, file_id)
+        assert file.candidate_id == r.source
+        assert file.storage_key is None and file.extracted_text is None
+        active = session.scalars(
+            select(Candidate).where(Candidate.deleted_at.is_(None), Candidate.email == contact)
+        ).all()
+        assert active == []
+        assert not any(path.is_file() for path in storage.root.rglob("*"))
