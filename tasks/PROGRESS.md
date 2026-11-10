@@ -33,7 +33,8 @@
 | T29 | done | 2026-11-10 | VERIFIED: merged sau Fix round 4 (F1 CV trong hàng đợi trước lúc xoá không tạo lại người đã xoá, marker HMAC erased_contacts + migration 0010; F2 khoá lại actor FOR NO KEY UPDATE, hết deadlock 40P01). Backend 1352 pass (1 test byte .docx chỉ lệch ở môi trường cloud, cũng lệch trên main; CI pass); ruff/format/mypy/alembic sạch; CI backend+frontend xanh. Pháp chế cần xác nhận marker HMAC ngắn hạn (câu hỏi #110). |
 | T30 | done | 2026-11-10 | VERIFIED: merged sau Fix round 1 (F1 URL API tương đối/CSP, F2 tách dữ liệu E2E). Giới hạn login/upload bằng Redis, chặn kích thước upload, header bảo mật web/API, ma trận quyền, kiểm log không PII, Pillow 13. Backend 2002 pass, frontend 172 pass, CI xanh. Xem tasks/reviews/T30.md và docs/security/review-2026-11-10.md. |
 | T31 | done | 2026-11-10 | VERIFIED: eval harness offline với FakeLLM + 60 CV tổng hợp. Parse eval (name/title/location/yoe exact-match, skills F1), score eval (precision@10, Cohen's kappa, confusion matrix), bias check (6 nhóm tên × 3 fictitious names, cảnh báo delta > 5 điểm). 12/12 test pass (189s). Ruff/mypy sạch. Merged vào main. Xem tasks/reviews/T31.md. |
-| T32–T33 | todo | | |
+| T32 | done | 2026-11-10 | VERIFIED: Dockerfiles backend (Python 3.12-slim + Tesseract vie+eng, non-root app:1000) và frontend (Node 22-alpine + standalone Next.js, non-root nextjs:1001); docker-compose.prod.yml (db, redis, api, worker, beat, web, caddy); caddy/Caddyfile auto-TLS Let's Encrypt + security headers; scripts/backup/ (pg_dump+gzip 14 bản + restore an toàn); .env.prod.example; docs/deploy.md (9 bước + backup/restore/update/LUKS); docs/huong-dan-su-dung.md tiếng Việt 11 mục. Merged vào main. Xem tasks/reviews/T32.md. |
+| T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
