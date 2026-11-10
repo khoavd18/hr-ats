@@ -40,12 +40,10 @@ test("admin signs in, navigates, creates a user, changes role and locks access",
     ["nav.reports", "/reports"],
     ["nav.settings", "/settings"],
   ] as const) {
-    await page.getByRole("link", { name: t(label), exact: true }).click();
+    const link = page.getByRole("navigation").getByRole("link", { name: t(label), exact: true });
+    await link.click();
     await expect(page).toHaveURL(path);
-    await expect(page.getByRole("link", { name: t(label), exact: true })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(link).toHaveAttribute("aria-current", "page");
   }
   await page.getByRole("button", { name: t("users.create"), exact: true }).click();
   const dialog = page.getByRole("dialog");

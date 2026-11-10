@@ -11,7 +11,7 @@ from app.models.activity import AuditLog
 def record_audit(
     session: Session,
     *,
-    actor_id: UUID,
+    actor_id: UUID | None,
     action: str,
     entity: str,
     entity_id: UUID,

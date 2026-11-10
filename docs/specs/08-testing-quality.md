@@ -415,6 +415,58 @@ cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên 
 7. Nếu thay đổi hợp đồng (API, schema, KPI) thì cập nhật spec tương ứng trong cùng commit.
 8. Cuối task, ghi tóm tắt vào `tasks/PROGRESS.md`: task id, việc đã làm, file chính, lệnh test đã chạy và kết quả, việc còn lại / câu hỏi.
 
+## Kiểm thử T29
+
+`tests/api/test_privacy.py` dùng fixture tính tay T26, PostgreSQL và LocalStorage
+tạm. Tiêu chí nghiệm thu kiểm file thực sự biến mất, SQL IS NULL trên mọi cột
+Candidate cá nhân (gồm JSON/search/vector), nội dung các bảng liên quan bị xoá,
+toàn bộ 13 KPI và chuỗi CV theo ngày trước/sau giống hệt. Kiểm purge replay,
+alias đã gộp, quyền admin/recruiter/thu hồi scope, CSRF/input/bằng chứng, gia hạn
+năm nhuận, 0/1/29/30 ngày và ngày Việt Nam, audit actor null, Storage lỗi một
+phần/retry/Beat recovery, worker AI/parse trễ không ghi lại nội dung. Kiểm metadata
+email forward khác sender với Activity có/chưa có Candidate, đọc liên kết trước
+khi dọn Activity; marker inbox không làm poll khôi phục dữ liệu đã xoá.
+
+`tests/test_privacy_concurrency.py` dùng DB tạm/kết nối độc lập: observer thấy
+freeze đã commit trước Storage.delete, hai executor chỉ ghi một audit, writer
+đã có Candidate trong identity map không thể ghi lại tên sau freeze. Bộ database
+kiểm compare_metadata và migration upgrade/downgrade/upgrade trên DB trống;
+T29 không chạy downgrade hoặc purge trên dữ liệu dev thật. Regression T12/T16
+giữ nguyên yêu cầu với ứng viên expired/merged và creation chờ merge.
+
+Fix T29: `tests/test_privacy_review_regressions.py` thêm các giao dịch độc lập
+cho producer email dừng sau render rồi chạy purge, gộp đồng thời với rescore/
+đổi stage/scoring worker/bulk worker, identity đổi hoặc hồ sơ bị archive trước
+khi writer lấy khoá, writer đến khi purge giữ child lock, và create_request
+đồng thời với merge. Đồng bộ bằng Event và pg_blocking_pids; không giả lập DB
+hoặc suy đoán thứ tự bằng sleep cố định. Kiểm không còn snapshot PII sau cả hai
+commit, không deadlock, không ghi lại PII sau freeze. Test API request → merge
+409 → danh sách xác nhận giữ đúng ứng viên → execute done cho cả nguồn và đích.
+Fix round 2 thêm receipt đang giữ file khi merge bắt đầu, receipt chờ merge với
+identity map cũ và receipt đến khi purge đã freeze/giữ file. Kiểm cả hai giao dịch
+hoàn tất, lấy đúng người nhận hiện tại, không tạo trùng receipt và không đợi child
+lock/ghi snapshot sau freeze. Vitest gọi API client thật với response 409
+DATA_REQUEST_OPEN, kiểm thông báo tiếng Việt ở client và hộp gộp, không lộ message
+thô từ server; hộp giữ hai hồ sơ và vẫn huỷ được.
+
+Vitest `privacy-settings.test.tsx`: ẩn admin UI với lead/recruiter, danh sách/
+filter/phân trang/tải/rỗng/lỗi, nhập bằng chứng/giờ Việt/flag gia hạn, lỗi giữ
+form, tạo request riêng khỏi execute, huỷ xác nhận không POST, audit lọc actor/
+action/system. Chuỗi mới vẫn phải qua i18n-usage. Playwright `privacy.spec.ts`
+dùng user browser-privacy riêng trên ranking_browser_server, DB/storage tạm,
+upload CV giả/FakeLLM, drawer consent, gia hạn, huỷ rồi xác nhận purge, download
+404, KPI Job không đổi và audit tiếng Việt. Ảnh 1280px tại var/t29-*.png; không
+overflow/lỗi JavaScript, chặn request ngoài localhost.
+
+Lệnh chuẩn: `uv run pytest`, Ruff check/format, mypy, Alembic upgrade head;
+`npm test`, lint/typecheck/build và `npx playwright test`. VITEST_MAX_WORKERS=2
+có thể dùng trên máy dev hạn chế CPU. Không thêm dependency, provider thật,
+PII thật hay test gọi mạng ngoài. SMTP chỉ Mailpit/memory của fixture cũ.
+Hồi quy trình duyệt: auth chọn link trong navigation để không trùng link Tổng
+quan; Kanban đợi aria-pressed/thông báo từng cột trước phím tiếp theo. Giữ đầy
+đủ assertion chức năng và timeout cũ. Khi chạy trên máy dev có thể dùng
+`npx playwright test --workers=2` với fixture mới để giảm tranh chấp tài nguyên.
+
 ## Kiểm thử T28
 
 `tests/api/test_scheduled_reports.py` chạy PostgreSQL thật, dùng lại fixture

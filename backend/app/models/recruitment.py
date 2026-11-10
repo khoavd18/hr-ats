@@ -27,7 +27,9 @@ class Interview(RecordMixin, SoftDeleteMixin, Base):
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     duration_minutes: Mapped[int]
     location_or_link: Mapped[str | None] = mapped_column(Text)
-    interviewers: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    interviewers: Mapped[list[str] | None] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
     result: Mapped[str] = mapped_column(String(10), server_default=text("'pending'"))
     feedback: Mapped[str | None] = mapped_column(Text)
 

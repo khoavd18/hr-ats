@@ -15,6 +15,7 @@ from app.models.users import User
 from app.schemas.core import CvFileRead
 from app.schemas.cv_files import CvFileStatusRead, CvUploadResult
 from app.services.activity import log_activity
+from app.services.applications import eligible_candidate
 from app.services.audit import record_audit
 from app.services.cv_validation import validate_file
 from app.services.ranking import visible_applications
@@ -72,6 +73,8 @@ def _readable_file(session: Session, actor: User, cv_file: CvFile) -> CvFile:
         is None
     ):
         raise AppError("NOT_FOUND", "Không tìm thấy tệp CV.", 404)
+    if cv_file.candidate_id is not None:
+        eligible_candidate(session, cv_file.candidate_id, lock=True)
     authorize(actor, "cv_files.view", cv_file, session=session)
     return cv_file
 
@@ -190,6 +193,8 @@ def download_file(
     session: Session, actor: User, storage: Storage, cv_file_id: UUID, ip: str | None
 ) -> tuple[CvFileRead, bytes]:
     cv_file = get_file(session, actor, cv_file_id)
+    if cv_file.storage_key is None:
+        raise AppError("NOT_FOUND", "Không tìm thấy tệp CV.", 404)
     try:
         data = storage.get(cv_file.storage_key)
     except StorageError:

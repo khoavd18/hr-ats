@@ -10,7 +10,7 @@ from email import policy
 from email.parser import BytesParser
 from email.utils import make_msgid, parseaddr, parsedate_to_datetime
 from pathlib import PurePosixPath
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import ValidationError
 from redis import Redis
@@ -21,6 +21,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.email.render import render_email
 from app.models import (
+    Activity,
     Application,
     Candidate,
     CvFile,
@@ -86,9 +87,13 @@ def ingest_message(session: Session, raw: bytes, settings: Settings) -> None:
     if not message_id:
         message_id = "sha256:" + hashlib.sha256(raw).hexdigest()
     _lock(session, "inbound:" + message_id)
-    if session.scalar(select(InboundEmail.id).where(InboundEmail.message_id == message_id)):
+    tombstone = "purged:" + hashlib.sha256(message_id.encode()).hexdigest()
+    if session.scalar(
+        select(InboundEmail.id).where(InboundEmail.message_id.in_([message_id, tombstone]))
+    ):
         session.commit()
         return
+    inbound_id = uuid4()
     parts = [
         part
         for part in message.walk()
@@ -130,7 +135,26 @@ def ingest_message(session: Session, raw: bytes, settings: Settings) -> None:
                     )
                 )
             )
-            if session.scalar(select(CvFile.id).where(CvFile.sha256 == digest)):
+            existing_id = session.scalar(
+                select(CvFile.id).where(CvFile.sha256 == digest).with_for_update()
+            )
+            if existing_id:
+                activity = session.scalar(
+                    select(Activity)
+                    .where(
+                        Activity.type == ActivityType.cv_uploaded,
+                        Activity.payload["cv_file_id"].astext == str(existing_id),
+                    )
+                    .with_for_update()
+                )
+                if activity:
+                    activity.payload = {
+                        **activity.payload,
+                        "inbound_messages": [
+                            *activity.payload.get("inbound_messages", []),
+                            {"inbound_email_id": str(inbound_id)},
+                        ],
+                    }
                 continue
             key = storage.put(data, mime)
             stored.append(key)
@@ -150,10 +174,14 @@ def ingest_message(session: Session, raw: bytes, settings: Settings) -> None:
                 session,
                 type=ActivityType.cv_uploaded,
                 job_id=cv_file.job_id,
-                payload={"cv_file_id": str(cv_file.id)},
+                payload={
+                    "cv_file_id": str(cv_file.id),
+                    "inbound_messages": [{"inbound_email_id": str(inbound_id)}],
+                },
             )
         session.add(
             InboundEmail(
+                id=inbound_id,
                 message_id=message_id,
                 from_email=sender,
                 subject=subject,
@@ -194,7 +222,7 @@ def receipt_candidate(
         or cv_file.candidate_id is None
     ):
         raise AppError("EMAIL_RECEIPT_INELIGIBLE", "Không thể xác nhận nhận CV.", 422)
-    candidate = eligible_candidate(session, cv_file.candidate_id)
+    candidate = eligible_candidate(session, cv_file.candidate_id, lock=True)
     if not candidate.email or candidate.email != row.to_email:
         raise AppError("EMAIL_RECEIPT_INELIGIBLE", "Không thể xác nhận nhận CV.", 422)
     return candidate, cv_file
@@ -203,14 +231,33 @@ def receipt_candidate(
 def queue_receipt(session: Session, file_id: UUID, settings: Settings) -> None:
     if not settings.imap_enabled:
         return
-    cv_file = session.scalar(select(CvFile).where(CvFile.id == file_id).with_for_update())
-    if (
-        cv_file is None
-        or cv_file.source != CandidateSource.email
-        or cv_file.status != ProcessingStatus.done
-        or cv_file.deleted_at is not None
-        or cv_file.candidate_id is None
-    ):
+    # Match merge/freeze: identity -> Candidate -> CvFile. Read the current
+    # identity only after waiting; a merge may have reassigned a cached file.
+    session.execute(select(func.pg_advisory_xact_lock(0x4356, 10)))
+    file_filters = (
+        CvFile.id == file_id,
+        CvFile.source == CandidateSource.email,
+        CvFile.status == ProcessingStatus.done,
+        CvFile.deleted_at.is_(None),
+    )
+    candidate_id = session.scalar(select(CvFile.candidate_id).where(*file_filters))
+    if candidate_id is None:
+        session.commit()
+        return
+    try:
+        candidate = eligible_candidate(session, candidate_id, lock=True)
+    except AppError:
+        # Purge can already hold the file lock. Exit on its committed freeze
+        # before taking a child lock, so erasure can finish updating Candidate.
+        session.commit()
+        return
+    cv_file = session.scalar(
+        select(CvFile)
+        .where(*file_filters, CvFile.candidate_id == candidate.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if cv_file is None:
         session.commit()
         return
     # A receipt shares its CV UUID across tables. API-created drafts cannot choose an ID.
@@ -235,14 +282,13 @@ def queue_receipt(session: Session, file_id: UUID, settings: Settings) -> None:
             )
         )
         try:
-            candidate = eligible_candidate(session, cv_file.candidate_id)
             if template is None or actor is None or not actor.is_active or not candidate.email:
                 session.commit()
                 return
             recipient = EmailInput(email=candidate.email).email
             company, _ = parseaddr(settings.smtp_from)
             context = {
-                "candidate_name": candidate.full_name,
+                "candidate_name": candidate.full_name or "",
                 "company_name": company,
                 "recruiter_name": actor.full_name,
                 "recruiter_email": actor.email,

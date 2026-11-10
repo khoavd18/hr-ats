@@ -37,10 +37,10 @@ class EmailMessage(RecordMixin, SoftDeleteMixin, Base):
 
     application_id: Mapped[UUID | None] = mapped_column(ForeignKey("applications.id"), index=True)
     template_id: Mapped[UUID | None] = mapped_column(ForeignKey("email_templates.id"), index=True)
-    to_email: Mapped[str] = mapped_column(String(254))
-    cc: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
-    subject: Mapped[str] = mapped_column(String(500))
-    body_html: Mapped[str] = mapped_column(Text)
+    to_email: Mapped[str | None] = mapped_column(String(254))
+    cc: Mapped[list[str] | None] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    subject: Mapped[str | None] = mapped_column(String(500))
+    body_html: Mapped[str | None] = mapped_column(Text)
     status: Mapped[EmailStatus] = mapped_column(
         Enum(EmailStatus, name="email_status"), server_default=text("'draft'::email_status")
     )
@@ -58,9 +58,9 @@ class InboundEmail(RecordMixin, SoftDeleteMixin, Base):
         CheckConstraint("status IN ('processed', 'ignored')", name="ck_inbound_emails_status"),
     )
 
-    message_id: Mapped[str] = mapped_column(Text, unique=True)
-    from_email: Mapped[str] = mapped_column(String(254))
-    subject: Mapped[str] = mapped_column(Text)
+    message_id: Mapped[str | None] = mapped_column(Text, unique=True)
+    from_email: Mapped[str | None] = mapped_column(String(254))
+    subject: Mapped[str | None] = mapped_column(Text)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     attachment_count: Mapped[int]
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -134,6 +134,16 @@ describe("API client", () => {
     });
   });
 
+  it("explains the open deletion request that prevents a candidate merge", async () => {
+    mockResponse({ error: { code: "DATA_REQUEST_OPEN", message: "SYNTHETIC_PRIVATE_ERROR" } }, 409);
+    await expect(api("/candidates/source/merge", { method: "POST" })).rejects.toMatchObject({
+      status: 409,
+      code: "DATA_REQUEST_OPEN",
+      message:
+        "Không thể gộp vì một trong hai hồ sơ đang có yêu cầu xoá dữ liệu. Hãy liên hệ quản trị viên để kiểm tra yêu cầu.",
+    });
+  });
+
   it.each([
     ["EMAIL_MISSING_INTERVIEW_TIME", 422, "emailTemplates.missing.interview_time"],
     ["EMAIL_MISSING_OFFER_SALARY", 422, "emailTemplates.missing.offer_salary"],

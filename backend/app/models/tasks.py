@@ -20,7 +20,7 @@ class Task(RecordMixin, SoftDeleteMixin, Base):
         Index("ix_tasks_assignee_status_due", "assignee_id", "status", "due_at"),
     )
 
-    title: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str | None] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text)
     assignee_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)

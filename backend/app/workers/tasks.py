@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai.extract import ExtractionError, extract_text
@@ -24,6 +24,7 @@ from app.models.enums import ActivityType, ProcessingStatus
 from app.models.jobs import Job
 from app.services.activity import log_activity
 from app.services.applications import (
+    application_for_update,
     dispatch_score,
     eligible_candidate,
     ensure_application,
@@ -31,8 +32,13 @@ from app.services.applications import (
 )
 from app.services.dedupe import IdentityConflict, possible_duplicate, save_candidate
 from app.services.embeddings import embed_candidate
+from app.services.erasure import erase_unlinked_file, erased_before
 from app.storage import build_storage
 from app.workers.celery_app import celery_app
+
+
+class ErasedIntake(Exception):
+    """A queued CV belongs to a person erased after it was received."""
 
 
 @contextmanager
@@ -89,6 +95,14 @@ def process_cv_file(cv_file_id: str) -> None:
             ProcessingStatus.running,
         }:
             return
+        if cv_file.candidate_id is not None:
+            # Match freeze/merge lock order before locking the known identity.
+            session.execute(select(func.pg_advisory_xact_lock(0x4356, 10)))
+            try:
+                eligible_candidate(session, cv_file.candidate_id, lock=True)
+            except AppError:
+                # A delayed delivery must not rewrite even the erased error field.
+                return
         error = "Không thể đọc tệp CV đã lưu. Vui lòng thử lại."
         try:
             # Roll back every partial candidate/file change on failure, while
@@ -97,6 +111,8 @@ def process_cv_file(cv_file_id: str) -> None:
                 cv_file.status = ProcessingStatus.running
                 cv_file.error = None
                 session.flush()
+                if cv_file.storage_key is None:
+                    raise ValueError("File erased")
                 settings = get_settings()
                 data = build_storage(settings).get(cv_file.storage_key)
                 error = "Không đọc được nội dung CV"
@@ -111,6 +127,14 @@ def process_cv_file(cv_file_id: str) -> None:
                 cv_file.parsed_json = result.parsed.model_dump(mode="json")
                 cv_file.parse_model = result.model
                 cv_file.parse_prompt_version = result.prompt_version
+                # Take the identity lock only now (it is global; never hold it
+                # across the LLM call). Freeze/merge take the same lock, so a
+                # deletion cannot commit between this check and the save (F1).
+                session.execute(select(func.pg_advisory_xact_lock(0x4356, 10)))
+                if erased_before(
+                    session, emails=emails, phones=phones, received_at=cv_file.created_at
+                ):
+                    raise ErasedIntake()
                 error = "Không thể lưu thông tin ứng viên. Vui lòng kiểm tra CV."
                 candidate = save_candidate(
                     session,
@@ -141,6 +165,11 @@ def process_cv_file(cv_file_id: str) -> None:
                 cv_file.status = ProcessingStatus.done
                 cv_file.error = None
                 session.flush()
+        except ErasedIntake:
+            # Received before this person's deletion: erase, never recreate.
+            erase_unlinked_file(session, build_storage(get_settings()), cv_file, datetime.now(UTC))
+            session.commit()
+            return
         except ExtractionError as exc:
             # ExtractionError is produced locally with fixed Vietnamese messages.
             cv_file.status = ProcessingStatus.failed
@@ -172,16 +201,22 @@ def score_application(application_id: str) -> None:
     except (ValueError, TypeError, AttributeError):
         return
     with worker_session() as session:
-        application = session.scalar(
-            select(Application)
-            .where(Application.id == record_id, Application.deleted_at.is_(None))
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
+        application = application_for_update(session, record_id)
         if application is None or application.ai_status not in {
             ProcessingStatus.pending,
             ProcessingStatus.running,
         }:
+            return
+        try:
+            eligible_candidate(session, application.candidate_id)
+        except AppError:
+            candidate = session.get(Candidate, application.candidate_id)
+            if candidate is None or candidate.purge_pending_at is None:
+                # Keep T12's failed-state contract for ordinary expired/merged
+                # records, while never rewriting erased fields on a purge.
+                reset_score(application)
+                application.ai_status = ProcessingStatus.failed
+                session.commit()
             return
         try:
             with session.begin_nested():
@@ -215,7 +250,7 @@ def score_application(application_id: str) -> None:
                 application.ai_level = computed.level
                 application.ai_criteria = [c.model_dump() for c in result.judged.criteria]
                 application.ai_reasons = result.judged.reasons
-                application.ai_flags = result.judged.flags
+                application.ai_flags = list(result.judged.flags)
                 application.ai_model = result.model
                 application.ai_prompt_version = result.prompt_version
                 application.ai_scored_at = datetime.now(UTC)
@@ -254,11 +289,7 @@ def rescore_job(job_id: str) -> None:
     # One transaction per application: one failure cannot abort the other scores.
     for application_id in ids:
         with worker_session() as session:
-            application = session.scalar(
-                select(Application)
-                .where(Application.id == application_id, Application.deleted_at.is_(None))
-                .with_for_update()
-            )
+            application = application_for_update(session, application_id)
             if application is None:
                 continue
             try:

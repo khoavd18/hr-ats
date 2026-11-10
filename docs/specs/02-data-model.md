@@ -221,6 +221,38 @@ tạm. Thời gian/tải production: NOT TESTED, chưa có quy mô được phê
 ### data_requests
 `candidate_id`, `kind` (`delete` | `export`), `requested_by_note`, `status` (`open` | `done` | `rejected`), `handled_by`, `handled_at`.
 
+T29 revision `0009_data_privacy`: thêm bảng này với RecordMixin (UUID,
+created_at/updated_at), FK candidate/handled_by, index candidate_id, CHECK kind,
+status và handled: open chưa có handled_at/handled_by, kết thúc bắt buộc handled_at.
+handled_by nullable cho job hệ thống. Không thêm DELETE bản ghi lịch sử.
+
+Candidate thêm expired_at/purge_pending_at/purged_at timestamptz nullable và
+index retention_until cho lịch hằng ngày. Cho phép SQL NULL ở tên/các mảng dữ
+liệu cá nhân/search_tsv; trigger đặt search_tsv NULL khi purge_pending_at có giá
+trị, vẫn dựng full-text như trước cho hồ sơ hoạt động. CV storage_key/filename/
+sha256, Application ai_criteria/reasons/flags, email to/cc/subject/body,
+inbound message_id/from/subject, Task title, Interview interviewers nullable
+để xoá nội dung. Các service tạo/sửa bình thường giữ validation cũ, DTO hồ sơ
+hoạt động giữ contract cũ; purge DTO không được trả qua những API hồ sơ đó.
+AuditLog.actor_id nullable như ghi chú review T05; NULL là hệ thống, không tạo
+user giả để làm actor. Consent/note/raw JSON được đặt SQL NULL (không JSON null).
+
+Rollout: migrate trước khi restart API/worker và bật Beat. Migration không xoá
+dữ liệu hiện hữu; chạy Beat mới thực thi chính sách. Rollback schema chỉ trước
+khi có yêu cầu/actor hệ thống/purge_pending; downgrade có guard từ chối nếu đã
+phát sinh dữ liệu này, không dựng lại PII hay xoá audit để làm migration pass.
+Sau khi đã xử lý phải dùng forward migration; không thể hoàn tác purge bằng
+downgrade. Kiểm upgrade/downgrade/upgrade chỉ trên DB tạm; thời gian khóa ở quy
+mô production và quy trình xoá backup: NOT TESTED.
+
+### erased_contacts
+T29 revision `0010_erased_contacts`: RecordMixin, `contact_hash` varchar(64)
+(index), `frozen_at` timestamptz. Mỗi dòng là HMAC-SHA256 (khoá SECRET_KEY) của
+một email/SĐT đã chuẩn hoá của người vừa bị freeze; không lưu liên hệ dạng đọc
+được, không FK tới Candidate. Chỉ dùng để nhận ra CV đã nhận trước lúc xoá nhưng
+còn trong hàng đợi (chưa có candidate_id). Job hằng ngày xoá marker khi không còn
+CvFile pending/running chưa gắn hồ sơ có created_at ≤ frozen_at.
+
 ## Seed dev
 Lệnh seed tạo: 1 admin, 1 lead, 2 recruiter (mật khẩu chỉ cho dev), 3 đơn vị tuyển, 5 Job, ~40 ứng viên giả từ `data/sample_cvs/`, applications ở nhiều stage, vài interview/offer/placement, task và email mẫu.
 

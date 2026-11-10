@@ -6,6 +6,11 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const errorKeys: Record<string, TranslationKey> = {
   INVALID_TASK_ASSIGNEE: "tasks.invalidAssignee",
   INVALID_TASK_LINK: "tasks.invalidLink",
+  INVALID_CONSENT: "privacy.invalidConsent",
+  CONSENT_NOT_NEW: "privacy.consentNotNew",
+  INVALID_DATA_REQUEST: "privacy.invalidRequest",
+  DATA_REQUEST_OPEN: "privacy.mergeBlocked",
+  STORAGE_UNAVAILABLE: "privacy.storageUnavailable",
   VALIDATION_ERROR: "api.validation",
   NOT_FOUND: "api.notFound",
   METHOD_NOT_ALLOWED: "api.unknown",
