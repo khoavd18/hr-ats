@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from starlette.exceptions import HTTPException
 
 from app.core.logging import safe_traceback
+from app.core.security_headers import API_HEADERS
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,14 @@ class ErrorResponse(BaseModel):
 
 
 class AppError(Exception):
-    def __init__(self, code: str, message: str, status: int) -> None:
+    def __init__(
+        self, code: str, message: str, status: int, *, headers: dict[str, str] | None = None
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.status = status
+        self.headers = headers or {}
 
 
 def error_response(code: str, message: str, status: int) -> JSONResponse:
@@ -35,7 +39,9 @@ def error_response(code: str, message: str, status: int) -> JSONResponse:
 
 async def handle_app_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)
-    return error_response(exc.code, exc.message, exc.status)
+    response = error_response(exc.code, exc.message, exc.status)
+    response.headers.update(exc.headers)
+    return response
 
 
 async def handle_validation_error(request: Request, exc: Exception) -> JSONResponse:
@@ -65,6 +71,7 @@ async def handle_unexpected_error(request: Request, exc: Exception) -> JSONRespo
         extra={"exception_type": type(exc).__name__, "stack": safe_traceback(exc.__traceback__)},
     )
     response = error_response("INTERNAL_ERROR", "Đã có lỗi xảy ra. Vui lòng thử lại sau.", 500)
+    response.headers.update(API_HEADERS)
     # The server-error handler runs outside CORSMiddleware; keep its response readable by the UI.
     origin = request.headers.get("origin")
     if origin and origin == request.app.state.frontend_origin:

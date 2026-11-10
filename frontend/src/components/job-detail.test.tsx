@@ -271,6 +271,23 @@ it("reports duplicates from another Job without polling or silently creating an 
   expect(api).toHaveBeenCalledTimes(1);
 });
 
+it.each([
+  [429, "RATE_LIMITED", "api.rateLimit"],
+  [413, "UPLOAD_TOO_LARGE", "upload.batchTooLarge"],
+] as const)(
+  "localizes upload HTTP %s without showing the raw server message",
+  async (status, code, key) => {
+    vi.mocked(api).mockRejectedValue(new ApiError(status, code, "SYNTHETIC_PRIVATE_ERROR"));
+    show(<CvUpload jobId="job" />);
+    await userEvent.upload(
+      screen.getByLabelText(t("upload.title"), { selector: "input" }),
+      new File(["x"], "synthetic.pdf"),
+    );
+    expect(await screen.findByText(t(key))).toBeVisible();
+    expect(screen.queryByText("SYNTHETIC_PRIVATE_ERROR")).not.toBeInTheDocument();
+  },
+);
+
 it("rejects batches above 50 files and localizes a failed HTTP request on each row", async () => {
   vi.mocked(api).mockRejectedValue(new Error("SYNTHETIC_PRIVATE_ERROR"));
   show(<CvUpload jobId="job" />);

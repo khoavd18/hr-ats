@@ -63,6 +63,17 @@ it("retries a load error", async () => {
   expect(api).toHaveBeenCalledTimes(2);
 });
 
+it("distinguishes unavailable message size from oversized mail", async () => {
+  vi.mocked(api).mockResolvedValue({
+    enabled: true,
+    last_read_at: null,
+    last_error: "IMAP_SIZE_READ_FAILED",
+  });
+  show();
+  expect(await screen.findByText(t("mailbox.IMAP_SIZE_READ_FAILED"))).toBeVisible();
+  expect(screen.queryByText(t("mailbox.IMAP_MESSAGE_TOO_LARGE"))).not.toBeInTheDocument();
+});
+
 it("does not fetch or render for recruiters", () => {
   state.role = "recruiter";
   const view = show();

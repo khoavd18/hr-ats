@@ -61,6 +61,43 @@ vẫn chỉ admin/lead. Chi tiết mặc định chưa chốt tại câu hỏi #
 ## Dữ liệu trong repo
 - Chỉ commit CV **giả** (`data/sample_cvs/`) và fixture giả. Không commit CV thật, dữ liệu Kaggle/Hugging Face (tải về `var/datasets/`, đã gitignore).
 
+## T30 · Gia cố bảo mật
+
+- API luôn có `Content-Security-Policy: default-src 'none'; base-uri 'none';
+  frame-ancestors 'none'; form-action 'none'`, `X-Content-Type-Options: nosniff`
+  và `Referrer-Policy: no-referrer`, gồm lỗi 4xx/5xx và CORS preflight.
+  `/docs` ở dev/test có ngoại lệ CDN Swagger; production không có docs/OpenAPI.
+- Web có các header tương ứng trên mọi đường dẫn. CSP chỉ cho script cùng
+  origin, kết nối cùng origin và origin của `NEXT_PUBLIC_API_URL`, chặn object,
+  base và nhúng trang từ website khác. Cho phép frame `self`/`blob:` để xem
+  email/PDF. CSP cơ bản còn `unsafe-inline` cho hydration Next và style UI;
+  `unsafe-eval`/WebSocket localhost chỉ ở development. Không coi CSP cơ bản
+  là thay thế escape HTML/sandbox email; xem câu hỏi #112.
+- Login: mặc định 30 lần/phút/địa chỉ client ASGI, tính cả thành công/thất bại
+  sau kiểm CSRF, trước Argon2. Upload: 20 request/phút/user đã xác thực, trước
+  đọc multipart. Đổi bằng `LOGIN_RATE_LIMIT_PER_MINUTE` và
+  `UPLOAD_RATE_LIMIT_PER_MINUTE`, số nguyên 1–10000. Giữ khoá tài khoản T04.
+- Redis dùng Lua INCR+EXPIRE nguyên tử, cửa sổ 60 giây từ request đầu tiên,
+  dùng chung giữa các API worker. Không gia hạn cửa sổ vì request bị chặn.
+  Key chỉ giữ HMAC-SHA256 của action/client hoặc user id với SECRET_KEY,
+  không lưu email/IP nguyên bản. Redis mất thì từ chối 503, không bỏ qua hạn mức.
+  Quá hạn mức trả 429 RATE_LIMITED + Retry-After (giây) + no-store.
+  Ứng dụng không tự đọc X-Forwarded-For: proxy/Uvicorn chỉ được tin proxy đã
+  cấu hình và backend không được public trực tiếp; NAT cùng IP chia sẻ hạn mức login.
+- Multipart có giới hạn thực khi đọc luồng: tối đa 501 MiB/lượt (50 × 10 MiB
+  cộng 1 MiB framing), kiểm cả Content-Length và số byte thực kể cả thiếu/sai
+  header. Mỗi file chỉ spool tối đa 10 MiB + 1 byte sentinel; vẫn trả lỗi
+  FILE_TOO_LARGE riêng từng file như T07. Header mỗi part tối đa 16 KiB;
+  giữ giới hạn 50 file, một field 1 KiB; parser đóng file tạm khi bị ngắt/lỗi.
+  Vượt tổng lượt trả 413 UPLOAD_TOO_LARGE trước khi lưu file nghiệp vụ.
+- Nhận email: lỗi đọc RFC822.SIZE có mã IMAP_SIZE_READ_FAILED riêng, không
+  tải body hoặc đánh dấu Seen; poll sau thử lại. Recovery lọc hồ sơ thiếu email,
+  đã xoá/hết hạn/gộp/freeze ngay trong SQL, nên chúng không chặn receipt khác;
+  bổ sung email hợp lệ sau đó vẫn được thử lại, không tạo marker vĩnh viễn.
+- Pillow được khóa 13.0.0 (constraint >=13,<14) sau audit T30. Không dùng bản
+  12.3.0 có advisory PNG EXIF ảnh hưởng đường xử lý ImageOps.exif_transpose.
+  Báo cáo và giới hạn đánh giá: `docs/security/review-2026-11-10.md`.
+
 ## T29 · Vòng đời dữ liệu ứng viên
 
 Beat gọi `enforce_retention` lúc 02:00 hằng ngày, Asia/Ho_Chi_Minh, queue default.

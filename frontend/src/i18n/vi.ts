@@ -544,6 +544,8 @@ export const vi = {
   "mailbox.IMAP_READ_FAILED":
     "Không đọc được hộp mail. Liên hệ quản trị hệ thống kiểm tra kết nối.",
   "mailbox.IMAP_MESSAGE_TOO_LARGE": "Có email vượt giới hạn dung lượng, chưa thể tiếp nhận.",
+  "mailbox.IMAP_SIZE_READ_FAILED": "Chưa đọc được dung lượng email. Hệ thống sẽ thử lại.",
+  "upload.batchTooLarge": "Lượt tải vượt giới hạn dung lượng. Vui lòng chia nhỏ lượt tải.",
   "mailbox.IMAP_STATUS_UNAVAILABLE": "Chưa tải được trạng thái kết nối. Vui lòng thử lại sau.",
   "settings.emptyTitle": "Chưa có thiết lập để hiển thị",
   "settings.emptyDescription":

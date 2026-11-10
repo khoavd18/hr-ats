@@ -25,6 +25,7 @@ class MailboxStatus(BaseModel):
             "IMAP_NOT_CONFIGURED",
             "IMAP_READ_FAILED",
             "IMAP_MESSAGE_TOO_LARGE",
+            "IMAP_SIZE_READ_FAILED",
             "IMAP_STATUS_UNAVAILABLE",
         ]
         | None

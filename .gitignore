@@ -11,6 +11,7 @@
 # Dữ liệu runtime, CV thật và dataset tải về
 /var/*
 !/var/.gitkeep
+/backend/var/
 
 # Dependency và cache
 node_modules/

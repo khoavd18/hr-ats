@@ -4,6 +4,8 @@ const DEFAULT_API_URL = "http://localhost:8000/api/v1";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const errorKeys: Record<string, TranslationKey> = {
+  RATE_LIMITED: "api.rateLimit",
+  UPLOAD_TOO_LARGE: "upload.batchTooLarge",
   INVALID_TASK_ASSIGNEE: "tasks.invalidAssignee",
   INVALID_TASK_LINK: "tasks.invalidLink",
   INVALID_CONSENT: "privacy.invalidConsent",

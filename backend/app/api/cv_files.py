@@ -8,8 +8,11 @@ from python_multipart.exceptions import MultipartParseError
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
+from starlette.formparsers import MultiPartException
 
 from app.api.dependencies import DB, Config, CurrentUser
+from app.api.rate_limits import limit_upload
+from app.api.upload_parser import parse_upload
 from app.core.errors import AppError, ErrorDetail
 from app.schemas.cv_files import CvFileStatusRead, CvUploadResponse, CvUploadResult
 from app.services import cv_files
@@ -36,6 +39,7 @@ def client_ip(request: Request) -> str | None:
 @router.post(
     "",
     response_model=CvUploadResponse,
+    dependencies=[Depends(limit_upload)],
     openapi_extra={
         "requestBody": {
             "required": True,
@@ -63,8 +67,8 @@ async def upload_files(
     request: Request, session: DB, actor: CurrentUser, storage: FileStorage
 ) -> CvUploadResponse:
     try:
-        form = await request.form(max_files=MAX_FILES, max_fields=1, max_part_size=1024)
-    except (HTTPException, MultipartParseError):
+        form = await parse_upload(request)
+    except (HTTPException, MultipartParseError, MultiPartException):
         raise AppError(
             "INVALID_UPLOAD_BATCH", "Mỗi lần tải từ 1 đến 50 tệp và tối đa một Job.", 422
         ) from None

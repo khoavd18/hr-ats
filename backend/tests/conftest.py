@@ -28,7 +28,7 @@ if TEST_URL.drivername != "postgresql+psycopg":
 os.environ.update(
     APP_ENV="test",
     DATABASE_URL=TEST_URL.render_as_string(hide_password=False),
-    REDIS_URL="redis://localhost:6379/15",
+    REDIS_URL="redis://127.0.0.1:6379/15",
     SECRET_KEY="t04-synthetic-signing-key-for-tests-only",
     LLM_PROVIDER="fake",
     EMBEDDING_PROVIDER="fake",
@@ -78,6 +78,12 @@ def local_network_only(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket, "getaddrinfo", lookup)
     monkeypatch.setattr(socket.socket, "connect", connect)
     monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
+
+
+@pytest.fixture(autouse=True)
+def isolated_rate_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Real Redis/Lua, one expiring namespace per test; never flush a shared Redis database.
+    monkeypatch.setattr("app.core.rate_limit.KEY_PREFIX", "hr-ats:test-rate:" + uuid4().hex + ":")
 
 
 @pytest.fixture(autouse=True)
