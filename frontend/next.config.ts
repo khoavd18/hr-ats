@@ -5,9 +5,15 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   poweredByHeader: false,
   async headers() {
-    const api = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1");
-    if (!["http:", "https:"].includes(api.protocol) || api.username || api.password) {
-      throw new Error("NEXT_PUBLIC_API_URL must be an HTTP(S) URL without credentials");
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    let apiOrigin = "";
+    // Root-relative paths stay on 'self'; reject URL authority/backslash variants.
+    if (!/^\/(?!\/)[^\\\r\n\t]*$/.test(apiUrl)) {
+      const api = new URL(apiUrl);
+      if (!["http:", "https:"].includes(api.protocol) || api.username || api.password) {
+        throw new Error("NEXT_PUBLIC_API_URL must be an HTTP(S) URL without credentials");
+      }
+      apiOrigin = ` ${api.origin}`;
     }
     const development = process.env.NODE_ENV === "development";
     const csp = [
@@ -20,7 +26,7 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self'",
-      `connect-src 'self' ${api.origin}${development ? " ws://localhost:3000" : ""}`,
+      `connect-src 'self'${apiOrigin}${development ? " ws://localhost:3000" : ""}`,
       "frame-src 'self' blob:",
     ].join("; ");
     return [

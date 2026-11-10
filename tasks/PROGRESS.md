@@ -31,11 +31,33 @@
 | T27 | done | 2026-11-09 | VERIFIED: báo cáo tiếng Việt, bộ lọc theo quyền, KPI/phễu/CV theo ngày/đồng thuận AI, bảng sắp xếp và Excel. Frontend 148 pass, API T26 61 pass; T27 E2E pass, hồi quy 12/13 rồi ca Kanban cũ pass khi chạy riêng. Lint/typecheck/build sạch; chờ review, CI và merge. Sandbox chặn ghi .git. |
 | T28 | done | 2026-11-09 | VERIFIED: email báo cáo ngày/tuần đúng giờ Việt Nam, KPI T26 và so sánh tuần/top Job, chỉ lead/admin active, chống trùng/kiểm quyền trước SMTP; CLI dry-run HTML. Backend 1296 pass/12 skip OCR cũ, T28/Beat 36 pass; Ruff/mypy/migration sạch. Chờ Review T28, CI và merge; sandbox chặn ghi .git. |
 | T29 | done | 2026-11-10 | VERIFIED: merged sau Fix round 4 (F1 CV trong hàng đợi trước lúc xoá không tạo lại người đã xoá, marker HMAC erased_contacts + migration 0010; F2 khoá lại actor FOR NO KEY UPDATE, hết deadlock 40P01). Backend 1352 pass (1 test byte .docx chỉ lệch ở môi trường cloud, cũng lệch trên main; CI pass); ruff/format/mypy/alembic sạch; CI backend+frontend xanh. Pháp chế cần xác nhận marker HMAC ngắn hạn (câu hỏi #110). |
-| T30 | review | 2026-11-10 | VERIFIED: ma trận quyền 625 ca, pipeline không log PII, HTTP header/rate limit/upload bounds, hai sửa T24 và Pillow 13; tự review không còn High. Backend 1991 pass/12 skip OCR, frontend 163 và E2E 15 pass; lint/typecheck/build/migration sạch. Sandbox chặn git index; chờ runner commit, Review T30, CI và merge. |
+| T30 | review | 2026-11-10 | VERIFIED: Fix round 1 sửa F1 URL API tương đối/CSP và F2 tách dữ liệu E2E công việc/báo cáo; 172 frontend test, 15 E2E pass; lint/typecheck/build sạch. Bản sửa không đổi backend; kết quả review trước: 1991 pass/12 skip OCR. Chờ review lại, CI và merge; xem tasks/reviews/T30.md. |
 | T31–T33 | todo | | |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T30 · 2026-11-10 · review · Fix round 1
+
+- VERIFIED: theo `tasks/_fix.md`, giữ nhánh `task/T30-security-hardening`.
+  F1: hỗ trợ lại API `/api/v1` qua CSP `connect-src 'self'`; vẫn kiểm giao thức
+  HTTP(S)/credentials với URL tuyệt đối. Ba regression URL tương đối fail trước
+  sửa, toàn bộ 11 test CSP pass sau sửa; bộ nạp production config Next cũng pass.
+- VERIFIED: F2 khôi phục đơn vị tuyển riêng và ID trả về trong E2E T25; file này
+  khớp `main`, không đổi assertion báo cáo. SQL chỉ đọc sau E2E xác nhận đơn vị
+  báo cáo có 2 CV/0 CV từ T25, đơn vị T25 có 1 CV và ID riêng.
+- VERIFIED: `npm.cmd test` (VITEST_MAX_WORKERS=2) **172 passed**;
+  `npm.cmd run lint`, `npm.cmd run typecheck`, `npm.cmd run build` pass;
+  `npx.cmd playwright test --workers=2` **15 passed** với API thật, production
+  web, fake AI và Mailpit local. `git diff --check` pass.
+- VERIFIED: fixture chạy migration trên DB tạm; đã dừng API/web và dọn đúng
+  DB/storage của lượt chạy. Không thay đổi backend/schema/dependency, không
+  chạy lại bộ backend trong vòng sửa này. NOT TESTED: proxy/TLS production.
+- Xem `tasks/reviews/T30.md`, mục `Fix round 1`, để biết lệnh và bằng chứng.
+  Giữ `review`; chờ review độc lập, CI và merge trước khi chuyển `done`.
+- VERIFIED: `git add` để commit `T30: fix review findings` bị sandbox chặn
+  `.git/index.lock` (Permission denied). Theo ngoại lệ `tasks/_fix.md`, giữ
+  thay đổi trong working tree trên task branch cho runner commit.
 
 ## T30 · 2026-11-10 · review
 

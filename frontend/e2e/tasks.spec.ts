@@ -24,12 +24,18 @@ test("creates a linked task, completes it and uses the overview with the real AP
   const csrf = (await context.cookies()).find((cookie) => cookie.name === "csrf_token")!.value;
   const headers = { "X-CSRF-Token": csrf, Origin: "http://localhost:3000" };
   const me = await (await context.request.get(`${base}/auth/me`)).json();
-  const options = await (await context.request.get(`${base}/jobs/options`)).json();
+  // Own the fixture: taking the first shared unit can change another test's report counts.
+  const unitResponse = await context.request.post(`${base}/hiring-units`, {
+    headers,
+    data: { name: `Đơn vị giả T25 ${Date.now()}`, kind: "department" },
+  });
+  expect(unitResponse.status()).toBe(201);
+  const unit = await unitResponse.json();
   const created = await context.request.post(`${base}/jobs`, {
     headers,
     data: {
       title: `Việc tuyển giả T25 ${Date.now()}`,
-      hiring_unit_id: options.hiring_units[0].id,
+      hiring_unit_id: unit.id,
       owner_id: me.id,
       status: "open",
       must_have: ["Excel"],

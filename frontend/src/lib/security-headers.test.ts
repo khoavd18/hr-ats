@@ -3,6 +3,31 @@ import config from "../../next.config";
 
 afterEach(() => vi.unstubAllEnvs());
 
+it.each(["/api/v1", "/", "/api/v1/"])(
+  "keeps relative API connections on the web origin (%s)",
+  async (apiUrl) => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", apiUrl);
+    const [rule] = await config.headers!();
+    const csp = rule.headers.find((header) => header.key === "Content-Security-Policy")!.value;
+    expect(csp.split("; ").find((directive) => directive.startsWith("connect-src"))).toBe(
+      "connect-src 'self'",
+    );
+  },
+);
+
+it.each([
+  "ftp://ats.example.invalid/api/v1",
+  "https://synthetic-user@ats.example.invalid/api/v1",
+  "https://:synthetic-password@ats.example.invalid/api/v1",
+  "//ats.example.invalid/api/v1",
+  "/\\ats.example.invalid/api/v1",
+  "/\t/ats.example.invalid/api/v1",
+])("rejects unsafe API URL configuration (%s)", async (apiUrl) => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", apiUrl);
+  await expect(config.headers!()).rejects.toThrow();
+});
+
 it("protects every web path and limits production connections to the configured API", async () => {
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("NEXT_PUBLIC_API_URL", "https://ats.example.invalid/api/v1");
