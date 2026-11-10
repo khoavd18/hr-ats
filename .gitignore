@@ -6,6 +6,7 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.local.*
 
 # Dữ liệu runtime, CV thật và dataset tải về
