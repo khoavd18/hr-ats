@@ -22,3 +22,25 @@ Mọi giá trị UNKNOWN phải được người phụ trách chốt; không t�
 
 ## Tiêu chí chấp nhận trước khi bật cho cả team
 UNKNOWN: ngưỡng đồng thuận AI–recruiter do team chốt.
+
+## Lệnh chạy eval harness (T31)
+
+```bash
+# Parse accuracy (offline, không cần mạng)
+uv run python eval/run_parse_eval.py --provider fake --data synthetic
+
+# Score accuracy (offline)
+uv run python eval/run_score_eval.py --provider fake --data synthetic
+
+# Bias check (offline)
+uv run python eval/run_bias_check.py --provider fake --data synthetic
+
+# Tải dataset công khai (cần kaggle.json + internet)
+python scripts/download_datasets.py --out var/datasets
+
+# Với provider thật (cần biến môi trường LLM_API_KEY)
+uv run python eval/run_score_eval.py --provider anthropic --model claude-opus-5-5 --data synthetic
+```
+
+Báo cáo sinh ra tại `eval/reports/<ngày>-<loại>-<model>-v<version>.md`.
+Chạy trong CI trước mỗi lần deploy với `--provider fake --data synthetic`.
