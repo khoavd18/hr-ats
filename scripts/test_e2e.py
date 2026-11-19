@@ -52,7 +52,6 @@ def run(rounds: int, only_t33: bool) -> None:
     print(f"Run logs and traces: {logs}", flush=True)
     env = {
         **os.environ,
-        "T33_BROWSER": "1",
         "T33_MAILPIT_URL": "http://127.0.0.1:8025",
         "DATABASE_URL": "postgresql+psycopg://hr:hr@127.0.0.1:5432/hr_ats",
         "REDIS_URL": "redis://127.0.0.1:6379/0",

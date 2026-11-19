@@ -117,9 +117,11 @@ def main() -> None:
         )
         get_settings.cache_clear()
         # Import after selecting the isolated DB and eager Celery configuration.
+        from app.api.dependencies import CurrentUser
         from app.core.security import hash_password
         from app.main import create_app
         from app.models.users import User, UserRole
+        from app.workers.reminders import generate_followup_tasks
 
         engine = build_engine(get_settings().database_url)
         done = Event()
@@ -158,12 +160,10 @@ def main() -> None:
 
                 seed_catalog(session)
             app = create_app()
-            if os.environ.get("T33_BROWSER") == "1":
-                from app.workers.reminders import generate_followup_tasks
 
-                @app.post("/__e2e__/follow-up", status_code=204, include_in_schema=False)
-                def run_followup() -> None:
-                    generate_followup_tasks.delay()
+            @app.post("/__e2e__/follow-up", status_code=204, include_in_schema=False)
+            def run_followup(actor: CurrentUser) -> None:
+                generate_followup_tasks.delay()
 
             server = uvicorn.Server(
                 uvicorn.Config(app, host="127.0.0.1", port=8000, access_log=False)

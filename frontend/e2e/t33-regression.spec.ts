@@ -263,7 +263,10 @@ test("T33: tuyển dụng từ cấu hình đến nhận việc, báo cáo và x
     exact: true,
   });
   await expect(followup).toHaveCount(0);
-  expect((await request.post("http://localhost:8000/__e2e__/follow-up")).status()).toBe(204);
+  const followupRun = await context.request.post("http://localhost:8000/__e2e__/follow-up", {
+    headers: { "X-CSRF-Token": csrf, Origin: "http://localhost:3000" },
+  });
+  expect(followupRun.status()).toBe(204);
   await page.reload();
   await expect(followup).toBeVisible();
   await followup.check();

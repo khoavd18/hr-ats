@@ -609,10 +609,10 @@ từ UI. Ca kiểm tra dùng Kanban bằng chuột và bàn phím, xác nhận b
 (gồm thư phỏng vấn có dữ liệu lịch), task do worker tạo, KPI theo Job,
 kết quả tìm trong Kho CV trước và sau xoá, và quyền của recruiter khác.
 
-Fixture `tests.ranking_browser_server` chỉ bật `/__e2e__/follow-up` khi
-`T33_BROWSER=1` để kích hoạt đúng Celery task tại thời điểm kiểm thử mà không
-chờ lịch Beat hằng giờ. Route nằm trong fixture localhost, không thuộc API
-ứng dụng. Task chạy eager với quy tắc và PostgreSQL thật.
+Fixture `tests.ranking_browser_server` có route nội bộ `/__e2e__/follow-up`
+để kích hoạt Celery task theo yêu cầu từ phiên kiểm thử đã đăng nhập và có
+CSRF hợp lệ. Route thuộc fixture localhost. Task chạy eager với quy tắc và
+PostgreSQL thật.
 
 Từ `backend/`, `uv run python ../scripts/test_e2e.py` chạy toàn bộ suite
 Playwright ba lượt liên tiếp, mỗi lượt trên DB/storage tạm mới, với giới hạn
