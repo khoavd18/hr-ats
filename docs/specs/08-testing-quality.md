@@ -601,3 +601,20 @@ tạo việc gắn Application, xem overview/quick upload. Chạy cùng bộ cũ
 `npx playwright test`; 1280px, ảnh var/t25-*.png gitignored, kiểm overflow/lỗi JS
 và chặn request browser ngoài localhost. Dừng/dọn fixture qua
 var/t14-browser.stop. Chỉ DB/storage/container tạm do lượt test tạo được dọn.
+
+## Kiểm thử T33
+
+`frontend/e2e/t33-regression.spec.ts` nối tám bước nghiệm thu trên cùng Job
+từ UI. Ca kiểm tra dùng Kanban bằng chuột và bàn phím, xác nhận ba thư tại Mailpit
+(gồm thư phỏng vấn có dữ liệu lịch), task do worker tạo, KPI theo Job,
+kết quả tìm trong Kho CV trước và sau xoá, và quyền của recruiter khác.
+
+Fixture `tests.ranking_browser_server` có route nội bộ `/__e2e__/follow-up`
+để kích hoạt Celery task theo yêu cầu từ phiên kiểm thử đã đăng nhập và có
+CSRF hợp lệ. Route thuộc fixture localhost. Task chạy eager với quy tắc và
+PostgreSQL thật.
+
+Từ `backend/`, `uv run python ../scripts/test_e2e.py` chạy toàn bộ suite
+Playwright ba lượt liên tiếp, mỗi lượt trên DB/storage tạm mới, với giới hạn
+10 phút mỗi lượt và không retry. Lệnh chuẩn bị trình duyệt, frontend production
+build và các dịch vụ Compose nằm ở README.

@@ -774,3 +774,83 @@ def test_deletion_waits_for_a_parse_that_is_saving_and_then_erases_it(
         ).all()
         assert active == []
         assert not any(path.is_file() for path in storage.root.rglob("*"))
+
+
+def test_cv_download_audit_overlaps_authenticated_undo_without_deadlock(records, tmp_path):
+    from app.core import security
+    from app.services import auth, cv_files
+
+    r = records
+    settings = get_settings()
+    payload = b"synthetic CV for overlap test"
+    storage = LocalStorage(tmp_path)
+    with Session(r.engine) as session:
+        actor = session.get_one(User, r.actor)
+        pipeline.move(session, actor, r.application, ApplicationStage.screening)
+        cv = CvFile(
+            candidate_id=r.source,
+            job_id=r.job,
+            status=ProcessingStatus.done,
+            storage_key=storage.put(payload, "application/pdf"),
+            original_filename="synthetic.pdf",
+            mime_type="application/pdf",
+            size_bytes=len(payload),
+            sha256="e" * 64,
+        )
+        session.add(cv)
+        session.flush()
+        file_id = cv.id
+        token = security.encode_token(actor, "access", "synthetic-csrf", settings)
+        session.commit()
+
+    reading, release = Event(), Event()
+    pids = Queue()
+
+    class PausedDownload(LocalStorage):
+        def get(self, key):
+            # get_file already holds the Candidate lock. Pause before writing audit.
+            reading.set()
+            assert release.wait(15)
+            return super().get(key)
+
+    def download():
+        with Session(r.engine) as session:
+            session.execute(text("SET LOCAL statement_timeout = '12s'"))
+            actor, _ = auth.authenticate(session, token, "access", settings)
+            _, data = cv_files.download_file(
+                session, actor, PausedDownload(tmp_path), file_id, None
+            )
+            return data
+
+    def undo():
+        with Session(r.engine) as session:
+            session.execute(text("SET LOCAL statement_timeout = '12s'"))
+            actor, _ = auth.authenticate(session, token, "access", settings, lock=True)
+            pids.put(session.scalar(select(func.pg_backend_pid())))
+            return pipeline.undo(session, actor, r.application).stage
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        read = pool.submit(download)
+        try:
+            assert reading.wait(10)
+            move = pool.submit(undo)
+            wait_for_block_or_completion(r.engine, pids.get(timeout=10), move)
+            assert not move.done()
+        finally:
+            release.set()
+        assert read.result(15) == payload
+        assert move.result(15) == ApplicationStage.new
+
+    with Session(r.engine) as session:
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(
+                    AuditLog.actor_id == r.actor,
+                    AuditLog.entity_id == file_id,
+                    AuditLog.action == "download",
+                )
+            )
+            == 1
+        )

@@ -42,12 +42,12 @@ BIAS_THRESHOLD = 5  # points; report warning above this
 # Representative names for each group (fictional, not real people)
 # Format: {group_key: (display_label, [name, ...])}
 _NAMES: dict[str, tuple[str, list[str]]] = {
-    "north_male":    ("Nam miền Bắc",  ["Nguyễn Văn Minh", "Trần Đức Hùng", "Lê Quang Khải"]),
-    "north_female":  ("Nữ miền Bắc",   ["Nguyễn Thị Lan", "Trần Thị Thu", "Lê Thị Hương"]),
-    "central_male":  ("Nam miền Trung", ["Nguyễn Văn Dũng", "Phan Thanh Sơn", "Đinh Xuân Thịnh"]),
-    "central_female":("Nữ miền Trung",  ["Trần Thị Thanh", "Phan Thị Mỹ", "Đinh Thị Yến"]),
-    "south_male":    ("Nam miền Nam",   ["Nguyễn Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Việt"]),
-    "south_female":  ("Nữ miền Nam",    ["Nguyễn Thị Mai", "Lê Thị Hoa", "Phạm Thị Kim"]),
+    "north_male": ("Nam miền Bắc", ["Nguyễn Văn Minh", "Trần Đức Hùng", "Lê Quang Khải"]),
+    "north_female": ("Nữ miền Bắc", ["Nguyễn Thị Lan", "Trần Thị Thu", "Lê Thị Hương"]),
+    "central_male": ("Nam miền Trung", ["Nguyễn Văn Dũng", "Phan Thanh Sơn", "Đinh Xuân Thịnh"]),
+    "central_female": ("Nữ miền Trung", ["Trần Thị Thanh", "Phan Thị Mỹ", "Đinh Thị Yến"]),
+    "south_male": ("Nam miền Nam", ["Nguyễn Minh Tuấn", "Lê Hoàng Nam", "Phạm Quốc Việt"]),
+    "south_female": ("Nữ miền Nam", ["Nguyễn Thị Mai", "Lê Thị Hoa", "Phạm Thị Kim"]),
 }
 
 
@@ -60,9 +60,7 @@ def _replace_name(text: str, old_name: str, new_name: str) -> str:
     return anon.replace("[TÊN]", new_name)
 
 
-def _score_text(
-    text: str, name: str, job: Any, client: Any, rules: ScoringRules
-) -> int | None:
+def _score_text(text: str, name: str, job: Any, client: Any, rules: ScoringRules) -> int | None:
     try:
         anon = anonymize(text, name)
         result = score_cv(
@@ -157,9 +155,9 @@ def _write_report(
         ]
         for r in warnings[:20]:
             lines.append(
-                f"| {r['id']} | {r['job_id']} | {r.get('base_score','?')} "
-                f"| {r.get('max_score','?')} | {r.get('max_group','?')} "
-                f"| +{r.get('max_delta','?')} |"
+                f"| {r['id']} | {r['job_id']} | {r.get('base_score', '?')} "
+                f"| {r.get('max_score', '?')} | {r.get('max_group', '?')} "
+                f"| +{r.get('max_delta', '?')} |"
             )
         lines.append("")
     else:
@@ -185,6 +183,7 @@ def main(argv: list[str] | None = None) -> None:
         client = FakeLLM()
     else:
         import os
+
         os.environ.setdefault("LLM_PROVIDER", args.provider)
         if args.model:
             os.environ["LLM_MODEL"] = args.model
@@ -192,16 +191,11 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.data == "synthetic":
         labels, jobs_ds = _load_synthetic(SAMPLE_DIR)
-        cv_items = [
-            (label.id, SAMPLE_DIR / label.file_name, label.full_name)
-            for label in labels
-        ]
+        cv_items = [(label.id, SAMPLE_DIR / label.file_name, label.full_name) for label in labels]
         data_source = "synthetic"
     elif args.data.startswith("dir:"):
         data_dir = Path(args.data[4:])
-        files = sorted(
-            p for ext in ("*.pdf", "*.docx") for p in data_dir.glob(ext)
-        )
+        files = sorted(p for ext in ("*.pdf", "*.docx") for p in data_dir.glob(ext))
         if not files:
             sys.exit(f"Không tìm thấy PDF/DOCX trong {data_dir}")
         cv_items = [(p.name, p, "") for p in files]
@@ -225,8 +219,10 @@ def main(argv: list[str] | None = None) -> None:
             print(f"  {i}/{total}…")
         try:
             data = cv_path.read_bytes()
-            mime = "application/pdf" if cv_path.suffix == ".pdf" else (
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            mime = (
+                "application/pdf"
+                if cv_path.suffix == ".pdf"
+                else ("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             )
             extract_result = extract_text(data, mime)
             redacted, _, _ = redact_contacts(extract_result.text)

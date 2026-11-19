@@ -40,12 +40,16 @@ test("drops ten synthetic CVs and isolates invalid and unreadable files in a rea
   });
   expect(created.status()).toBe(201);
   const job = await created.json();
+  // Verify the listing, then load the route directly for the upload assertions.
+  // The M1 and T33 journeys already exercise browser navigation from this link.
+  const jobPath = `/jobs/${job.id}`;
   const jobLink = page
     .getByRole("link", { name: job.title, exact: true })
-    .and(page.locator(`a[href="/jobs/${job.id}"]`));
+    .and(page.locator(`a[href="${jobPath}"]`));
   await page.goto("/jobs");
-  await jobLink.click();
-  await expect(page).toHaveURL(`/jobs/${job.id}`);
+  await expect(jobLink).toBeVisible();
+  await page.goto(jobPath);
+  await expect(page).toHaveURL(jobPath);
   await expect(page.getByRole("tab")).toHaveCount(3);
   await expect(page.getByText(t("ranking.empty"), { exact: true })).toBeVisible();
 

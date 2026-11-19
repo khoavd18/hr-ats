@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _has_sample_data() -> bool:
     return (SAMPLE_DIR / "jobs.json").exists() and len(list(SAMPLE_DIR.glob("cv_*.json"))) > 0
 
@@ -36,6 +37,7 @@ pytestmark = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 # run_parse_eval
 # ---------------------------------------------------------------------------
+
 
 class TestParseEval:
     def test_runs_offline_with_fake_and_synthetic(self, tmp_path):
@@ -114,6 +116,7 @@ class TestParseEval:
 # run_score_eval
 # ---------------------------------------------------------------------------
 
+
 class TestScoreEval:
     def test_runs_offline_with_fake_and_synthetic(self, tmp_path):
         """Acceptance criterion: runs with --provider fake --data synthetic."""
@@ -171,6 +174,7 @@ class TestScoreEval:
 # ---------------------------------------------------------------------------
 # run_bias_check
 # ---------------------------------------------------------------------------
+
 
 class TestBiasCheck:
     def test_runs_offline_with_fake_and_synthetic(self, tmp_path):

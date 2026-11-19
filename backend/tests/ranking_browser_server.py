@@ -109,7 +109,7 @@ def main() -> None:
         os.environ.update(
             APP_ENV="test",
             DATABASE_URL=url.render_as_string(hide_password=False),
-            SECRET_KEY="synthetic-browser-signing-key-for-tests-only",
+            SECRET_KEY=f"synthetic-browser-signing-key-{uuid4().hex}",
             LLM_PROVIDER="fake",
             EMBEDDING_PROVIDER="fake",
             STORAGE_BACKEND="local",
@@ -117,9 +117,11 @@ def main() -> None:
         )
         get_settings.cache_clear()
         # Import after selecting the isolated DB and eager Celery configuration.
+        from app.api.dependencies import CurrentUser
         from app.core.security import hash_password
         from app.main import create_app
         from app.models.users import User, UserRole
+        from app.workers.reminders import generate_followup_tasks
 
         engine = build_engine(get_settings().database_url)
         done = Event()
@@ -141,6 +143,8 @@ def main() -> None:
                     ("mailbox", UserRole.lead),
                     ("tasks", UserRole.lead),
                     ("privacy", UserRole.admin),
+                    ("t33", UserRole.admin),
+                    ("t33-outsider", UserRole.recruiter),
                 ):
                     session.add(
                         User(
@@ -155,8 +159,14 @@ def main() -> None:
                 from app.scripts.seed import seed_catalog
 
                 seed_catalog(session)
+            app = create_app()
+
+            @app.post("/__e2e__/follow-up", status_code=204, include_in_schema=False)
+            def run_followup(actor: CurrentUser) -> None:
+                generate_followup_tasks.delay()
+
             server = uvicorn.Server(
-                uvicorn.Config(create_app(), host="127.0.0.1", port=8000, access_log=False)
+                uvicorn.Config(app, host="127.0.0.1", port=8000, access_log=False)
             )
 
             def watch_stop() -> None:
