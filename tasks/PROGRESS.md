@@ -34,10 +34,19 @@
 | T30 | done | 2026-11-10 | VERIFIED: merged sau Fix round 1 (F1 URL API tương đối/CSP, F2 tách dữ liệu E2E). Giới hạn login/upload bằng Redis, chặn kích thước upload, header bảo mật web/API, ma trận quyền, kiểm log không PII, Pillow 13. Backend 2002 pass, frontend 172 pass, CI xanh. Xem tasks/reviews/T30.md và docs/security/review-2026-11-10.md. |
 | T31 | done | 2026-11-10 | VERIFIED: eval harness offline với FakeLLM + 60 CV tổng hợp. Parse eval (name/title/location/yoe exact-match, skills F1), score eval (precision@10, Cohen's kappa, confusion matrix), bias check (6 nhóm tên × 3 fictitious names, cảnh báo delta > 5 điểm). 12/12 test pass (189s). Ruff/mypy sạch. Merged vào main. Xem tasks/reviews/T31.md. |
 | T32 | done | 2026-11-10 | VERIFIED: Dockerfiles backend (Python 3.12-slim + Tesseract vie+eng, non-root app:1000) và frontend (Node 22-alpine + standalone Next.js, non-root nextjs:1001); docker-compose.prod.yml (db, redis, api, worker, beat, web, caddy); caddy/Caddyfile auto-TLS Let's Encrypt + security headers; scripts/backup/ (pg_dump+gzip 14 bản + restore an toàn); .env.prod.example; docs/deploy.md (9 bước + backup/restore/update/LUKS); docs/huong-dan-su-dung.md tiếng Việt 11 mục. Merged vào main. Xem tasks/reviews/T32.md. |
-| T33 | review | 2026-11-19 | VERIFIED: toàn bộ Playwright 16/16 qua ba lượt liên tiếp, mất 97,8 s, 86,6 s và 82,3 s. Đã sửa deadlock giữa tải CV và hoàn tác, có hồi quy PostgreSQL. Chờ review độc lập và merge. |
+| T33 | done | 2026-11-19 | VERIFIED: đã review, CI xanh và merge. Toàn bộ Playwright 16/16 qua ba lượt sau review (58,0 s, 67,1 s, 57,9 s). Đã sửa deadlock tải CV/hoàn tác. Xem tasks/reviews/T33.md. |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T33 · 2026-11-19 · done
+
+- VERIFIED: review độc lập xác nhận bản sửa khoá PostgreSQL. Đã xử lý F1 về
+  fixture Playwright mặc định và kiểm lại toàn bộ 16 ca, ba lượt liên tiếp.
+- VERIFIED: CI backend/frontend của commit 5920abe đạt
+  ([run 44549079502](https://github.com/khoavd18/hr-ats/actions/runs/44549079502)).
+  Định dạng bốn file T31 trong commit riêng để khôi phục cổng Ruff.
+- Đã merge vào main. Xem `tasks/reviews/T33.md`.
 
 ## T33 · 2026-11-19 · review
 
