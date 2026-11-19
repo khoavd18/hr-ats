@@ -89,6 +89,35 @@ Nếu Windows giữ cổng SMTP 1025, lệnh Compose sẽ báo bind lỗi. Luồ
 gửi email: có thể chạy `docker compose up -d db redis` để dùng demo, rồi xử lý
 cổng Mailpit trước khi làm các task email. Không xoá volume DB để sửa lỗi cổng.
 
+## Hồi quy tuyển dụng (T33)
+
+Từ thư mục gốc trên máy dev, cài dependency và build web một lần:
+
+```powershell
+docker compose up -d --wait db redis mailpit
+Push-Location backend
+uv sync --frozen
+Pop-Location
+Push-Location frontend
+npm ci
+npx playwright install chromium
+npm run build
+Pop-Location
+```
+
+Chạy ba lượt từ thư mục `backend/`:
+
+```powershell
+uv run python ../scripts/test_e2e.py
+```
+
+Lệnh yêu cầu cổng 3000 và 8000 còn trống, PostgreSQL/Redis/Mailpit dùng cổng mặc
+định của Compose. Mỗi lượt migrate và seed một DB tạm, dùng storage tạm,
+FakeLLM, FakeEmbedder và Mailpit localhost. Mỗi lượt chạy toàn bộ Playwright,
+dừng nếu thất bại hoặc mất từ 10 phút trở lên. Log và trace nằm trong thư mục
+`var/e2e-…` được in lúc chạy. Để gỡ lỗi riêng luồng T33, thêm
+`--runs 1 --only-t33`.
+
 ## Chạy dev
 
 Yêu cầu: Docker Engine đang chạy Linux containers và Docker Compose v2. Chạy tại thư mục gốc repo:

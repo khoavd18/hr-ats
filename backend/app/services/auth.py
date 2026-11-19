@@ -58,7 +58,9 @@ def authenticate(
     claims = security.decode_token(token, kind, settings)
     query = select(User).where(User.id == UUID(claims["sub"]))
     if lock:
-        query = query.with_for_update().execution_options(populate_existing=True)
+        # Serialize session changes without blocking audit-log FK checks.
+        # A CV download holds a Candidate lock before recording its audit row.
+        query = query.with_for_update(key_share=True).execution_options(populate_existing=True)
     user = session.scalar(query)
     if (
         user is None
