@@ -50,6 +50,7 @@ POSITIVE_LEVELS = {"high", "medium"}
 # Cohen's kappa
 # ---------------------------------------------------------------------------
 
+
 def _kappa(y_true: list[str], y_pred: list[str], labels: list[str]) -> float:
     """Unweighted Cohen's kappa for multi-class labels."""
     n = len(y_true)
@@ -74,6 +75,7 @@ def _kappa(y_true: list[str], y_pred: list[str], labels: list[str]) -> float:
 # Data loader
 # ---------------------------------------------------------------------------
 
+
 def _load_synthetic(data_dir: Path) -> tuple[list[CVLabel], JobDataset]:
     jobs_path = data_dir / "jobs.json"
     if not jobs_path.exists():
@@ -91,6 +93,7 @@ def _load_synthetic(data_dir: Path) -> tuple[list[CVLabel], JobDataset]:
 # Core evaluation (one CV × one Job)
 # ---------------------------------------------------------------------------
 
+
 def _eval_one(
     label: CVLabel,
     cv_path: Path,
@@ -100,8 +103,10 @@ def _eval_one(
 ) -> dict:
     try:
         data = cv_path.read_bytes()
-        mime = "application/pdf" if cv_path.suffix == ".pdf" else (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        mime = (
+            "application/pdf"
+            if cv_path.suffix == ".pdf"
+            else ("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         )
         extract_result = extract_text(data, mime)
         redacted, _, _ = redact_contacts(extract_result.text)
@@ -139,6 +144,7 @@ def _eval_one(
 # Precision@k
 # ---------------------------------------------------------------------------
 
+
 def _precision_at_k(results: list[dict], k: int = 10) -> float:
     ok = [r for r in results if r.get("ok")]
     ranked = sorted(ok, key=lambda r: r.get("ai_score", 0), reverse=True)
@@ -151,6 +157,7 @@ def _precision_at_k(results: list[dict], k: int = 10) -> float:
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
+
 
 def _write_report(
     results: list[dict],
@@ -222,7 +229,7 @@ def _write_report(
             jp10 = _precision_at_k(job_results, min(10, len(job_results)))
             lines.append(
                 f"**{job_id}**: {len(job_results)} CV, "
-                f"precision@{min(10,len(job_results))}={jp10:.1%}, kappa={jk:.3f}"
+                f"precision@{min(10, len(job_results))}={jp10:.1%}, kappa={jk:.3f}"
             )
         lines.append("")
 
@@ -245,7 +252,7 @@ def _write_report(
     if errors:
         lines += ["## Lỗi", "", "| ID | Job | Lỗi |", "|---|---|---|"]
         for r in errors:
-            lines.append(f"| {r['id']} | {r.get('job_id','?')} | {r.get('error','')} |")
+            lines.append(f"| {r['id']} | {r.get('job_id', '?')} | {r.get('error', '')} |")
 
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
@@ -254,6 +261,7 @@ def _write_report(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -270,6 +278,7 @@ def main(argv: list[str] | None = None) -> None:
         client = FakeLLM()
     else:
         import os
+
         os.environ.setdefault("LLM_PROVIDER", args.provider)
         if args.model:
             os.environ["LLM_MODEL"] = args.model
@@ -296,11 +305,7 @@ def main(argv: list[str] | None = None) -> None:
         if not jobs_path.exists():
             sys.exit(f"Cần file jobs.json tại {jobs_path}")
         jobs_ds = JobDataset.model_validate_json(jobs_path.read_text(encoding="utf-8"))
-        files = sorted(
-            p
-            for ext in ("*.pdf", "*.docx")
-            for p in data_dir.glob(ext)
-        )
+        files = sorted(p for ext in ("*.pdf", "*.docx") for p in data_dir.glob(ext))
         if not files:
             sys.exit(f"Không tìm thấy PDF/DOCX trong {data_dir}")
         # Create dummy labels (no ground truth)
@@ -309,8 +314,12 @@ def main(argv: list[str] | None = None) -> None:
             for job in jobs_ds.jobs:
                 try:
                     data = path.read_bytes()
-                    mime = "application/pdf" if path.suffix == ".pdf" else (
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    mime = (
+                        "application/pdf"
+                        if path.suffix == ".pdf"
+                        else (
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
                     )
                     extract_result = extract_text(data, mime)
                     redacted, _, _ = redact_contacts(extract_result.text)
@@ -324,17 +333,19 @@ def main(argv: list[str] | None = None) -> None:
                         client=client,
                     )
                     computed = compute_score(score_result.judged.criteria, anon_text, rules=rules)
-                    results.append({
-                        "id": path.name,
-                        "job_id": job.id,
-                        "ok": True,
-                        "ai_level": computed.level.value,
-                        "ai_score": computed.score,
-                        "expected_level": "unknown",
-                        "model": score_result.model,
-                        "prompt_version": score_result.prompt_version,
-                        "note": "no_ground_truth",
-                    })
+                    results.append(
+                        {
+                            "id": path.name,
+                            "job_id": job.id,
+                            "ok": True,
+                            "ai_level": computed.level.value,
+                            "ai_score": computed.score,
+                            "expected_level": "unknown",
+                            "model": score_result.model,
+                            "prompt_version": score_result.prompt_version,
+                            "note": "no_ground_truth",
+                        }
+                    )
                 except Exception as exc:
                     results.append(
                         {"id": path.name, "job_id": job.id, "ok": False, "error": str(exc)}

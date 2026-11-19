@@ -41,6 +41,7 @@ REPORTS_DIR = ROOT / "eval" / "reports"
 # Normalisation helpers
 # ---------------------------------------------------------------------------
 
+
 def _norm(value: str | None) -> str:
     if not value:
         return ""
@@ -64,6 +65,7 @@ def _skill_tokens(skills: list[str]) -> set[str]:
 # Metric helpers
 # ---------------------------------------------------------------------------
 
+
 def _exact(predicted: Any, expected: Any) -> int:
     return 1 if str(predicted) == str(expected) else 0
 
@@ -84,6 +86,7 @@ def _f1_set(pred: set[str], true: set[str]) -> float:
 # Data loaders
 # ---------------------------------------------------------------------------
 
+
 def _load_synthetic(data_dir: Path) -> tuple[list[CVLabel], JobDataset]:
     jobs_path = data_dir / "jobs.json"
     if not jobs_path.exists():
@@ -100,9 +103,7 @@ def _load_synthetic(data_dir: Path) -> tuple[list[CVLabel], JobDataset]:
 def _load_dir(data_dir: Path) -> list[dict]:
     """Load CV files from a directory (no ground-truth labels — text extraction only)."""
     files = sorted(
-        p
-        for ext in ("*.pdf", "*.docx", "*.png", "*.jpg", "*.jpeg")
-        for p in data_dir.glob(ext)
+        p for ext in ("*.pdf", "*.docx", "*.png", "*.jpg", "*.jpeg") for p in data_dir.glob(ext)
     )
     if not files:
         sys.exit(f"Không tìm thấy PDF/DOCX trong {data_dir}")
@@ -113,6 +114,7 @@ def _load_dir(data_dir: Path) -> list[dict]:
 # Core evaluation
 # ---------------------------------------------------------------------------
 
+
 def _eval_cv_label(
     label: CVLabel,
     cv_path: Path,
@@ -121,8 +123,10 @@ def _eval_cv_label(
     """Extract, redact, parse one CV and compare against its label."""
     try:
         data = cv_path.read_bytes()
-        mime = "application/pdf" if cv_path.suffix == ".pdf" else (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        mime = (
+            "application/pdf"
+            if cv_path.suffix == ".pdf"
+            else ("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         )
         result = extract_text(data, mime)
         text, _, _ = redact_contacts(result.text)
@@ -160,6 +164,7 @@ def _eval_cv_label(
 # Report generation
 # ---------------------------------------------------------------------------
 
+
 def _aggregate(results: list[dict]) -> dict:
     ok = [r for r in results if r.get("ok")]
     n = len(ok)
@@ -194,9 +199,7 @@ def _write_report(
     wrong = [
         r
         for r in results
-        if r.get("ok") and (
-            r["name_match"] == 0 or r["title_match"] == 0 or r["skills_f1"] < 0.5
-        )
+        if r.get("ok") and (r["name_match"] == 0 or r["title_match"] == 0 or r["skills_f1"] < 0.5)
     ][:10]
 
     lines = [
@@ -263,6 +266,7 @@ def _write_report(
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider", default="fake", help="fake | anthropic | openai | ollama")
@@ -281,6 +285,7 @@ def main(argv: list[str] | None = None) -> None:
         client = FakeLLM()
     else:
         import os
+
         os.environ.setdefault("LLM_PROVIDER", args.provider)
         if args.model:
             os.environ["LLM_MODEL"] = args.model
@@ -305,24 +310,28 @@ def main(argv: list[str] | None = None) -> None:
             path = entry["path"]
             try:
                 data = path.read_bytes()
-                mime = "application/pdf" if path.suffix == ".pdf" else (
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                mime = (
+                    "application/pdf"
+                    if path.suffix == ".pdf"
+                    else ("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 )
                 result = extract_text(data, mime)
                 text, _, _ = redact_contacts(result.text)
                 parsed = parse_cv(text, client=client, version=version)
-                results.append({
-                    "id": path.name,
-                    "ok": True,
-                    "name_match": 0,
-                    "title_match": 0,
-                    "location_match": 0,
-                    "yoe_match": 0,
-                    "skills_f1": 0.0,
-                    "model": parsed.model,
-                    "prompt_version": parsed.prompt_version,
-                    "note": "no_ground_truth",
-                })
+                results.append(
+                    {
+                        "id": path.name,
+                        "ok": True,
+                        "name_match": 0,
+                        "title_match": 0,
+                        "location_match": 0,
+                        "yoe_match": 0,
+                        "skills_f1": 0.0,
+                        "model": parsed.model,
+                        "prompt_version": parsed.prompt_version,
+                        "note": "no_ground_truth",
+                    }
+                )
             except Exception as exc:
                 results.append({"id": path.name, "ok": False, "error": str(exc)})
         data_source = str(data_dir)
@@ -331,9 +340,7 @@ def main(argv: list[str] | None = None) -> None:
 
     agg = _aggregate(results)
     model_name = getattr(client, "model", "unknown")
-    report = _write_report(
-        results, agg, args.provider, model_name, str(version), data_source
-    )
+    report = _write_report(results, agg, args.provider, model_name, str(version), data_source)
 
     print("=== Kết quả đánh giá Parse ===")
     for k, v in agg.items():
