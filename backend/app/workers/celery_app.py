@@ -18,6 +18,7 @@ def create_celery_app(settings: Settings) -> Celery:
             "app.workers.email",
             "app.email.inbound",
             "app.workers.reminders",
+            "app.workers.overdue_webhook",
             "app.workers.reports",
             "app.workers.retention",
         ],
@@ -59,6 +60,20 @@ def create_celery_app(settings: Settings) -> Celery:
             "retention": {"task": "enforce_retention", "schedule": crontab(hour=2, minute=0)},
             "followup-tasks": {"task": "generate_followup_tasks", "schedule": 3600.0},
             "due-tasks": {"task": "remind_due_tasks", "schedule": crontab(hour=8, minute=0)},
+            **(
+                {
+                    "queue-overdue-webhook": {
+                        "task": "queue_overdue_webhook",
+                        "schedule": crontab(hour=8, minute=0),
+                    },
+                    "deliver-overdue-webhook": {
+                        "task": "deliver_overdue_webhook",
+                        "schedule": 60.0,
+                    },
+                }
+                if settings.n8n_overdue_enabled
+                else {}
+            ),
             "daily-report": {
                 "task": "generate_daily_report",
                 "schedule": crontab(hour=18, minute=0),

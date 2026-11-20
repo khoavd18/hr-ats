@@ -64,6 +64,10 @@ hr-ats/
 
 Dev có thể chạy `db redis mailpit` bằng Docker và chạy `api`, `worker`, `web` trực tiếp trên máy.
 
+T34 bổ sung một webhook tuỳ chọn tới n8n Community Edition chạy local để gửi
+Telegram. Celery/Redis và PostgreSQL vẫn quản lý lịch, dữ liệu và trạng thái
+gửi. Thiết lập nằm trong [spec tích hợp](09-integrations.md).
+
 ## Hàng đợi và job nền
 | Queue | Job |
 |---|---|

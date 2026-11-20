@@ -35,9 +35,34 @@
 | T31 | done | 2026-11-10 | VERIFIED: eval harness offline với FakeLLM + 60 CV tổng hợp. Parse eval (name/title/location/yoe exact-match, skills F1), score eval (precision@10, Cohen's kappa, confusion matrix), bias check (6 nhóm tên × 3 fictitious names, cảnh báo delta > 5 điểm). 12/12 test pass (189s). Ruff/mypy sạch. Merged vào main. Xem tasks/reviews/T31.md. |
 | T32 | done | 2026-11-10 | VERIFIED: Dockerfiles backend (Python 3.12-slim + Tesseract vie+eng, non-root app:1000) và frontend (Node 22-alpine + standalone Next.js, non-root nextjs:1001); docker-compose.prod.yml (db, redis, api, worker, beat, web, caddy); caddy/Caddyfile auto-TLS Let's Encrypt + security headers; scripts/backup/ (pg_dump+gzip 14 bản + restore an toàn); .env.prod.example; docs/deploy.md (9 bước + backup/restore/update/LUKS); docs/huong-dan-su-dung.md tiếng Việt 11 mục. Merged vào main. Xem tasks/reviews/T32.md. |
 | T33 | done | 2026-11-19 | VERIFIED: đã review, CI xanh và merge. Toàn bộ Playwright 16/16 qua ba lượt sau review (58,0 s, 67,1 s, 57,9 s). Đã sửa deadlock tải CV/hoàn tác. Xem tasks/reviews/T33.md. |
+| T34 | review | 2026-11-20 | VERIFIED: Celery/Redis → PostgreSQL → n8n local → Telegram với dữ liệu giả. Backend 2016 pass/12 skip OCR. Migration dev, Ruff, mypy và audit đạt. |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
+
+## T34 · 2026-11-20 · review
+
+- ASSUMED: gửi mỗi ngày lúc 8:00 giờ Việt Nam cho một tài khoản được chọn.
+  Việc quá hạn gồm `todo` và `doing` có hạn trước thời điểm chụp số đếm.
+- VERIFIED: migration `0011_overdue_webhook` đã chạy trên PostgreSQL dev
+  mới. Ruff check/format, mypy và `uv audit --locked` đạt.
+- VERIFIED: Redis và Celery worker thật chạy hai tác vụ trên PostgreSQL
+  tạm, đếm 1 việc quá hạn và ghi nhận HTTP ACK từ receiver loopback.
+- VERIFIED: workflow n8n local đã publish bản phản hồi JSON lấy ID từ
+  node Webhook sau khi gửi Telegram.
+- VERIFIED: workflow đang publish từ chối POST thiếu Header Auth (403).
+  Phép thử Celery/Redis với dữ liệu giả, một việc quá hạn và một việc còn
+  hạn, nhận HTTP 200 với đúng ID từ workflow sau node Telegram. Worker ghi
+  nhận bản nhắc đã gửi trên DB tạm.
+- VERIFIED: 74 ca nhắc việc, webhook, migration, cấu hình và lịch Celery
+  chạy đạt trong lượt kiểm thử tập trung.
+- VERIFIED: `uv run pytest -q` hoàn tất. 2016 ca đạt, 12 ca OCR bỏ qua
+  vì máy Windows chưa cài Tesseract.
+- VERIFIED: review độc lập phát hiện bản nhắc cũ có thể được gửi sau nửa đêm.
+  Sửa điều kiện gửi theo ngày Việt Nam và bổ sung kiểm thử mốc 00:00.
+  Chạy lại 75 test tập trung, Ruff và mypy đều đạt. Xem [review T34](reviews/T34.md).
+- NOT TESTED: lịch định kỳ với tài khoản ATS của người dùng. Cần chọn
+  tài khoản và bật cấu hình theo spec 09.
 
 ## T33 · 2026-11-19 · done
 
