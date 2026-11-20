@@ -1,6 +1,6 @@
 # Bộ dữ liệu CV công khai (chỉ để phát triển và đánh giá)
 
-Tải về `var/datasets/` (đã gitignore), không commit, không đưa vào bản demo công khai.
+Tải về `src/ai/var/datasets/` (đã gitignore), không commit, không đưa vào bản demo công khai.
 
 | Bộ | Nguồn | Nội dung | Dùng cho |
 |---|---|---|---|

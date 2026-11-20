@@ -9,20 +9,20 @@ thử vào Telegram riêng dùng khóa local theo spec 09 và chạy thủ công
 | Việc | Lệnh |
 |---|---|
 | Hạ tầng dev | `docker compose up -d db redis mailpit` |
-| Cài backend | `cd backend && uv sync` |
-| Migration | `cd backend && uv run alembic upgrade head` |
-| Chạy API | `cd backend && uv run uvicorn app.main:app --reload` |
-| Chạy worker | `cd backend && uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info` (Windows thêm `-P solo`) |
-| Test backend | `cd backend && uv run pytest` |
-| Lint backend | `cd backend && uv run ruff check . && uv run ruff format --check .` |
-| Typecheck backend | `cd backend && uv run mypy app` |
-| Seed dev | `cd backend && uv run python -m app.scripts.seed` |
-| Cài frontend | `cd frontend && npm ci` |
-| Chạy frontend | `cd frontend && npm run dev` |
-| Test frontend | `cd frontend && npm test` |
-| Lint frontend | `cd frontend && npm run lint && npm run typecheck` |
-| E2E | `cd frontend && npx playwright test` (cần API + web + seed) |
-| Đánh giá AI | `cd backend && uv run python ../eval/run_score_eval.py --provider fake` |
+| Cài backend | `cd src/backend && uv sync` |
+| Migration | `cd src/backend && uv run alembic upgrade head` |
+| Chạy API | `cd src/backend && uv run uvicorn app.main:app --reload` |
+| Chạy worker | `cd src/backend && uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info` (Windows thêm `-P solo`) |
+| Test backend | `cd src/backend && uv run pytest` |
+| Lint backend | `cd src/backend && uv run ruff check . && uv run ruff format --check .` |
+| Typecheck backend | `cd src/backend && uv run mypy app` |
+| Seed dev | `cd src/backend && uv run python -m app.scripts.seed` |
+| Cài frontend | `cd src/frontend && npm ci` |
+| Chạy frontend | `cd src/frontend && npm run dev` |
+| Test frontend | `cd src/frontend && npm test` |
+| Lint frontend | `cd src/frontend && npm run lint && npm run typecheck` |
+| E2E | `cd src/frontend && npx playwright test` (cần API + web + seed) |
+| Đánh giá AI | `cd src/backend && uv run python -m hr_ats_ai.eval.run_score_eval --provider fake` |
 
 Test backend chạy trên DB Postgres riêng (`hr_ats_test`, tạo bởi fixture), Celery chạy ở chế độ eager, `LLM_PROVIDER=fake`, `EMBEDDING_PROVIDER=fake`, email gửi vào bộ nhớ. **Test không được gọi mạng ra ngoài.**
 
@@ -34,7 +34,7 @@ T04 bổ sung API test auth/users, bảng quyền, CLI, đăng nhập sai đồn
 
 T05 bổ sung integration PostgreSQL cho 10 bảng lõi/schema đọc, unique application chỉ khi chưa xoá, FK/unique/CHECK, trigger full-text không dấu khi insert/update, cosine top-k và kiểm tra planner có thể dùng GIN/HNSW. Test ma trận quyền Job dùng owner/member thật trong DB, gồm thu hồi membership, soft delete và dữ liệu owner chưa flush. Test migration kiểm tra upgrade → downgrade base → upgrade, không sót bảng/enum/function; thêm DB trống với EMBEDDING_DIM=8. Không dùng dữ liệu hay gọi provider bên ngoài; kiểm tra index trên dữ liệu nhỏ chỉ chứng minh khả năng dùng index, chưa phải benchmark quy mô production.
 
-T06 bổ sung `tests/unit/test_synthetic_cvs.py` vào lệnh chuẩn `uv run pytest`: validate schema/cặp file/ma trận Job, liên hệ và công ty giả, độ phủ bố cục/nghề, dung lượng, nội dung PDF/DOCX và scan ảnh; sinh lại để so SHA-256 mọi file với bộ 60 CV đã commit. Test không cần DB/Redis hay provider, vẫn dùng chặn mạng ngoài của fixture chung. Lint script ngoài backend bằng `uv run ruff check ../eval` và `uv run ruff format --check ../eval` tại `backend/` (cũng chạy trong CI). Mypy chuẩn vẫn là `uv run mypy app`; T06 không đổi schema DB/API/UI. Hướng dẫn sinh và contract fixture: `eval/README.md`.
+T06 bổ sung `tests/unit/test_synthetic_cvs.py` vào lệnh chuẩn `uv run pytest`: validate schema/cặp file/ma trận Job, liên hệ và công ty giả, độ phủ bố cục/nghề, dung lượng, nội dung PDF/DOCX và scan ảnh; sinh lại để đối chiếu SHA-256 của 121 file với manifest đã commit. Test không cần DB/Redis hay provider, vẫn dùng chặn mạng ngoài của fixture chung. Lint script ngoài backend bằng `uv run ruff check ../ai` và `uv run ruff format --check ../ai` tại `src/backend/` (cũng chạy trong CI). Mypy chuẩn vẫn là `uv run mypy app`; T06 không đổi schema DB/API/UI. Hướng dẫn sinh và contract fixture: `src/ai/README.md`.
 
 T07 bổ sung test local storage và S3 qua `botocore.stub.Stubber` (không gọi S3/MinIO thật), magic bytes/macro/ZIP và giới hạn file, cấu hình ba queue/eager JSON. API test PostgreSQL upload hỗn hợp 3 hợp lệ + executable đổi đuôi, SHA-256 chống trùng, quyền owner/member/uploader/admin/lead, thu hồi membership, soft delete, audit, CSRF, lỗi storage/queue và retry. Test Celery eager dùng session test được inject; một test concurrency tạo DB tạm riêng qua fixture `empty_engine`, chạy hai upload đồng thời và worker với kết nối DB độc lập để chứng minh commit trước publish, một record/object/activity. Tất cả nằm trong `uv run pytest`; không đổi migration/schema hay frontend. Celery dev có thể smoke bằng lệnh worker chuẩn ở trên (Windows `-P solo`).
 
@@ -43,7 +43,7 @@ T08 bổ sung `tests/unit/test_extract.py` và `test_redact.py` vào lệnh chu�
 DOCX bảng, thứ tự bảng lồng/header/footer/ô merge, NFC; PDF 49/50 ký tự, PDF hỗn hợp,
 300 DPI, ảnh PNG/JPEG, alpha/EXIF và các lỗi an toàn. Kiểm thử redaction gồm trên
 12 dạng SĐT/email, chuẩn hoá `+84`, bỏ trùng, giữ ngày/phiên bản, không nối số qua
-xuống dòng. Test OCR thật trên 10 PDF scan trong `data/sample_cvs/` và ảnh PNG/JPEG
+xuống dòng. Test OCR thật trên 10 PDF scan trong `src/ai/var/sample_cvs/` và ảnh PNG/JPEG
 của một scan chỉ skip khi thiếu executable Tesseract theo ngoại lệ rõ trong T08.
 CI cài `tesseract-ocr` và `tesseract-ocr-vie` (kèm `eng`) trước pytest để thực thi
 các test này. Tất cả OCR chạy local; test thiếu OCR/timeout/lỗi mock subprocess,
@@ -71,7 +71,7 @@ Test quyền file riêng sau parse không mở file khác cùng người. DB t�
 `empty_engine` kiểm commit trước publish, hai file khác hash cùng liên hệ, hai
 delivery cùng pending ID và crash/redelivery trên kết nối PostgreSQL độc lập.
 Các test upload/quyền T07 dùng kết quả extract giả rõ ràng cho fixture ảnh trắng/
-PDF ngắn; test T10 dùng file PDF/DOCX thật từ bộ giả đã commit, không mock extract.
+PDF ngắn; test T10 dùng file PDF/DOCX được sinh từ bộ mẫu, không mock extract.
 Không thay đổi migration, dependency, frontend hoặc điều kiện skip OCR của T08.
 
 T11 thêm `tests/unit/test_anonymize.py`, `test_embed.py`, `test_reembed_cli.py`,
@@ -118,7 +118,7 @@ ngoài hoặc đổi schema/dependency. Có thể dùng browser fixture T04 đ�
 đơn vị tuyển → tạo/sửa Job với API thật trước seed nghiệp vụ T18.
 
 
-GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.
+GitHub Actions (`.github/workflows/ci.yml`) chạy trên mỗi push vào `main` và `task/**` và mỗi pull request: Postgres 16 + pgvector và Redis 7 dạng service, `src/backend/scripts/init-db.sql`, rồi `uv sync --frozen`, ruff, mypy, `alembic upgrade head`, pytest. Task chỉ được merge khi CI xanh. Job frontend T03 dùng Node 22, chạy `npm ci`, `npm run lint` (ESLint + Prettier), `npm run typecheck`, `npm test`, `npm run build`. Vitest dùng jsdom, mock fetch tại boundary và không gọi mạng ngoài. Playwright mới được cài/cấu hình ở T03; E2E có dữ liệu bổ sung tại T18.
 
 ## Kiểm thử T14
 
@@ -141,7 +141,7 @@ filter/rỗng/drawer/counts ở 1280px; giữ E2E auth T04, tài khoản ranking
 `uv run python -m tests.ranking_browser_server`, tại frontend `npm run dev`, rồi
 lệnh chuẩn `npx playwright test`. Fixture chỉ dùng PostgreSQL localhost, tạo DB
 `hr_ats_test_t14_<uuid>` và storage tạm, migrate bằng Alembic, eager Celery và fake
-provider, chặn request browser ngoài localhost. Tạo file `var/t14-browser.stop`
+provider, chặn request browser ngoài localhost. Tạo file `src/backend/var/t14-browser.stop`
 ở repo root để dừng graceful và tự dọn đúng DB/storage của lượt chạy; giữ DB dev,
 DB test và volume. `tests.auth_browser_server` T04 vẫn dùng riêng cho auth E2E;
 fixture T14 hỗ trợ cả ba bài. Không đổi schema, dependency hay ngoại lệ OCR.
@@ -200,7 +200,7 @@ tìm không dấu, bật tìm theo nghĩa, chọn hai người từ kho vào Job
 ý từ Job khác, mở lại không thấy người đã thêm; xác nhận gộp và kiểm cả hai Job
 chỉ còn một hồ sơ. Chụp thẻ/hộp ở 1280px, kiểm overflow và lỗi JS. Browser chặn
 request ngoài localhost; không thêm seed production hoặc thay phạm vi T18.
-Dừng/dọn fixture bằng `var/t14-browser.stop` như trước. Khi kiểm production
+Dừng/dọn fixture bằng `src/backend/var/t14-browser.stop` như trước. Khi kiểm production
 build, chạy `npm run build` sau khi dừng dev rồi `npm run start`; không chạy
 build và dev đồng thời vì chúng cùng ghi `.next`.
 
@@ -283,11 +283,11 @@ upload DOCX giả T06 cv_0043 với comment transport riêng; không sửa dữ 
 Playwright ở 1280px dùng chuột kéo new→screening, chuyển tab rồi undo, thử nhảy
 bước để API thật từ chối/rollback, dùng bàn phím cuộn đến rejected và xác nhận
 lý do, undo/reload, mở withdrawn/drawer và kiểm focus/overflow/lỗi JS. Chụp ảnh
-vào var/t20-*.png (gitignored), chặn mọi request browser ngoài localhost. Chạy
+vào `src/frontend/test-results/**/t20-*.png` (gitignored), chặn mọi request browser ngoài localhost. Chạy
 `npx playwright test` cùng các bài cũ; nếu dev compile lạnh vượt thời gian chờ
 điều hướng, dừng dev rồi dùng `npm run build` và `npm run start` trước khi chạy
 lại trên fixture mới. Không chạy build đồng thời dev. Dừng fixture bằng
-var/t14-browser.stop.
+src/backend/var/t14-browser.stop.
 Không đổi schema, endpoint hoặc backend runtime trong T20.
 
 ## Kiểm thử T21
@@ -318,9 +318,9 @@ browser-recruitment@example.invalid không xung đột phiên bài khác. Tạo 
 upload DOCX giả T06 cv_0044 với ZIP comment transport riêng, chuẩn bị submitted
 bằng API T19, rồi drawer đặt lịch/tải lịch/undo, lưu feedback/offer sent/accepted,
 ghi nhận nhận việc/kiểm trùng và mở lại sau reload. Kiểm 1280px, lỗi JavaScript,
-overflow; ảnh var/t21-recruitment.png không track. Chạy `npx playwright test`
+overflow; ảnh `src/frontend/test-results/**/t21-recruitment.png` không track. Chạy `npx playwright test`
 cùng các bài cũ, không request ngoài localhost. Dừng fixture bằng
-var/t14-browser.stop, chỉ dọn DB/storage do chính fixture vừa tạo.
+src/backend/var/t14-browser.stop, chỉ dọn DB/storage do chính fixture vừa tạo.
 
 ## Kiểm thử T22
 
@@ -347,9 +347,9 @@ sau build, tài khoản lead riêng browser-email-templates@example.invalid. T�
 Job/upload DOCX giả, mở tab mẫu, tạo/lưu/chèn biến, tìm/chọn đúng Application,
 kiểm iframe hiện script như text và lỗi thiếu lịch, đóng/mở giữ bản đã lưu,
 không đổi stage hoặc gọi endpoint message. Kiểm 1280px/overflow/lỗi JS, ảnh
-var/t22-email-templates.png gitignored; chạy cùng bộ cũ bằng
+`src/frontend/test-results/**/t22-email-templates.png` gitignored; chạy cùng bộ cũ bằng
 `npx playwright test`. Chặn HTTP ngoài localhost; dừng fixture qua
-var/t14-browser.stop để chỉ dọn DB/storage của lượt kiểm thử.
+src/backend/var/t14-browser.stop để chỉ dọn DB/storage của lượt kiểm thử.
 
 ## Kiểm thử T23
 
@@ -385,9 +385,9 @@ lặp kéo/sửa tiêu đề/Gửi mới có một sent. Drawer đọc thư đã
 giả không email không có gợi ý, UI báo rõ. E2E pipeline cũ thêm Không gửi sau
 từ chối và kiểm 0 message, giữ mọi kiểm tra stage/undo. Chạy cùng bộ cũ bằng
 `npx playwright test`; chỉ localhost, 1280px, kiểm overflow/lỗi JS, ảnh
-var/t23-*.png gitignored. Có thể kiểm attachment Mailpit qua API localhost;
+`src/frontend/test-results/**/t23-*.png` gitignored. Có thể kiểm attachment Mailpit qua API localhost;
 test backend parse lại ICS là kiểm tra nội dung độc lập. Dừng fixture bằng
-var/t14-browser.stop để dọn đúng DB/storage tạm và dừng container Mailpit của
+src/backend/var/t14-browser.stop để dọn đúng DB/storage tạm và dừng container Mailpit của
 lượt kiểm thử. Không đổi schema/migration hoặc thêm dependency.
 
 ## Definition of Done cho mỗi task
@@ -407,7 +407,7 @@ admin/lead, Redis lỗi và không xuất credentials. Không mạng ngoài.
 Vitest thêm `mailbox-settings.test.tsx` và kiểm mã Job trong job-detail: bật/tắt,
 chưa đọc/giờ Việt/lỗi an toàn, retry, recruiter không fetch. E2E mailbox.spec.ts
 dùng tài khoản browser-mailbox riêng trên fixture ranking_browser_server,
-kiểm tab cài đặt và mã Job ở 1280px, overflow/lỗi JS, ảnh var/t24-*.png. Chạy
+kiểm tab cài đặt và mã Job ở 1280px, overflow/lỗi JS, ảnh `src/frontend/test-results/**/t24-*.png`. Chạy
 đúng `npx playwright test` cùng bộ cũ sau API fixture/web sẵn sàng, Mailpit local
 cho bài T23; T24 không kết nối IMAP thật hoặc bật nhận mail trên tài khoản thật.
 
@@ -453,7 +453,7 @@ Vitest kiểm CSP config/thông báo rate limit/IMAP; `security.spec.ts` kiểm 
 thật và không có vi phạm CSP ở trang đăng nhập, toàn E2E cũ kiểm các workflow.
 Chỉ localhost, CV giả; audit dependency là bước riêng ngoài test, không dùng
 provider/ứng viên thật. Nếu Windows giữ cổng 5432/1025, dùng Compose override
-gitignored ở var/ và DATABASE_URL/SMTP_PORT trỏ cổng local thay thế, giữ volume.
+gitignored ở src/backend/var/ và DATABASE_URL/SMTP_PORT trỏ cổng local thay thế, giữ volume.
 
 ## Kiểm thử T29
 
@@ -495,7 +495,7 @@ form, tạo request riêng khỏi execute, huỷ xác nhận không POST, audit 
 action/system. Chuỗi mới vẫn phải qua i18n-usage. Playwright `privacy.spec.ts`
 dùng user browser-privacy riêng trên ranking_browser_server, DB/storage tạm,
 upload CV giả/FakeLLM, drawer consent, gia hạn, huỷ rồi xác nhận purge, download
-404, KPI Job không đổi và audit tiếng Việt. Ảnh 1280px tại var/t29-*.png; không
+404, KPI Job không đổi và audit tiếng Việt. Ảnh 1280px tại `src/frontend/test-results/**/t29-*.png`; không
 overflow/lỗi JavaScript, chặn request ngoài localhost.
 
 Lệnh chuẩn: `uv run pytest`, Ruff check/format, mypy, Alembic upgrade head;
@@ -541,7 +541,7 @@ request cũ bị huỷ và export chống lặp/response sau unmount. Chạy `np
 pipeline thật + FakeLLM/FakeEmbedder. Tạo user/đơn vị/Job giả riêng qua API,
 upload hai DOCX giả, kiểm báo cáo lead/recruiter, danh mục theo quyền, biểu
 đồ, tải workbook, 403 không giữ số cũ và thử lại. Playwright chặn request web
-ngoài localhost; ảnh 1280px trong `var/t27-reports-*.png` (gitignored).
+ngoài localhost; ảnh 1280px trong `src/frontend/test-results/**/t27-reports-*.png` (gitignored).
 Không sửa backend/schema/KPI; regression API T26 có thể chạy bằng
 `uv run pytest tests/api/test_reports.py tests/api/test_reports_access.py -q`.
 
@@ -603,13 +603,13 @@ E2E `tasks.spec.ts` dùng ranking_browser_server, user browser-tasks giả riên
 production web và Mailpit localhost như T23. Tạo Job/upload DOCX giả cv_0045
 (ZIP comment riêng), tạo việc gắn Job, reload/tick/kiểm done qua API, mở drawer
 tạo việc gắn Application, xem overview/quick upload. Chạy cùng bộ cũ bằng
-`npx playwright test`; 1280px, ảnh var/t25-*.png gitignored, kiểm overflow/lỗi JS
+`npx playwright test`; 1280px, ảnh `src/frontend/test-results/**/t25-*.png` gitignored, kiểm overflow/lỗi JS
 và chặn request browser ngoài localhost. Dừng/dọn fixture qua
-var/t14-browser.stop. Chỉ DB/storage/container tạm do lượt test tạo được dọn.
+src/backend/var/t14-browser.stop. Chỉ DB/storage/container tạm do lượt test tạo được dọn.
 
 ## Kiểm thử T33
 
-`frontend/e2e/t33-regression.spec.ts` nối tám bước nghiệm thu trên cùng Job
+`src/frontend/e2e/t33-regression.spec.ts` nối tám bước nghiệm thu trên cùng Job
 từ UI. Ca kiểm tra dùng Kanban bằng chuột và bàn phím, xác nhận ba thư tại Mailpit
 (gồm thư phỏng vấn có dữ liệu lịch), task do worker tạo, KPI theo Job,
 kết quả tìm trong Kho CV trước và sau xoá, và quyền của recruiter khác.
@@ -619,7 +619,7 @@ Fixture `tests.ranking_browser_server` có route nội bộ `/__e2e__/follow-up`
 CSRF hợp lệ. Route thuộc fixture localhost. Task chạy eager với quy tắc và
 PostgreSQL thật.
 
-Từ `backend/`, `uv run python ../scripts/test_e2e.py` chạy toàn bộ suite
+Từ `src/backend/`, `uv run python ../frontend/scripts/test_e2e.py` chạy toàn bộ suite
 Playwright ba lượt liên tiếp, mỗi lượt trên DB/storage tạm mới, với giới hạn
 10 phút mỗi lượt và không retry. Lệnh chuẩn bị trình duyệt, frontend production
 build và các dịch vụ Compose nằm ở README.

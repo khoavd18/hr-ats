@@ -1,6 +1,6 @@
 # 04 · AI pipeline
 
-Toàn bộ code AI nằm trong `backend/app/ai/`. Prompt nằm trong `prompts/<task>/v<N>.md`, có version; mỗi kết quả lưu `model` và `prompt_version`.
+Các module xử lý AI nằm trong `src/ai/hr_ats_ai/`. Prompt được lưu theo phiên bản tại `src/ai/hr_ats_ai/prompt_templates/<task>/v<N>.md`. Mỗi kết quả lưu `model` và `prompt_version`.
 
 ## Luồng tổng
 ```
@@ -24,7 +24,7 @@ rollback parse/embedding/score. File failed hoặc nguồn upload không tự g�
 Ứng viên mới dùng source từ file; dedupe giữ nguồn của ứng viên đã có.
 Mỗi bước bọc try/except, ghi `status/error` lên bản ghi, không làm hỏng bước khác. Lỗi ở một file không chặn các file còn lại trong cùng lần upload.
 
-## 1. Trích text (`ai/extract.py`)
+## 1. Trích text (`hr_ats_ai/extract.py`)
 - PDF: PyMuPDF lấy text theo block, sắp theo cột (trái → phải, trên → dưới) để CV hai cột không bị trộn dòng.
 - Trang có < 50 ký tự text → render 300 DPI → Tesseract (`TESSERACT_LANGS`). `extraction_method = ocr` nếu có ít nhất một trang OCR.
 - DOCX: python-docx, gồm cả bảng. Ảnh JPG/PNG: OCR.
@@ -46,7 +46,7 @@ ASSUMED (#34–#35): tái dùng validation T07; từ chối PDF mã hoá hoặc 
 học với gutter ít nhất 12 point; giữ heading/footer bắc qua cột và tách block/line
 bị MuPDF gộp giữa cột. Đây là heuristic, chưa bảo đảm mọi bố cục CV thực tế.
 
-## 2. Che trước khi gửi (`ai/redact.py`)
+## 2. Che trước khi gửi (`hr_ats_ai/redact.py`)
 - Tìm email (regex) và số điện thoại Việt Nam/quốc tế (regex cho `0xxxxxxxxx`, `+84`, có dấu cách/chấm/gạch), lưu giá trị gốc vào biến cục bộ, thay trong text bằng `[EMAIL]`, `[PHONE]`.
 - Giá trị gốc được ghi thẳng vào `candidates.email/phone`, không bao giờ gửi cho LLM.
 
@@ -60,13 +60,13 @@ giữ mã quốc gia, bỏ dấu phân tách. Không suy đoán quốc gia cho s
 regex địa chỉ thông dụng với domain có dấu chấm; chưa xử lý địa chỉ quốc tế hoá
 (EAI) hoặc email bị OCR tách chữ. Không thay tên/tuổi/địa chỉ ở bước này.
 
-## 3. Parse CV (`ai/parse.py`, prompt `prompts/parse_cv/v1.md`)
+## 3. Parse CV (`hr_ats_ai/parse.py`)
 Gửi text đã che ở bước 2. Tách thành 3 lời gọi song song (theo paper Layout-Aware, xem `docs/research/papers.md`):
 - `basic`: họ tên, vị trí hiện tại, địa điểm, số năm kinh nghiệm, ngôn ngữ
 - `experience`: danh sách kinh nghiệm `{company, title, start, end, description}` và học vấn `{school, degree, major, start, end}`
 - `skills`: danh sách kỹ năng đã chuẩn hoá (chữ thường, gộp đồng nghĩa phổ biến)
 
-Mỗi lời gọi trả JSON theo schema Pydantic trong `ai/schemas.py`; validate, nếu sai thì gọi lại một lần kèm thông báo lỗi validate; vẫn sai thì `failed`. Ngày tháng dạng `YYYY-MM` hoặc `null`; không bịa thông tin không có trong CV (prompt yêu cầu trả `null`).
+Mỗi lời gọi trả JSON theo schema Pydantic trong `hr_ats_ai/schemas.py`; validate, nếu sai thì gọi lại một lần kèm thông báo lỗi validate; vẫn sai thì `failed`. Ngày tháng dạng `YYYY-MM` hoặc `null`; không bịa thông tin không có trong CV (prompt yêu cầu trả `null`).
 
 T10: `parse_cv(text, client=None, version=1)` trả `ParseResult(parsed: ParsedCV,
 model, prompt_version)`. `ParsedCV` gộp ba schema T09, không có email/phone;
@@ -117,7 +117,7 @@ retry ở tầng parse; một phần lỗi thì không trả kết quả thiếu
   của file mới, không gộp Candidate. Thiếu embedding thì chưa có kết luận nghi
   trùng; T11 đã nối hook và bật bước này.
 
-## 5. Ẩn danh (`ai/anonymize.py`)
+## 5. Ẩn danh (`hr_ats_ai/anonymize.py`)
 Tạo `anonymized_text` từ text đã che: thay họ tên (cả dạng có dấu, không dấu, viết hoa) bằng `[TÊN]`; xoá dòng ngày sinh/tuổi, giới tính ("Nam", "Nữ", "Giới tính"), tình trạng hôn nhân, địa chỉ nhà, link mạng xã hội cá nhân. Có test với ít nhất 15 mẫu CV giả.
 **Chỉ `anonymized_text` được dùng cho embedding và chấm điểm.**
 
@@ -134,14 +134,14 @@ không phải NER đầy đủ, có thể bỏ header nghề nghiệp khi parse 
 không bảo đảm phát hiện PII bị OCR sai hoặc không có nhãn trong mọi CV thực tế.
 Test dùng 50 CV kỹ thuật số giả, không phải đánh giá chất lượng trên CV thật.
 
-## 6. Embedding (`ai/embed.py`)
+## 6. Embedding (`hr_ats_ai/embed.py`)
 Interface `Embedder.embed(texts) -> list[list[float]]`; bản `LocalEmbedder` (sentence-transformers, chuẩn hoá L2) và `FakeEmbedder` (hash tất định, cho test). Embedding cho Job lấy từ `title + description + must_have + nice_to_have`.
 
 T11: `get_embedder(settings=None)` chọn đúng provider, không tự fallback. Fake
 dùng SHA-256 từng từ Unicode NFC/casefold, cộng vào chiều và dấu tất định rồi L2;
 text rỗng dùng vector đơn vị, batch rỗng trả []. Fake chỉ phục vụ kiểm thử chức
 năng, không thể chứng minh chất lượng tìm kiếm ngữ nghĩa. Local lazy-load và
-cache một model trong process, cache trọng số tại `var/models`,
+cache một model trong process, cache trọng số tại `src/ai/var/models`,
 `trust_remote_code=False`, chỉ safetensors, tắt progress bar. APP_ENV=test chỉ
 đọc model local; unit test thay boundary thư viện, không tải trọng số/mạng ngoài.
 Mọi kết quả phải đủ batch, đúng EMBEDDING_DIM, hữu hạn, khác zero và L2 chuẩn hoá;
@@ -171,7 +171,7 @@ cấu hình triển khai, không thêm cột ngoài schema spec. Đổi dimensio
 migration riêng theo spec 01/README, CLI không tự thay schema. Chưa benchmark
 transaction toàn bộ kho ở quy mô production.
 
-## 8. Chấm theo tiêu chí (`ai/score.py`, prompt `prompts/score_cv/v1.md`)
+## 8. Chấm theo tiêu chí (`hr_ats_ai/score.py`, prompt `prompt_templates/score_cv/v1.md`)
 Đầu vào: `anonymized_text`, danh sách `must_have`, `nice_to_have`, tiêu đề và mô tả Job.
 LLM trả cho **từng tiêu chí**:
 ```json
@@ -191,7 +191,7 @@ tự sửa trọng số hoặc chấm thiếu tiêu chí. Retry schema/transport
 và dấu; bằng chứng null/rỗng/không khớp → `unknown`, xoá evidence sai. Đây chỉ là
 kiểm trích dẫn tồn tại, chưa chứng minh trích dẫn có hàm ý đúng với tiêu chí.
 
-## 9. Tính điểm tất định (`ai/scoring_rules.py`)
+## 9. Tính điểm tất định (`hr_ats_ai/scoring_rules.py`)
 - Giá trị: `met = 1`, `partial = 0.5`, `not_met = 0`, `unknown = 0`.
 - `must_score` = trung bình tiêu chí must; `nice_score` = trung bình tiêu chí nice (nếu không có nice thì bằng `must_score`).
 - `ai_score = round(100 * (0.75 * must_score + 0.25 * nice_score))`.
@@ -238,7 +238,7 @@ text đã ẩn danh. Không đổi stage, owner, rejected_reason hoặc gửi em
   có nhưng thiếu → partial, zero → not_met, thiếu thông tin → unknown.
   Đây là heuristic fixture để kiểm pipeline, không phải quy tắc đánh giá CV thật.
 
-## LLM adapter (`ai/llm.py`)
+## LLM adapter (`hr_ats_ai/llm.py`)
 ```python
 class LLMClient(Protocol):
     def complete_json(self, *, system: str, user: str, schema: type[BaseModel],
@@ -293,7 +293,7 @@ PII. Mỗi lượt validate tối đa ba request, cả complete_json tối đa s
 vẫn sai trả LLMValidationError (AppError, LLM_INVALID_OUTPUT). Caller T10/T12
 bắt lỗi và cập nhật failed; adapter không ghi DB.
 
-Log app.ai.llm chỉ gồm provider/model cấu hình, input_tokens/output_tokens,
+Log `hr_ats_ai.llm` chỉ gồm provider/model cấu hình, input_tokens/output_tokens,
 duration_ms, outcome và số lần thử; không prompt/CV/output/key/exception thô.
 Token thiếu (kể cả fake) là null, không ước tính; chi phí tiền UNKNOWN khi chưa
 chốt model/giá. Caller lưu client.model và prompt.prompt_version cùng kết quả.
@@ -331,10 +331,10 @@ transaction. Không tự chấm lại/đổi stage hoặc suy diễn đồng ý.
 T12 chống request thêm hồ sơ bằng nguồn vừa bị gộp. Chi tiết xung đột/lịch sử và
 quyền ở contract T16 spec 03; không thêm bước AI hoặc schema.
 
-## Đánh giá (`eval/`)
+## Đánh giá (`src/ai/hr_ats_ai/eval/`)
 - `eval/generate_synthetic_cvs.py`: sinh CV giả tiếng Việt (DOCX + PDF, 1 cột, 2 cột, có bảng, bản ảnh scan có nhiễu) cùng file nhãn JSON (thông tin đúng + mức phù hợp với vài Job mẫu).
-- T06: chạy tại `backend/` bằng `uv run python ../eval/generate_synthetic_cvs.py --count 60 --seed 20261108 --out ../data/sample_cvs`; mặc định đầu ra là `data/sample_cvs/` ở gốc repo. Schema nhãn version 1 dùng `CVLabel`/`JobDataset` trong `eval/schemas.py`: mỗi CV có `<id>.json`, `synthetic=true`, trường parse đúng và `expected_level[job_id]`; `jobs.json` có năm Job cùng ma trận `expected_level[cv_id][job_id]`. Nhãn `high|medium|low|insufficient`; metadata/ZIP/font/random cố định để sinh lại cùng byte với dependency khóa. Chi tiết nguồn giả, kịch bản nhãn và giới hạn ở `eval/README.md`. Đây là contract fixture, không thay schema parse production hoặc quy tắc chấm điểm ở bước 9.
+- T06: chạy tại `src/backend/` bằng `uv run python -m hr_ats_ai.eval.generate_synthetic_cvs`; mặc định đầu ra là `src/ai/var/sample_cvs/` và được Git bỏ qua. Schema nhãn version 1 dùng `CVLabel`/`JobDataset` trong `eval/schemas.py`: mỗi CV có `<id>.json`, `synthetic=true`, trường parse đúng và `expected_level[job_id]`; `jobs.json` có năm Job cùng ma trận `expected_level[cv_id][job_id]`. Nhãn `high|medium|low|insufficient`; metadata/ZIP/font/random cố định để sinh lại cùng byte với dependency khóa. Chi tiết nguồn giả, kịch bản nhãn và giới hạn ở `src/ai/README.md`. Đây là contract fixture, không thay schema parse production hoặc quy tắc chấm điểm ở bước 9.
 - `eval/run_parse_eval.py`: độ chính xác theo trường (exact match cho email/phone/tên; F1 cho kỹ năng).
 - `eval/run_score_eval.py`: so `ai_level` với nhãn; precision@10, mức đồng thuận (Cohen's kappa); chạy được trên bộ công khai (xem `docs/research/datasets.md`) và trên bộ CV nội bộ đã ẩn danh đặt ngoài repo (`EVAL_DATA_DIR`).
 - `eval/run_bias_check.py`: cùng một CV, thay tên nam/nữ và các tên vùng miền khác nhau → mức chênh `ai_score`; báo cáo nếu chênh > 5 điểm.
-- Kết quả ghi `eval/reports/<ngày>-<model>-<prompt_version>.md`. Đổi model hoặc prompt phải chạy lại.
+- Kết quả ghi `src/ai/var/reports/<ngày>-<model>-<prompt_version>.md`. Đổi model hoặc prompt phải chạy lại.

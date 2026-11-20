@@ -321,7 +321,7 @@ Rate limit/retry/checkpoint và giới hạn exactly-once SMTP theo T23; retry q
 nửa đêm hoặc qua thứ Hai giữ nguyên kỳ/nội dung đã lập. Publish lỗi giữ queued;
 chạy lại producer trong cùng ngày/tuần hiện tại để phục hồi như nhắc việc T25.
 
-CLI tại `backend/`:
+CLI tại `src/backend/`:
 
 ```powershell
 uv run python -m app.scripts.send_report --daily --dry-run
@@ -329,7 +329,7 @@ uv run python -m app.scripts.send_report --weekly --dry-run
 ```
 
 Dry-run chỉ đọc DB, chọn một lead/admin active để dựng cùng báo cáo team,
-ghi HTML UTF-8 vào `var/reports/bao-cao-<loại>-<ngày>-<mã>.html` (gitignored),
+ghi HTML UTF-8 vào `src/backend/var/reports/bao-cao-<loại>-<ngày>-<mã>.html` (gitignored),
 in đường dẫn, không tạo EmailMessage/activity hoặc publish/gọi SMTP. Có thể
 truyền `--output <file-mới>`; không ghi đè tệp có sẵn. Không có người nhận hợp
 lệ → `NO_REPORT_RECIPIENTS`, exit 1. Chọn đúng một `--daily`/`--weekly`;

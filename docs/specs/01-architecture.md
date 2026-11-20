@@ -4,10 +4,10 @@
 | Lớp | Công nghệ |
 |---|---|
 | Backend API | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async không bắt buộc; dùng sync + threadpool cho đơn giản), Alembic |
-| Quản lý gói Python | `uv` (`backend/pyproject.toml`) |
+| Quản lý gói Python | `uv` (`src/backend/pyproject.toml`) |
 | Hàng đợi và lịch | Celery 5 + Redis; Celery Beat cho việc định kỳ |
 | Cơ sở dữ liệu | PostgreSQL 16 + extension `pgvector` (image `pgvector/pgvector:pg16`) |
-| Lưu file | Interface `Storage` với 2 bản: `LocalStorage` (thư mục `var/storage`) và `S3Storage` (MinIO/S3) |
+| Lưu file | Interface `Storage` với 2 bản: `LocalStorage` (thư mục `src/backend/var/storage`) và `S3Storage` (MinIO/S3) |
 | Trích text | PyMuPDF (PDF), python-docx (DOCX), Tesseract OCR với gói `vie` + `eng` cho trang scan |
 | LLM | Adapter tự viết, xem `04-ai-pipeline.md` |
 | Embedding | sentence-transformers (`BAAI/bge-m3`) hoặc fake |
@@ -20,35 +20,38 @@
 ## Cấu trúc repo
 ```
 hr-ats/
-├── AGENTS.md / CLAUDE.md          # quy tắc agent (có khối do thư viện skill quản lý)
-├── docker-compose.yml             # db, redis, minio, mailpit, (api, worker, beat, web khi build image)
+├── AGENTS.md / CLAUDE.md          # quy tắc phát triển
+├── docker-compose.yml             # hạ tầng dev
+├── docker-compose.prod.yml        # hạ tầng và app production
 ├── .env.example
-├── backend/
-│   ├── pyproject.toml
-│   ├── alembic.ini, migrations/
-│   ├── app/
-│   │   ├── main.py                # tạo FastAPI app, include routers
-│   │   ├── core/                  # config (pydantic-settings), db session, security, logging, errors
-│   │   ├── models/                # SQLAlchemy models, 1 file / nhóm bảng
-│   │   ├── schemas/               # Pydantic request/response
-│   │   ├── api/                   # routers: auth, users, hiring_units, jobs, candidates, applications, ...
-│   │   ├── services/              # nghiệp vụ, không phụ thuộc FastAPI
-│   │   ├── ai/                    # extraction, anonymize, llm adapters, parse, score, embed, prompts loader
-│   │   ├── email/                 # render mẫu, gửi SMTP, đọc IMAP
-│   │   ├── reports/               # truy vấn KPI
-│   │   ├── storage/               # Storage interface + impl
-│   │   └── workers/               # celery app, tasks, beat schedule
-│   └── tests/                     # unit/, api/, fixtures/ (chỉ dữ liệu giả)
-├── frontend/
-│   ├── package.json
-│   └── src/ app/ (routes), components/, lib/ (api client, auth), i18n/vi.ts
-├── prompts/                       # prompt có version: parse_cv/v1.md, score_cv/v1.md ...
-├── eval/                          # script đánh giá AI, bộ dữ liệu đánh giá (không commit dữ liệu thật)
-├── data/sample_cvs/               # CV giả do script sinh ra (được commit)
-├── scripts/                       # run-task.ps1, seed, sinh CV giả
-├── docs/                          # specs/, ml/, metrics/, product/, research/
-└── tasks/                         # task cho agent
+├── src/
+│   ├── backend/
+│   │   ├── pyproject.toml, uv.lock
+│   │   ├── alembic.ini, migrations/
+│   │   ├── app/                   # API, core, models, services, email, reports, storage, workers
+│   │   ├── scripts/               # khởi tạo và backup PostgreSQL
+│   │   ├── tests/                 # unit/, api/
+│   │   └── var/                   # storage, báo cáo HTML, Beat, backup, log API E2E
+│   ├── frontend/
+│   │   ├── package.json, package-lock.json
+│   │   ├── src/                   # app, components, lib, i18n
+│   │   ├── e2e/, scripts/
+│   │   └── .next/, test-results/  # build, ảnh và trace
+│   └── ai/
+│       ├── pyproject.toml
+│       ├── hr_ats_ai/              # extraction, anonymize, embedding, parse và score
+│       │   ├── prompt_templates/   # prompt có phiên bản
+│       │   └── eval/               # đánh giá, sinh bộ CV giả, checksum và font
+│       └── var/                    # CV giả, model, dataset tải về, báo cáo đánh giá
+├── caddy/
+├── scripts/                       # điều phối task chung
+├── docs/
+└── tasks/
 ```
+
+`hr_ats_ai` là package nội bộ được `uv sync` cài từ `src/ai/` vào môi trường
+của backend. API và Celery dùng cùng package và lockfile. Git bỏ qua đầu ra
+cục bộ của từng thành phần. Lệnh chạy ở [spec 08](08-testing-quality.md).
 
 ## Dịch vụ (docker-compose)
 | Service | Image / lệnh | Cổng |

@@ -23,7 +23,7 @@ described: stop after the plan and wait for approval.
 - If the spec is unclear: choose the simplest option consistent with the spec, record it in
   docs/specs/open-questions.md (task id, question, chosen default), and continue.
 - Hard rules: no real personal data in code, tests, fixtures, or logs; all UI strings live in
-  frontend/src/i18n/vi.ts (Vietnamese); tests never call external networks
+  src/frontend/src/i18n/vi.ts (Vietnamese); tests never call external networks
   (use FakeLLM / FakeEmbedder).
 - Only mark a task blocked if an acceptance criterion cannot be met. Problems in optional parts
   that are not acceptance criteria go to open-questions.md and do not block the task.

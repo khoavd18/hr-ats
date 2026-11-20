@@ -37,7 +37,7 @@ Do NOT modify source code, tests, or specs. The ONLY file you may write is the r
 6. Database: migration upgrades and downgrades cleanly; indexes and constraints present.
 7. Tests: meaningful assertions, no network calls, no skipped or weakened tests, no tests edited
    to fit wrong behavior.
-8. UI (if touched): strings in frontend/src/i18n/vi.ts; no technical terms shown to HR users
+8. UI (if touched): strings in src/frontend/src/i18n/vi.ts; no technical terms shown to HR users
    ("LLM", "embedding", "prompt", "JSON"); clear Vietnamese error messages; undo where required.
 9. Maintainability: structure per docs/specs/01-architecture.md; logic in services, not routers;
    no dead code or debug leftovers.

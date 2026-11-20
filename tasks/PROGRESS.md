@@ -40,6 +40,30 @@
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
 
+## Tổ chức lại cấu trúc repo · 2026-11-20
+
+- VERIFIED: chuyển API, web và mã AI sang `src/backend/`, `src/frontend/` và
+  `src/ai/`. Cập nhật luồng chạy local, CI, Docker Compose và hướng dẫn triển khai.
+- VERIFIED: bỏ `.agents/`, `.claude/`, các file giữ chỗ và 121 file CV mẫu sinh sẵn
+  khỏi cây Git mới. Số file được theo dõi giảm từ 681 còn 477. Skill vẫn dùng được
+  từ bộ cài cục bộ.
+- VERIFIED: checkout sạch qua 38 ca pytest kiểm cấu hình và tự sinh lại bộ CV mẫu.
+  Cả 121 checksum khớp bộ gốc. Báo cáo, dữ liệu AI, backup, build, log và ảnh E2E
+  dùng thư mục của thành phần tương ứng.
+- VERIFIED: Ruff, mypy, lint và typecheck frontend, Vitest 172/172 và build Next.js
+  chạy đạt. Build cả hai Docker image, kiểm Compose dev/prod, lệnh Alembic sinh SQL
+  đến head, OCR tiếng Việt trong image backend và trang đăng nhập standalone.
+- VERIFIED: `uv run python ../frontend/scripts/test_e2e.py --runs 1` đạt 16/16
+  trong 93,2 giây. Hai ca kéo thả đồng bộ thao tác với trạng thái nút và vị trí
+  cột đích. Lượt kiểm thử lưu 23 ảnh dưới `src/frontend/test-results/`.
+- VERIFIED: `uv run --frozen pytest -q` đạt 2017 ca. Máy Windows bỏ qua 12
+  ca OCR do thiếu Tesseract. Smoke OCR tiếng Việt chạy đạt trong image Linux.
+- VERIFIED: chuyển 45 file storage hiện có trên máy dev sang
+  `src/backend/var/storage/`. README ghi cách nâng cấp kho local, hướng dẫn triển
+  khai ghi đường dẫn volume và backup.
+- NOT TESTED: CI trên GitHub và rollout production. Nhánh refactor thực hiện tại
+  máy cục bộ.
+
 ## T34 · 2026-11-20 · done
 
 - ASSUMED: gửi mỗi ngày lúc 8:00 giờ Việt Nam cho một tài khoản được chọn.

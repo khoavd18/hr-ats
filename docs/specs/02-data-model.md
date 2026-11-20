@@ -254,7 +254,7 @@ còn trong hàng đợi (chưa có candidate_id). Job hằng ngày xoá marker k
 CvFile pending/running chưa gắn hồ sơ có created_at ≤ frozen_at.
 
 ## Seed dev
-Lệnh seed tạo: 1 admin, 1 lead, 2 recruiter (mật khẩu chỉ cho dev), 3 đơn vị tuyển, 5 Job, ~40 ứng viên giả từ `data/sample_cvs/`, applications ở nhiều stage, vài interview/offer/placement, task và email mẫu.
+Lệnh seed tạo: 1 admin, 1 lead, 2 recruiter (mật khẩu chỉ cho dev), 3 đơn vị tuyển, 5 Job, ~40 ứng viên giả từ `src/ai/var/sample_cvs/`, applications ở nhiều stage, vài interview/offer/placement, task và email mẫu.
 
 T18 triển khai phần M1 bằng `uv run python -m app.scripts.seed`: 4 tài khoản
 giả, 3 đơn vị, 5 Job, 40 CV kỹ thuật số qua pipeline thật với fake provider và
