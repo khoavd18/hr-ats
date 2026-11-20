@@ -22,7 +22,7 @@ Hiển thị (-Output):
                       và các phát hiện của review. Bỏ qua nội dung file, diff, output dài.
   full:               in toàn bộ output của Codex/Claude (rất dài).
   quiet:              chỉ các dòng trạng thái của script.
-Toàn bộ output luôn được ghi vào file log trong var/auto-task/.
+Toàn bộ output luôn được ghi vào file log trong scripts/var/auto-task/.
 
 Model: script in ra model Codex và Claude thực tế dùng ở mỗi bước.
 Chọn model: -CodexModel <tên> (truyền cho codex exec -m), -ClaudeModel <tên> (truyền cho claude --model).
@@ -89,7 +89,7 @@ if ($missing) {
   exit 3
 }
 
-$logDir = Join-Path $root 'var/auto-task'
+$logDir = Join-Path $PSScriptRoot 'var/auto-task'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $log = Join-Path $logDir ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
 function Say($msg, $color = 'Cyan') {
@@ -316,11 +316,11 @@ function Invoke-Checks {
   $ok = $true
   docker compose up -d db redis mailpit 2>&1 | Out-Null
   $groups = @()
-  if (Test-Path 'backend/pyproject.toml') {
-    $groups += , @('backend', @('uv run pytest -q', 'uv run ruff check .', 'uv run ruff format --check .', 'uv run mypy app'))
+  if (Test-Path 'src/backend/pyproject.toml') {
+    $groups += , @('src/backend', @('uv run pytest -q', 'uv run ruff check .', 'uv run ruff format --check .', 'uv run ruff check ../ai', 'uv run ruff format --check ../ai', 'uv run mypy app'))
   }
-  if (Test-Path 'frontend/package.json') {
-    $groups += , @('frontend', @('npm run lint', 'npm run typecheck', 'npx vitest run'))
+  if (Test-Path 'src/frontend/package.json') {
+    $groups += , @('src/frontend', @('npm run lint', 'npm run typecheck', 'npx vitest run'))
   }
   foreach ($g in $groups) {
     Push-Location $g[0]

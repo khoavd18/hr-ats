@@ -32,14 +32,14 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
-        working-directory: backend
+        working-directory: src/backend
     steps:
       - uses: actions/checkout@v4
 
       - name: Init databases (same script as docker compose)
         env:
           PGPASSWORD: hr
-        run: psql -h localhost -U hr -d hr_ats -f ../scripts/init-db.sql
+        run: psql -h localhost -U hr -d hr_ats -f scripts/init-db.sql
 
       - uses: astral-sh/setup-uv@v6
 
@@ -56,8 +56,8 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-          uv run ruff check ../eval
-          uv run ruff format --check ../eval
+          uv run ruff check ../ai
+          uv run ruff format --check ../ai
 
       - name: Typecheck
         run: uv run mypy app
@@ -73,7 +73,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: frontend
+        working-directory: src/frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -81,7 +81,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci

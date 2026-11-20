@@ -60,41 +60,39 @@ nano .env.prod
 
 ```bash
 cd /srv/hr-ats
-docker compose -f docker-compose.prod.yml build
+docker compose --env-file .env.prod -f docker-compose.prod.yml build
 ```
 
 ### 5. Khởi động database trước
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d db redis
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d db redis
 # Chờ db healthy (khoảng 10-20 giây)
-docker compose -f docker-compose.prod.yml ps
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
 ```
 
 ### 6. Chạy migration
 
 ```bash
-docker compose -f docker-compose.prod.yml run --rm api \
-    uv run alembic upgrade head
+docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm api \
+    alembic upgrade head
 ```
 
 ### 7. Tạo tài khoản admin đầu tiên
 
 ```bash
-docker compose -f docker-compose.prod.yml run --rm api \
-    uv run python -m app.cli create-admin \
-        --email admin@example.com \
-        --password "MẬT-KHẨU-MẠNH"
+docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm api \
+    python -m app.scripts.create_admin --email admin@example.com
 ```
 
-> Lệnh `app.cli create-admin` tạo user với role `admin` và `is_active=True`. Đổi mật khẩu ngay sau khi đăng nhập lần đầu.
+Lệnh hỏi mật khẩu hai lần qua terminal và tạo user với role `admin`.
 
 ### 8. Khởi động toàn bộ hệ thống
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 # Kiểm tra tất cả services đang chạy
-docker compose -f docker-compose.prod.yml ps
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
 ```
 
 ### 9. Kiểm tra hoạt động
@@ -104,7 +102,7 @@ docker compose -f docker-compose.prod.yml ps
 curl -f https://ats.example.com/health
 
 # Logs
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f api
 ```
 
 ---
@@ -118,27 +116,27 @@ docker compose -f docker-compose.prod.yml logs -f api
 crontab -e
 
 # Thêm dòng sau (backup lúc 2:00 SA hằng ngày)
-0 2 * * * docker compose -f /srv/hr-ats/docker-compose.prod.yml exec -T db /backup/backup-db.sh >> /var/log/hr-ats-backup.log 2>&1
+0 2 * * * docker compose --env-file /srv/hr-ats/.env.prod -f /srv/hr-ats/docker-compose.prod.yml exec -T db /backup/backup-db.sh >> /srv/hr-ats/src/backend/var/backups/backup.log 2>&1
 ```
 
 ### Chạy backup thủ công
 
 ```bash
-docker compose -f docker-compose.prod.yml exec db /backup/backup-db.sh
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec db /backup/backup-db.sh
 ```
 
 ### Kiểm tra các bản backup
 
 ```bash
-docker compose -f docker-compose.prod.yml exec db ls -lh /backup/
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec db ls -lh /backups/
 ```
 
-Backup lưu tại volume `db_data` → thư mục `/backup` trong container. Giữ **14 bản** (14 ngày). Để sao lưu ra ngoài:
+Backup lưu tại `src/backend/var/backups/` trên máy chủ và xuất hiện trong container tại `/backups/`. Script dọn file cũ hơn thời hạn 14 ngày. Ví dụ sao lưu ra ngoài:
 
 ```bash
 # Copy bản backup mới nhất ra máy host
-docker compose -f docker-compose.prod.yml exec db sh -c \
-    "ls -t /backup/hr_ats_*.sql.gz | head -1 | xargs cat" \
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T db sh -c \
+    "ls -t /backups/hr_ats_*.sql.gz | head -1 | xargs cat" \
     > /mnt/backup/hr_ats_$(date +%Y%m%d).sql.gz
 ```
 
@@ -150,22 +148,24 @@ docker compose -f docker-compose.prod.yml exec db sh -c \
 
 ```bash
 # 1. Dừng api và worker (tránh ghi dữ liệu khi đang restore)
-docker compose -f docker-compose.prod.yml stop api worker beat
+docker compose --env-file .env.prod -f docker-compose.prod.yml stop api worker beat
 
 # 2. Xem danh sách backup
-docker compose -f docker-compose.prod.yml exec db ls -lh /backup/
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec db ls -lh /backups/
 
 # 3. Khôi phục từ file backup cụ thể
-docker compose -f docker-compose.prod.yml exec -T db \
-    /backup/restore-db.sh /backup/hr_ats_20260101_020000.sql.gz
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T db \
+    /backup/restore-db.sh /backups/hr_ats_20260101_020000.sql.gz
 
 # 4. Khởi động lại
-docker compose -f docker-compose.prod.yml start api worker beat
+docker compose --env-file .env.prod -f docker-compose.prod.yml start api worker beat
 ```
 
 ---
 
 ## Cập nhật phiên bản
+
+Khi chuyển từ bố cục cũ, giữ lại các volume PostgreSQL và storage với cùng tên dự án Compose. Nếu cấu hình đã dùng đường dẫn tuyệt đối `/app/var/storage`, cập nhật nó thành `/app/src/backend/var/storage`. Chuyển các bản backup cần giữ từ `scripts/backup/` cũ vào `src/backend/var/backups/` và cập nhật lệnh cron theo phần trên.
 
 ```bash
 cd /srv/hr-ats
@@ -174,18 +174,18 @@ cd /srv/hr-ats
 git pull origin main
 
 # 2. Build image mới
-docker compose -f docker-compose.prod.yml build
+docker compose --env-file .env.prod -f docker-compose.prod.yml build
 
 # 3. Chạy migration (nếu có thay đổi schema)
-docker compose -f docker-compose.prod.yml run --rm api \
-    uv run alembic upgrade head
+docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm api \
+    alembic upgrade head
 
 # 4. Khởi động lại services (rolling update)
-docker compose -f docker-compose.prod.yml up -d --no-deps api worker beat web
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --no-deps api worker beat web
 
 # 5. Kiểm tra
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs --tail=50 api
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=50 api
 ```
 
 ---
@@ -215,11 +215,11 @@ Với môi trường cloud, dùng encrypted volume của nhà cung cấp:
 
 ```bash
 # Xem log real-time
-docker compose -f docker-compose.prod.yml logs -f
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 # Xem log theo service
-docker compose -f docker-compose.prod.yml logs -f api
-docker compose -f docker-compose.prod.yml logs -f worker
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f api
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f worker
 
 # Dung lượng volumes
 docker system df -v

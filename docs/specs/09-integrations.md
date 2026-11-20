@@ -60,11 +60,11 @@ thực, nên để lịch sử gửi trong ATS. [Tài liệu cấu hình n8n](ht
    N8N_OVERDUE_USER_ID=
    ```
 
-3. Tại `backend/`, chạy `uv run alembic upgrade head`. Sau đó khởi động
+3. Tại `src/backend/`, chạy `uv run alembic upgrade head`. Sau đó khởi động
    lại Celery worker và Beat theo README để nạp cấu hình mới.
 4. Trong ATS dev, dùng tài khoản đã chọn và tạo một việc giả đã quá hạn
    cùng một việc giả còn hạn. Thử vào một ngày chưa tạo bản nhắc cho tài
-   khoản này. Với worker đang chạy, từ `backend/` gọi:
+   khoản này. Với worker đang chạy, từ `src/backend/` gọi:
 
    ```powershell
    uv run celery -A app.workers.celery_app call queue_overdue_webhook

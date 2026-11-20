@@ -1,0 +1,12 @@
+frontend/
+**/.env*
+**/.venv/
+**/var/
+**/__pycache__/
+**/.mypy_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.coverage
+backend/tests/
+backend/scripts/
+backend/dump.rdb

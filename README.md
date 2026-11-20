@@ -2,11 +2,23 @@
 
 Hệ thống tuyển dụng có AI lọc CV cho HR. Kế hoạch: `docs/product/plan.md`. Quy tắc cho AI agent: `AGENTS.md`.
 
-Agent skills được cài từ thư viện `D:\code\ai_skills` (v1.7.1, quản lý bằng `skills_manager.py`). Không sửa file trong `.agents/skills/` và `.claude/skills/`; thông tin riêng của dự án đặt trong `AGENTS.md` (ngoài khối thư viện) và `docs/`.
+Agent skills là cài đặt cục bộ từ thư viện `D:\code\ai_skills` (v1.7.1, quản lý bằng `skills_manager.py`). Git bỏ qua `.agents/` và `.claude/`. Quy tắc dự án nằm trong `AGENTS.md` và `docs/`.
+
+## Cấu trúc dự án
+
+| Thư mục | Nội dung và đầu ra cục bộ |
+|---|---|
+| `src/backend/` | FastAPI, Celery, migration và script PostgreSQL. CV lưu cục bộ, backup DB, báo cáo HTML và lịch Beat nằm trong `src/backend/var/`. |
+| `src/frontend/` | Ứng dụng Next.js và Playwright. Build nằm trong `src/frontend/.next/`, ảnh và trace E2E trong `src/frontend/test-results/`. |
+| `src/ai/` | Pipeline AI, prompt có phiên bản và công cụ đánh giá. CV giả, báo cáo đánh giá, dataset tải về và cache model nằm trong `src/ai/var/`. |
+
+Chạy lệnh của từng thành phần trong thư mục tương ứng. Công cụ đánh giá AI dùng môi trường `uv` của backend. Docker Compose, cấu hình môi trường, tài liệu và công cụ điều phối nhiều thành phần dùng chung ở gốc repo. Xem [spec kiến trúc](docs/specs/01-architecture.md).
+
+Khi cập nhật từ bố cục cũ, chạy `uv sync --frozen` trong `src/backend/`. Nếu đã di chuyển cả `.venv`, thêm `--reinstall` để tạo lại các lệnh trong môi trường Python. Với storage local mặc định, dừng API và worker rồi chuyển `var/storage` cũ vào `src/backend/var/storage` nếu đích chưa có dữ liệu. Nếu đích đã có dữ liệu, kiểm tra hai thư mục trước khi gộp. Giá trị `STORAGE_LOCAL_DIR=var/storage` trong `.env` tự trỏ đến vị trí mới. Các đường dẫn tuỳ chỉnh tiếp tục dùng quy ước cũ.
 
 ## Demo nhanh
 
-ASSUMED: máy dev có Docker Desktop chạy Linux containers, Python 3.12 + `uv`,
+ASSUMED: máy dev có Docker Desktop chạy Linux containers, Python 3.12 + `uv` 0.13 trở lên,
 Node.js 22.14 trở lên và các cổng localhost 5432/6379/1025/8025/8000/3000 còn trống.
 Demo dùng toàn bộ dữ liệu giả, `FakeLLM`, `FakeEmbedder`, storage local, không cần
 API key, model tải về hay Tesseract. Không dùng tài khoản demo cho môi trường thật.
@@ -16,7 +28,7 @@ Từ repo sạch, tại thư mục gốc (PowerShell):
 ```powershell
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
 docker compose up -d db redis mailpit
-cd backend
+cd src/backend
 uv sync
 uv run alembic upgrade head
 uv run python -m app.scripts.seed
@@ -37,14 +49,14 @@ lại sau khi sửa môi trường. Các bảng interview/offer/placement/task/e
 Terminal thứ hai, từ thư mục gốc, chạy worker để xử lý các CV tải thêm:
 
 ```powershell
-cd backend
+cd src/backend
 uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P solo
 ```
 
 Linux/macOS bỏ `-P solo`. Terminal thứ ba, từ thư mục gốc:
 
 ```powershell
-cd frontend
+cd src/frontend
 npm ci
 npx playwright install chromium
 npm run dev
@@ -55,7 +67,7 @@ mật khẩu **`synthetic-dev-password`**. Seed cũng in tài khoản admin/lead
 recruiter2 (`dev-admin`, `dev-lead`, `dev-recruiter2` cùng miền và mật khẩu).
 Mỗi tài khoản chỉ có một phiên; dùng tài khoản khác khi mở demo và E2E đồng thời.
 
-Mở **Việc tuyển dụng**, tạo vị trí kế toán theo `data/sample_cvs/jobs.json`,
+Mở **Việc tuyển dụng**, tạo vị trí kế toán theo `src/ai/var/sample_cvs/jobs.json`,
 rồi kéo 5 file `cv_0008.docx`, `cv_0013.pdf`, `cv_0019.docx`, `cv_0020.docx`,
 `cv_0029.pdf` vào tab **Ứng viên**. Đây là các file dành riêng, chưa nằm trong
 seed. Chờ đủ 5 hồ sơ; mở dòng đầu, chọn **Không đồng ý**, chọn mức khác rồi gửi.
@@ -67,7 +79,7 @@ Terminal thứ tư, sau khi API/web/worker sẵn sàng, chạy đúng lát cắt
 Playwright (từ thư mục gốc):
 
 ```powershell
-cd frontend
+cd src/frontend
 npx playwright test m1-smoke.spec.ts
 ```
 
@@ -82,7 +94,7 @@ Dừng API/worker demo bằng Ctrl+C, chạy tại backend
 `uv run python -m tests.ranking_browser_server` (DB/storage tạm, fake/eager,
 có sẵn catalog T18), giữ web đang chạy, rồi tại frontend chạy lệnh chuẩn
 `npx playwright test`. Fixture không thay DB/storage dev. Dừng fixture bằng
-`New-Item -ItemType File var/t14-browser.stop` ở thư mục gốc; fixture tự dọn
+`New-Item -ItemType File src/backend/var/t14-browser.stop` ở thư mục gốc; fixture tự dọn
 đúng DB/storage của lượt đó. Khởi động lại API/worker demo khi cần dùng DB dev.
 
 Nếu Windows giữ cổng SMTP 1025, lệnh Compose sẽ báo bind lỗi. Luồng M1 không
@@ -95,27 +107,28 @@ Từ thư mục gốc trên máy dev, cài dependency và build web một lần:
 
 ```powershell
 docker compose up -d --wait db redis mailpit
-Push-Location backend
+Push-Location src/backend
 uv sync --frozen
 Pop-Location
-Push-Location frontend
+Push-Location src/frontend
 npm ci
 npx playwright install chromium
 npm run build
 Pop-Location
 ```
 
-Chạy ba lượt từ thư mục `backend/`:
+Chạy ba lượt từ thư mục `src/backend/`:
 
 ```powershell
-uv run python ../scripts/test_e2e.py
+uv run python ../frontend/scripts/test_e2e.py
 ```
 
 Lệnh yêu cầu cổng 3000 và 8000 còn trống, PostgreSQL/Redis/Mailpit dùng cổng mặc
 định của Compose. Mỗi lượt migrate và seed một DB tạm, dùng storage tạm,
 FakeLLM, FakeEmbedder và Mailpit localhost. Mỗi lượt chạy toàn bộ Playwright,
-dừng nếu thất bại hoặc mất từ 10 phút trở lên. Log và trace nằm trong thư mục
-`var/e2e-…` được in lúc chạy. Để gỡ lỗi riêng luồng T33, thêm
+dừng nếu thất bại hoặc mất từ 10 phút trở lên. Log API nằm trong
+`src/backend/var/e2e-…`. Log web, ảnh và trace nằm trong
+`src/frontend/test-results/e2e-…`. Để gỡ lỗi riêng luồng T33, thêm
 `--runs 1 --only-t33`.
 
 ## Chạy dev
@@ -137,7 +150,7 @@ Các giá trị mẫu `hr`/`hr` chỉ dành cho dev trên máy cá nhân. Các c
 | Mailpit SMTP | `localhost:1025` |
 | Mailpit web | <http://localhost:8025> |
 
-VERIFIED (cấu hình): `scripts/init-db.sql` tạo extension `vector`, `unaccent` trong cả hai DB. PostgreSQL chạy script này khi volume `db_data` còn trống. Kiểm tra sau khi dịch vụ khởi động:
+VERIFIED (cấu hình): `src/backend/scripts/init-db.sql` tạo extension `vector`, `unaccent` trong cả hai DB. PostgreSQL chạy script này khi volume `db_data` còn trống. Kiểm tra sau khi dịch vụ khởi động:
 
 ```sh
 docker compose exec -T db psql -U hr -d hr_ats -v ON_ERROR_STOP=1 -c "SELECT extname FROM pg_extension WHERE extname IN ('vector', 'unaccent') ORDER BY extname;"
@@ -172,7 +185,7 @@ Console: <http://localhost:9001>; S3 endpoint: <http://localhost:9000>. ASSUMED 
 Backend T02 dùng Python 3.12 và `uv` (cần có lệnh `uv` trên `PATH`). Từ thư mục gốc repo, chạy:
 
 ```sh
-cd backend
+cd src/backend
 uv sync
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
@@ -182,7 +195,7 @@ API health: <http://localhost:8000/api/v1/health>; cấu hình nhãn: <http://lo
 
 Khi `APP_ENV=prod`, cung cấp `SECRET_KEY` ngẫu nhiên có ít nhất 32 byte UTF-8 qua môi trường; ứng dụng từ chối key mẫu `change-me` và key ngắn. Settings truyền cho `create_app(settings)` được dùng thống nhất cho API, DB và Redis.
 
-Kiểm tra backend trong terminal khác, tại `backend/`:
+Kiểm tra backend trong terminal khác, tại `src/backend/`:
 
 ```sh
 uv run pytest
@@ -207,7 +220,7 @@ Rollback T05 về `0002_users` xoá 10 bảng lõi, trigger/function và enum do
 
 ### Đăng nhập và người dùng T04
 
-Tạo admin đầu tiên tại `backend/` sau khi chạy migration:
+Tạo admin đầu tiên tại `src/backend/` sau khi chạy migration:
 
 ```sh
 uv run python -m app.scripts.create_admin --email admin@example.invalid
@@ -224,11 +237,11 @@ Dev chạy web/API bằng cùng hostname `localhost` (khác cổng được); pr
 Nghiệm thu trình duyệt với DB tạm và tài khoản giả riêng, không dùng dữ liệu dev (cần dừng API ở cổng 8000 trước):
 
 ```sh
-# Terminal 1, backend/
+# Terminal 1, src/backend/
 uv run python -m tests.auth_browser_server
-# Terminal 2, frontend/
+# Terminal 2, src/frontend/
 npm run dev
-# Terminal 3, frontend/
+# Terminal 3, src/frontend/
 npx playwright test e2e/auth.spec.ts
 ```
 
@@ -236,7 +249,7 @@ Nếu chưa có Chromium: `npx playwright install chromium` (bước chuẩn b�
 
 ### Frontend T03
 
-Yêu cầu Node.js 22.14 trở lên (dev/CI dùng Node 22). Tại `frontend/`:
+Yêu cầu Node.js 22.14 trở lên (dev/CI dùng Node 22). Tại `src/frontend/`:
 
 ```sh
 npm ci
@@ -245,9 +258,9 @@ npm run dev
 
 Mở <http://localhost:3000>. VERIFIED (phạm vi code): có thanh bên và các trang `/`, `/jobs`, `/candidates`, `/tasks`, `/reports`, `/settings`. Các màn nghiệp vụ chưa triển khai có hướng dẫn và liên kết điều hướng; T04 thêm đăng nhập, quyền Cài đặt và quản lý người dùng như trên.
 
-Next.js đọc cấu hình riêng tại `frontend/.env.local`; có thể sao chép từ `frontend/.env.example`. `NEXT_PUBLIC_API_URL` mặc định là `http://localhost:8000/api/v1`, bao gồm tiền tố API. Đây là địa chỉ công khai, không đặt secret trong biến `NEXT_PUBLIC_*`. API client gửi cookie, nhận đường dẫn như `/jobs`; body JSON dùng `JSON.stringify`, upload dùng `FormData`. Request thay đổi dữ liệu gắn `X-CSRF-Token` từ cookie `csrf_token` hoặc `csrfToken` truyền tường minh; màn đăng nhập lấy CSRF trước khi gửi mật khẩu. Không lưu token đăng nhập trong localStorage.
+Next.js đọc cấu hình riêng tại `src/frontend/.env.local`; có thể sao chép từ `src/frontend/.env.example`. `NEXT_PUBLIC_API_URL` mặc định là `http://localhost:8000/api/v1`, bao gồm tiền tố API. Đây là địa chỉ công khai, không đặt secret trong biến `NEXT_PUBLIC_*`. API client gửi cookie, nhận đường dẫn như `/jobs`; body JSON dùng `JSON.stringify`, upload dùng `FormData`. Request thay đổi dữ liệu gắn `X-CSRF-Token` từ cookie `csrf_token` hoặc `csrfToken` truyền tường minh; màn đăng nhập lấy CSRF trước khi gửi mật khẩu. Không lưu token đăng nhập trong localStorage.
 
-Kiểm tra tại `frontend/`:
+Kiểm tra tại `src/frontend/`:
 
 ```sh
 npm run lint
@@ -274,7 +287,7 @@ Lệnh chính xác nằm trong `docs/specs/08-testing-quality.md`. Test dùng ad
 
 ### Upload và worker T07/T10/T11/T12
 
-Tại `backend/`, chạy worker bên cạnh API (cùng `.env`, DB và storage):
+Tại `src/backend/`, chạy worker bên cạnh API (cùng `.env`, DB và storage):
 
 ```sh
 uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info
@@ -284,7 +297,7 @@ uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P so
 
 `POST /api/v1/cv-files` nhận multipart field `files` lặp lại, tuỳ chọn UUID `job_id`, cookie đăng nhập và `X-CSRF-Token`. Giới hạn 50 file/lần, 10 MiB/file, nhận magic bytes PDF/DOCX/JPEG/PNG; từ chối macro. Kết quả HTTP 200 có `items` theo vị trí đầu vào, mỗi item có `index`, `cv_file`, `duplicate`, `error`; một file sai không huỷ file đúng. Xem contract đầy đủ và quyền ở spec 03/07, OpenAPI tại `/docs`.
 
-Mặc định `STORAGE_BACKEND=local` lưu tại `var/storage` ở gốc repo, key ngẫu nhiên. GET trạng thái và download qua API có kiểm quyền/audit; storage không public. S3 dùng boto3 với `S3_BUCKET` có sẵn, endpoint/credential từ biến S3; không cần bật MinIO để dùng/test M1. Các test S3 dùng Stubber offline; runtime S3 được hoãn theo câu hỏi #8.
+Mặc định `STORAGE_BACKEND=local` lưu tại `src/backend/var/storage`, key ngẫu nhiên. GET trạng thái và download qua API có kiểm quyền/audit; storage không public. S3 dùng boto3 với `S3_BUCKET` có sẵn, endpoint/credential từ biến S3; không cần bật MinIO để dùng/test M1. Các test S3 dùng Stubber offline; runtime S3 được hoãn theo câu hỏi #8.
 
 Worker đọc storage → trích text → che email/SĐT → gọi ba phần parse song song → tạo/cập nhật ứng viên → ẩn danh cục bộ → embedding → `done`; lỗi từng file chuyển `failed` với thông báo tiếng Việt. Mỗi kết quả parse có model/version; email lowercase và SĐT canonical lấy cục bộ. Hai CV khác định dạng cùng email/SĐT gắn cùng ứng viên; thời hạn lưu cộng `DATA_RETENTION_MONTHS` tháng lịch theo `APP_TIMEZONE`, không tự sinh bằng chứng đồng ý. CV không có liên hệ, tên chuẩn hoá trùng và cosine > 0.95 chỉ có gợi ý `possible_duplicate_of`, không tự gộp. Có `job_id` thì T12 tạo application `new`, owner lấy từ Job và xếp hàng chấm sau commit; revision giữ application/stage/owner, tính lại kết quả AI.
 
@@ -294,7 +307,7 @@ Upload mới trả snapshot `pending`, GET `/api/v1/cv-files/{id}` phản ánh t
 
 ### Ẩn danh và embedding T11
 
-`app.ai.anonymize.anonymize(text, full_name)` che tên có/không dấu, hoa/thường,
+`hr_ats_ai.anonymize.anonymize(text, full_name)` che tên có/không dấu, hoa/thường,
 liên hệ; bỏ dòng ngày sinh/tuổi/giới tính/hôn nhân/địa chỉ, link profile cá nhân
 và markup ảnh. Chỉ `candidates.anonymized_text` đi vào embedder. Đây là heuristic
 đã kiểm trên 50 CV giả; chưa bảo đảm mọi CV thực tế/OCR sai (câu hỏi #46).
@@ -305,14 +318,14 @@ Dev/test giữ `EMBEDDING_PROVIDER=fake`: vector SHA-256 tất định, L2, đú
 Local dùng sentence-transformers theo extra tuỳ chọn:
 
 ```sh
-# Tại backend/, chỉ cài khi cần chạy local
+# Tại src/backend/, chỉ cài khi cần chạy local
 uv sync --extra local-embedding
 uv run --extra local-embedding celery -A app.workers.celery_app worker -Q ai,email,default -l info
 # Windows thêm -P solo
 ```
 
 Đặt `EMBEDDING_PROVIDER=local`, `EMBEDDING_MODEL=BAAI/bge-m3`,
-`EMBEDDING_DIM=1024`. Lần dùng đầu tải trọng số về `var/models` (gitignore),
+`EMBEDDING_DIM=1024`. Lần dùng đầu tải trọng số về `src/ai/var/models` (gitignore),
 các lần sau dùng cache; model được giữ trong process. Không bật remote code,
 chỉ nạp safetensors; cấu hình sai/thiếu extra/model/sai chiều trả lỗi an toàn,
 không tự đổi sang fake. Tham số cache/encode theo
@@ -320,7 +333,7 @@ không tự đổi sang fake. Tham số cache/encode theo
 Model local thật và chất lượng retrieval: NOT TESTED trong bộ nghiệm thu offline.
 
 Khi đổi model/provider **cùng số chiều**, dừng API/worker và các writer/tìm kiếm,
-sao lưu, cập nhật cùng cấu hình cho CLI/API/worker rồi chạy tại `backend/`:
+sao lưu, cập nhật cùng cấu hình cho CLI/API/worker rồi chạy tại `src/backend/`:
 
 ```sh
 uv run python -m app.scripts.reembed --all
@@ -368,8 +381,8 @@ không dùng tỷ lệ khớp fixture để kết luận chất lượng model t
 
 ### Trích CV và OCR T08
 
-T08 cung cấp `app.ai.extract.extract_text(data, mime)` và
-`app.ai.redact.redact_contacts(text)` cho pipeline T10. PDF kỹ thuật số đọc theo
+T08 cung cấp `hr_ats_ai.extract.extract_text(data, mime)` và
+`hr_ats_ai.redact.redact_contacts(text)` cho pipeline T10. PDF kỹ thuật số đọc theo
 cột, DOCX đọc cả bảng lồng nhau; ảnh JPG/PNG và trang PDF dưới 50 ký tự dùng OCR
 local. PDF render 300 DPI; ảnh OCR chuyển grayscale, lọc median 3×3 giảm nhiễu scan
 theo [hướng dẫn chất lượng Tesseract](https://tesseract-ocr.github.io/tessdoc/ImproveQuality.html).
@@ -415,7 +428,7 @@ ASSUMED (giới hạn xử lý T08): tối đa 100 trang PDF, 25 triệu pixel/t
 DOCX T07. PDF mã hoá hoặc file hỏng báo lỗi từng file; xem câu hỏi #34–#36. Truyền
 ảnh/text qua stdin/stdout của Tesseract, không ghi file CV tạm lên đĩa.
 
-Kiểm thử tại `backend/`:
+Kiểm thử tại `src/backend/`:
 
 ```sh
 uv run pytest tests/unit/test_extract.py tests/unit/test_redact.py -q
@@ -430,7 +443,7 @@ nhiều dạng liên hệ; không gọi provider hoặc mạng ngoài khi test.
 
 ### Thử adapter AI (T09)
 
-Tại `backend/`, không cần DB hoặc key khi dùng fake:
+Tại `src/backend/`, không cần DB hoặc key khi dùng fake:
 
 ```sh
 uv run python -m app.scripts.llm_smoke --provider fake
@@ -499,7 +512,7 @@ số ứng viên từng mức. Thêm từ kho/Xuất Excel thuộc T16/T17.
 Kiểm E2E local với dữ liệu giả, không cần seed T18/API key: tại backend chạy
 `uv run python -m tests.ranking_browser_server`, tại frontend `npm run dev`, rồi
 `npx playwright test`. Fixture tạo DB/storage riêng, fake provider/eager Celery;
-bài T14 thực sự kéo 10 CV mẫu kèm hai file lỗi. Tạo file `var/t14-browser.stop`
+bài T14 thực sự kéo 10 CV mẫu kèm hai file lỗi. Tạo file `src/backend/var/t14-browser.stop`
 để dừng API graceful và dọn đúng DB/storage tạm; giữ DB dev/test và volume.
 Contract/filter/sort/quyền: [spec 03](docs/specs/03-api.md); các lệnh và phạm vi
 kiểm thử: [spec 08](docs/specs/08-testing-quality.md).
@@ -510,10 +523,11 @@ Chạy `uv run alembic upgrade head` tại backend trước khi cập nhật API
 Trong `.env` ngoài Git, cấu hình `IMAP_ENABLED=true`, `IMAP_HOST`, `IMAP_USER`,
 `IMAP_PASSWORD`, `IMAP_FOLDER=INBOX`; IMAP dùng SSL cổng 993 với chứng chỉ hợp lệ.
 Khởi động lại API và worker với cùng cấu hình, rồi chạy thêm đúng một Beat tại
-`backend/` (lịch đọc 5 phút chỉ đăng ký khi bật):
+`src/backend/` (lịch đọc 5 phút chỉ đăng ký khi bật):
 
 ```powershell
-uv run celery -A app.workers.celery_app beat -l info --schedule ../var/celerybeat-schedule
+New-Item -ItemType Directory -Force var | Out-Null
+uv run celery -A app.workers.celery_app beat -l info --schedule var/celerybeat-schedule
 ```
 
 Worker vẫn dùng queue `ai,email,default` như lệnh hiện có. Admin/lead vào
@@ -547,7 +561,7 @@ Nếu publish thư nhắc lỗi, sau khi khôi phục broker có thể chạy l�
 trong cùng ngày; ID thư/người/ngày giữ nguyên, thư sent không gửi lặp:
 
 ```powershell
-cd backend
+cd src/backend
 uv run celery -A app.workers.celery_app call remind_due_tasks
 ```
 
@@ -556,8 +570,8 @@ uv run celery -A app.workers.celery_app call remind_due_tasks
 Chạy n8n Community Edition local để nhắc việc quá hạn qua Telegram là tùy chọn.
 Xem [cách bật, chạy thử và tạm dừng](docs/specs/09-integrations.md).
 
-### Dữ liệu trong repo
+### Dữ liệu mẫu và runtime
 
-Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.
+Seed dev, pytest và đánh giá AI tự sinh 60 CV giả DOCX/PDF, nhãn parse và năm Job mẫu vào `src/ai/var/sample_cvs/` ở lần đầu cần dùng. Git lưu mã sinh, font và checksum của bộ mẫu. CV thật đặt ngoài repo hoặc trong vùng storage backend đã được Git bỏ qua. Giữ API key và cấu hình cá nhân trong `.env`.
 
-T06 có sẵn 60 CV giả DOCX/PDF cùng nhãn parse và năm Job mẫu, gồm sáu nhóm nghề, sáu bố cục và PDF scan có nhiễu. Sinh lại tại `backend/` bằng `uv run python ../eval/generate_synthetic_cvs.py --count 60 --seed 20261108 --out ../data/sample_cvs`. Không cần API key hoặc mạng khi sinh; dùng dependency trong lockfile và font OFL đã commit. Hướng dẫn schema, kịch bản nhãn và kiểm tra tái lập ở [eval/README.md](eval/README.md).
+Có thể sinh bộ mẫu thủ công tại `src/backend/` bằng `uv run python -m hr_ats_ai.eval.generate_synthetic_cvs`. Sau khi cài dependency đã khóa, lệnh chạy offline với font OFL có sẵn. Xem schema, kịch bản nhãn và cách kiểm tra tái lập trong [hướng dẫn dữ liệu mẫu AI](src/ai/README.md).

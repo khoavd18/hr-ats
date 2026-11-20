@@ -9,7 +9,7 @@ Mọi giá trị UNKNOWN phải được người phụ trách chốt; không t�
 | Dữ liệu được gửi cho LLM | Text CV đã che tên, ảnh, giới tính, tuổi, địa chỉ; JD của Job |
 | Dữ liệu không được gửi | Ảnh chân dung, CCCD/hộ chiếu, số tài khoản, thông tin sức khoẻ |
 | Model embedding | UNKNOWN (cần hỗ trợ tiếng Việt + tiếng Anh) |
-| Phiên bản prompt | Lưu trong `prompts/`, mỗi lần đổi tăng version |
+| Phiên bản prompt | Lưu trong `src/ai/hr_ats_ai/prompt_templates/`, mỗi lần đổi tăng version |
 
 ## Các tác vụ LLM
 1. **Parse CV** → JSON theo schema cố định (thông tin liên hệ, học vấn, kinh nghiệm, kỹ năng, ngôn ngữ, số năm KN). Tách thành nhiều prompt nhỏ theo nhóm thông tin.
@@ -25,22 +25,24 @@ UNKNOWN: ngưỡng đồng thuận AI–recruiter do team chốt.
 
 ## Lệnh chạy eval harness (T31)
 
+Chạy trong `src/backend/` sau khi cài dependency bằng `uv sync`.
+
 ```bash
 # Parse accuracy (offline, không cần mạng)
-uv run python eval/run_parse_eval.py --provider fake --data synthetic
+uv run python -m hr_ats_ai.eval.run_parse_eval --provider fake --data synthetic
 
 # Score accuracy (offline)
-uv run python eval/run_score_eval.py --provider fake --data synthetic
+uv run python -m hr_ats_ai.eval.run_score_eval --provider fake --data synthetic
 
 # Bias check (offline)
-uv run python eval/run_bias_check.py --provider fake --data synthetic
+uv run python -m hr_ats_ai.eval.run_bias_check --provider fake --data synthetic
 
 # Tải dataset công khai (cần kaggle.json + internet)
-python scripts/download_datasets.py --out var/datasets
+uv run python -m hr_ats_ai.eval.download_datasets
 
-# Với provider thật (cần biến môi trường LLM_API_KEY)
-uv run python eval/run_score_eval.py --provider anthropic --model claude-opus-5-5 --data synthetic
+# Với provider thật (cần API key dành cho provider đó)
+uv run python -m hr_ats_ai.eval.run_score_eval --provider anthropic --model claude-opus-5-5 --data synthetic
 ```
 
-Báo cáo sinh ra tại `eval/reports/<ngày>-<loại>-<model>-v<version>.md`.
+Báo cáo sinh ra tại `src/ai/var/reports/<ngày>-<loại>-<model>-v<version>.md`.
 Chạy trong CI trước mỗi lần deploy với `--provider fake --data synthetic`.

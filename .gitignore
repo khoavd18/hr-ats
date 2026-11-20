@@ -1,5 +1,6 @@
-.agents/.skills-library-txn/
-.agents/skills-library-backups/
+# Skill và cấu hình riêng của công cụ phát triển
+/.agents/
+/.claude/
 .probe
 
 # Cấu hình cá nhân và secret
@@ -9,10 +10,12 @@
 !.env.prod.example
 *.local.*
 
-# Dữ liệu runtime, CV thật và dataset tải về
-/var/*
-!/var/.gitkeep
-/backend/var/
+# Dữ liệu runtime và đầu ra của từng thành phần
+/src/backend/var/
+/src/ai/var/
+/src/ai/dist/
+/scripts/var/
+/var/
 
 # Dependency và cache
 node_modules/
@@ -30,6 +33,5 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Kết quả đánh giá sinh ra khi chạy
-eval/reports/*.json
-backend/dump.rdb
+/src/backend/dump.rdb
+/src/backend/celerybeat-schedule*

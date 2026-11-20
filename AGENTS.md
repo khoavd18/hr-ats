@@ -55,6 +55,11 @@ Kế hoạch đầy đủ: `docs/product/plan.md`. Paper tham khảo: `docs/rese
 - Stack đã chốt cho bản triển khai: xem `docs/specs/01-architecture.md` (Next.js, FastAPI, PostgreSQL + pgvector, Celery + Redis, Storage local/S3, Docker Compose).
 - Lệnh chạy, test, lint và Definition of Done: `docs/specs/08-testing-quality.md`.
 
+**Vị trí mã nguồn và file sinh ra**
+- Mã ứng dụng nằm trong `src/backend/`, `src/frontend/` và `src/ai/`. CI, Docker Compose, tài liệu và script điều phối dùng chung ngoài `src/`.
+- Đặt đầu ra backend trong `src/backend/var/`, dữ liệu sinh ra và cache AI trong `src/ai/var/`. Frontend dùng thư mục build và test của chính nó, gồm `.next/`, `test-results/` và `playwright-report/`.
+- Giữ `.agents/`, `.claude/`, cấu hình cá nhân, dependency đã cài, cache và dữ liệu sinh ra trên máy cục bộ. Git lưu mã sinh và checksum của bộ CV giả.
+
 **Triển khai theo spec và task**
 - Spec là nguồn sự thật: `docs/specs/` (bắt đầu từ `00-overview.md`).
 - Công việc chia thành task có thứ tự trong `tasks/` (đọc `tasks/README.md` trước); mỗi lần làm một task, ghi kết quả vào `tasks/PROGRESS.md`.

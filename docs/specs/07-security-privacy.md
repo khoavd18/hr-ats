@@ -64,7 +64,7 @@ vẫn chỉ admin/lead. Chi tiết mặc định chưa chốt tại câu hỏi #
 - Khi `APP_ENV=prod`, từ chối `SECRET_KEY=change-me` hoặc key có độ dài UTF-8 dưới 32 byte; cung cấp key ngẫu nhiên đủ mạnh qua môi trường. Giới hạn nền này được bổ sung theo review T02 F5, xem câu hỏi #14. Dev/test vẫn dùng key giả.
 
 ## Dữ liệu trong repo
-- Chỉ commit CV **giả** (`data/sample_cvs/`) và fixture giả. Không commit CV thật, dữ liệu Kaggle/Hugging Face (tải về `var/datasets/`, đã gitignore).
+- Chỉ commit fixture giả, mã sinh và checksum của bộ CV mẫu. CV giả sinh vào `src/ai/var/sample_cvs/`. Giữ CV thật ngoài Git và lưu dữ liệu tải về từ Kaggle/Hugging Face trong `src/ai/var/datasets/`.
 
 ## T30 · Gia cố bảo mật
 
