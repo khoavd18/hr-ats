@@ -40,6 +40,10 @@ rộng tích hợp cần xử lý ID lặp phía nhận. Thông tin kết nối 
 hình môi trường của người vận hành. Payload không có dữ liệu ứng viên,
 tên việc hoặc định danh tài khoản ATS.
 
+Trong **Workflow settings** của n8n, tắt lưu execution thành công, execution
+lỗi, execution thủ công và tiến độ từng node. Node Webhook xử lý header xác
+thực, nên để lịch sử gửi trong ATS. [Tài liệu cấu hình n8n](https://docs.n8n.io/build/manage-workflows/configure-workflow-settings#save-failed-production-executions)
+
 ## Bật và thử trên máy
 
 1. Dùng workflow n8n local đã publish và chat Telegram của chính tài khoản
