@@ -68,4 +68,5 @@ Cổng cho client/ứng viên, app mobile, tự đăng tin lên job board, tính
 - `06-email-reports.md`: email, task, báo cáo, KPI
 - `07-security-privacy.md`: phân quyền, dữ liệu cá nhân
 - `08-testing-quality.md`: lệnh chạy, test, Definition of Done
+- `09-integrations.md`: webhook n8n cho nhắc việc quá hạn cá nhân
 - `open-questions.md`: câu hỏi agent gặp khi làm

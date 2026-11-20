@@ -52,6 +52,7 @@ Trạng thái task trong `PROGRESS.md`: `todo` → `review` (agent làm xong) �
 | T31 | Bộ đánh giá AI | T12 | M5 |
 | T32 | Triển khai và hướng dẫn sử dụng | T28, T30 | M5 |
 | T33 | Bộ E2E hồi quy | T32 | M5 |
+| T34 | Nhắc việc quá hạn cá nhân qua n8n local và Telegram | T25, T33 | Tích hợp cá nhân |
 
 **Mốc M1** là bản đầu tiên HR dùng được: tạo Job, kéo thả CV, xem xếp hạng có lý do, phản hồi AI, tìm trong kho CV, xuất Excel.
 

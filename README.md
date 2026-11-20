@@ -553,6 +553,9 @@ uv run celery -A app.workers.celery_app call remind_due_tasks
 
 Điều kiện tạo việc, phạm vi quyền và giới hạn SMTP: spec 03/06, contract T25.
 
+Chạy n8n Community Edition local để nhắc việc quá hạn qua Telegram là tùy chọn.
+Xem [cách bật, chạy thử và tạm dừng](docs/specs/09-integrations.md).
+
 ### Dữ liệu trong repo
 
 Chỉ đưa CV giả vào `data/sample_cvs/` và fixture giả vào bộ test. CV thật để ngoài repo hoặc trong `var/`; dataset tải về đặt tại `var/datasets/`, file runtime tại `var/storage/`. Toàn bộ nội dung `var/` được gitignore, ngoại trừ `.gitkeep`. Giữ API key thật và cấu hình cá nhân trong `.env` đã gitignore.

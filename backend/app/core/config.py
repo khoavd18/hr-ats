@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -58,6 +59,10 @@ class Settings(BaseSettings):
     imap_user: str = ""
     imap_password: SecretStr = SecretStr("")
     imap_folder: str = "INBOX"
+    n8n_overdue_enabled: bool = False
+    n8n_overdue_webhook_url: str = Field(default="", repr=False)
+    n8n_overdue_webhook_key: SecretStr = SecretStr("")
+    n8n_overdue_user_id: UUID | None = None
     hiring_unit_label: str = "Đơn vị tuyển"
     data_retention_months: int = Field(default=24, ge=1)
     frontend_origin: str = "http://localhost:3000"
@@ -73,6 +78,38 @@ class Settings(BaseSettings):
             key.strip() in {"", "change-me"} or len(key.encode("utf-8")) < 32
         ):
             raise ValueError("SECRET_KEY must be non-default and at least 32 UTF-8 bytes in prod")
+        return self
+
+    @model_validator(mode="after")
+    def validate_n8n_overdue(self) -> Self:
+        if not self.n8n_overdue_enabled:
+            return self
+        url = urlsplit(self.n8n_overdue_webhook_url)
+        port = url.port
+        if (
+            not url.hostname
+            or port == 0
+            or url.username is not None
+            or url.password is not None
+            or url.query
+            or url.fragment
+            or not url.path.startswith("/webhook/")
+            or (
+                url.scheme != "https"
+                and (
+                    url.scheme != "http"
+                    or url.hostname not in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+                )
+            )
+        ):
+            raise ValueError(
+                "N8N_OVERDUE_WEBHOOK_URL must be a production webhook on HTTPS or local HTTP"
+            )
+        key = self.n8n_overdue_webhook_key.get_secret_value()
+        if not key or any(not 33 <= ord(character) <= 126 for character in key):
+            raise ValueError("N8N_OVERDUE_WEBHOOK_KEY must be set to an ASCII token")
+        if self.n8n_overdue_user_id is None:
+            raise ValueError("N8N_OVERDUE_USER_ID must be set")
         return self
 
     @field_validator("storage_local_dir")

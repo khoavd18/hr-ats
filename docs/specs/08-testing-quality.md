@@ -1,5 +1,10 @@
 # 08 · Kiểm thử và Definition of Done
 
+T34 dùng PostgreSQL đã migrate, receiver HTTP loopback và dữ liệu giả.
+`uv run pytest tests/api/test_overdue_webhook.py tests/api/test_database.py`
+kiểm phạm vi task, chống tạo trùng, phản hồi webhook, retry và schema. Phép
+thử vào Telegram riêng dùng khóa local theo spec 09 và chạy thủ công.
+
 ## Lệnh chuẩn (agent dùng đúng các lệnh này)
 | Việc | Lệnh |
 |---|---|
