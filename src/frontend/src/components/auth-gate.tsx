@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n/vi";
+import { applicationPath } from "@/lib/application-link";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, loading, error, reload } = useAuth();
@@ -16,9 +17,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const forbidden = pathname.startsWith("/settings") && user?.role === "recruiter";
   useEffect(() => {
     if (loading || error) return;
-    if (!user && !isLogin) router.replace("/login");
-    if (user && (isLogin || forbidden)) router.replace("/");
-  }, [user, loading, error, isLogin, forbidden, router]);
+    if (!user && !isLogin) {
+      router.replace(
+        applicationPath.test(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : "/login",
+      );
+    }
+    if (user && (isLogin || forbidden)) {
+      const next = isLogin ? new URLSearchParams(window.location.search).get("next") : null;
+      router.replace(next && applicationPath.test(next) ? next : "/");
+    }
+  }, [user, loading, error, isLogin, forbidden, router, pathname]);
 
   if (loading)
     return (

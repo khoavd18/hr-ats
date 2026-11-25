@@ -33,6 +33,7 @@ from app.services.applications import (
 from app.services.dedupe import IdentityConflict, possible_duplicate, save_candidate
 from app.services.embeddings import embed_candidate
 from app.services.erasure import erase_unlinked_file, erased_before
+from app.services.integration_events import queue_notification
 from app.storage import build_storage
 from app.workers.celery_app import celery_app
 
@@ -255,13 +256,20 @@ def score_application(application_id: str) -> None:
                 application.ai_prompt_version = result.prompt_version
                 application.ai_scored_at = datetime.now(UTC)
                 application.ai_status = ProcessingStatus.done
-                log_activity(
+                activity = log_activity(
                     session,
                     type=ActivityType.ai_scored,
                     job_id=job.id,
                     application_id=application.id,
                     candidate_id=candidate.id,
                     payload={"ai_level": computed.level.value, "ai_score": computed.score},
+                )
+                queue_notification(
+                    session,
+                    "cv.scored",
+                    activity.id,
+                    {"application_id": str(application.id), "ai_level": computed.level.value},
+                    application.ai_scored_at,
                 )
         except Exception:
             # Roll back partial score/activity; no provider/CV exception text is stored.

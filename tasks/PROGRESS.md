@@ -36,6 +36,15 @@
 | T32 | done | 2026-11-10 | VERIFIED: Dockerfiles backend (Python 3.12-slim + Tesseract vie+eng, non-root app:1000) và frontend (Node 22-alpine + standalone Next.js, non-root nextjs:1001); docker-compose.prod.yml (db, redis, api, worker, beat, web, caddy); caddy/Caddyfile auto-TLS Let's Encrypt + security headers; scripts/backup/ (pg_dump+gzip 14 bản + restore an toàn); .env.prod.example; docs/deploy.md (9 bước + backup/restore/update/LUKS); docs/huong-dan-su-dung.md tiếng Việt 11 mục. Merged vào main. Xem tasks/reviews/T32.md. |
 | T33 | done | 2026-11-19 | VERIFIED: đã review, CI xanh và merge. Toàn bộ Playwright 16/16 qua ba lượt sau review (58,0 s, 67,1 s, 57,9 s). Đã sửa deadlock tải CV/hoàn tác. Xem tasks/reviews/T33.md. |
 | T34 | done | 2026-11-20 | VERIFIED: Celery/Redis → PostgreSQL → n8n local → Telegram với dữ liệu giả. Review độc lập, CI backend 2029 ca đạt và frontend xanh. Đã merge vào main. |
+| T35 | review | 2026-11-25 | VERIFIED: migration, HMAC, retry, khóa worker, chống trùng và payload tối thiểu. 49 test tập trung đạt, Ruff và mypy sạch. Chờ review và merge. |
+| T36 | review | 2026-11-25 | VERIFIED: Bearer tách khỏi session, token băm/hết hạn/thu hồi, rate limit và audit. Tạo việc và báo cáo tổng hợp đã kiểm. Scope CV trả 403 tới khi T42 được duyệt. 46 test tích hợp và schema đạt. |
+| T37 | review | 2026-11-25 | VERIFIED: profile automation chạy n8n và PostgreSQL riêng, Caddy trả 403 ngoài mạng quản trị, chuyển POST webhook tới n8n và khôi phục đủ 178 bảng. Chờ review và merge. |
+| T38 | review | 2026-11-25 | VERIFIED: Cài đặt → Tích hợp, API admin, nhật ký tối thiểu và E2E thật qua receiver giả. Ruff, mypy, lint và typecheck đạt. Chờ review và merge. |
+| T39 | review | 2026-11-25 | VERIFIED: W1 chấm hồ sơ, W2 stage/lịch, W5 việc quá hạn. 75 test backend đạt, 3 workflow import được và chạy trên n8n cô lập với Telegram giả, kiểm chữ ký sai, hết hạn và replay. |
+| T40 | review | 2026-11-25 | VERIFIED: W4 báo cáo Telegram, một snapshot tổng hợp mỗi ngày Việt Nam. Workflow thứ tư đã import và kiểm chữ ký, ACK, replay với Telegram giả. |
+| T41 | todo | 2026-11-25 | Tuỳ chọn, cần duyệt riêng. |
+| T42 | todo | 2026-11-25 | Tuỳ chọn, cần pháp chế và duyệt riêng. |
+| T43 | todo | 2026-11-25 | Tuỳ chọn, cần duyệt riêng. |
 
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->

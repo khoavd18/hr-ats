@@ -3,7 +3,12 @@ from app.models.applications import AiFeedback, Application, StageEvent
 from app.models.base import Base
 from app.models.candidates import Candidate, CvFile
 from app.models.email import EmailMessage, EmailTemplate, InboundEmail
-from app.models.integrations import OverdueWebhookEvent
+from app.models.integrations import (
+    IntegrationEvent,
+    IntegrationToken,
+    OverdueWebhookEvent,
+    WebhookEndpoint,
+)
 from app.models.jobs import HiringUnit, Job, JobMember
 from app.models.privacy import DataRequest, ErasedContact
 from app.models.recruitment import Interview, Offer, Placement
@@ -24,6 +29,8 @@ __all__ = [
     "ErasedContact",
     "HiringUnit",
     "InboundEmail",
+    "IntegrationEvent",
+    "IntegrationToken",
     "Interview",
     "Job",
     "JobMember",
@@ -34,4 +41,5 @@ __all__ = [
     "Task",
     "User",
     "UserRole",
+    "WebhookEndpoint",
 ]

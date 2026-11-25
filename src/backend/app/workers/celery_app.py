@@ -19,6 +19,7 @@ def create_celery_app(settings: Settings) -> Celery:
             "app.email.inbound",
             "app.workers.reminders",
             "app.workers.overdue_webhook",
+            "app.workers.integration_webhooks",
             "app.workers.reports",
             "app.workers.retention",
         ],
@@ -66,18 +67,38 @@ def create_celery_app(settings: Settings) -> Celery:
                         "task": "queue_overdue_webhook",
                         "schedule": crontab(hour=8, minute=0),
                     },
+                }
+                if settings.n8n_overdue_enabled
+                or (
+                    settings.integration_webhooks_enabled
+                    and settings.n8n_overdue_user_id is not None
+                )
+                else {}
+            ),
+            **(
+                {
                     "deliver-overdue-webhook": {
                         "task": "deliver_overdue_webhook",
                         "schedule": 60.0,
                     },
                 }
-                if settings.n8n_overdue_enabled
+                if settings.n8n_overdue_enabled and not settings.integration_webhooks_enabled
                 else {}
             ),
             "daily-report": {
                 "task": "generate_daily_report",
                 "schedule": crontab(hour=18, minute=0),
             },
+            **(
+                {
+                    "deliver-integration-webhooks": {
+                        "task": "deliver_integration_webhooks",
+                        "schedule": 60.0,
+                    },
+                }
+                if settings.integration_webhooks_enabled
+                else {}
+            ),
             "weekly-report": {
                 "task": "generate_weekly_report",
                 "schedule": crontab(hour=8, minute=30, day_of_week=1),

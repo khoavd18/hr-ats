@@ -7,6 +7,8 @@ from app.api import (
     cv_files,
     email_messages,
     email_templates,
+    integration_settings,
+    integrations,
     jobs,
     privacy,
     recruitment,
@@ -64,6 +66,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tasks.router,
         reports.router,
         privacy.router,
+        integrations.router,
+        integration_settings.router,
     ):
         application.include_router(router, prefix="/api/v1")
     return application

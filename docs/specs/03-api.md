@@ -15,6 +15,24 @@ thêm field vào DTO Job hoặc nhận mã Job từ client.
 
 Base `/api/v1`. JSON, xác thực bằng cookie HttpOnly chứa JWT (access 30 phút, refresh 7 ngày). Mọi endpoint yêu cầu đăng nhập, trừ health, login và bước lấy CSRF trước đăng nhập; refresh/logout xác thực bằng refresh cookie. Quyền theo `07-security-privacy.md`. OpenAPI tự sinh tại `/docs` (chỉ bật khi `APP_ENV != prod`).
 
+### Contract T36 · Token dịch vụ
+
+T36 thêm ba endpoint dịch vụ dưới `/api/v1/integrations/`.
+`POST tasks` dùng scope `tasks:create`, nhận cấu trúc tạo việc và trả
+`201 {"task_id": "..."}`. `GET reports/summary` dùng scope
+`reports:summary`, nhận bộ lọc báo cáo hiện có. `POST cv-files` trả 403
+đến khi luồng T42 được duyệt. Xác thực Bearer, độc lập với session trình
+duyệt. Xem [spec tích hợp](09-integrations.md).
+
+### Contract T38 · Cài đặt tích hợp
+
+`GET /settings/integrations` trả trạng thái kết nối, cấu hình thông báo
+và 50 bản giao mới nhất. `PUT /settings/integrations/{kind}` cập nhật cờ
+`enabled`. `POST /settings/integrations/{kind}/test` xếp hàng gửi thử và
+trả 202 cùng ID sự kiện. Ba thao tác chỉ dành cho admin dùng session
+trình duyệt hiện hành. Nhật ký trả thời điểm, loại thông báo, trạng thái
+và mã lỗi, không chứa payload hoặc thông tin kết nối.
+
 ### Contract T30 · Bảo vệ HTTP
 
 Mọi phản hồi API có CSP, nosniff và no-referrer theo spec 07, gồm lỗi và preflight.

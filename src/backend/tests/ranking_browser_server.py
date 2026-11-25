@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import BACKEND_ROOT, BACKEND_VAR_DIR, Settings, get_settings
 from app.core.db import build_engine, get_engine
+from tests.integration_browser_receiver import fake_integration_receiver
 
 
 def seed_bank(session: Session, directory: str) -> None:
@@ -97,6 +98,7 @@ def main() -> None:
         raise RuntimeError("Remove the previous T14 stop file before starting")
     url = url.set(host="127.0.0.1", database=name)
     with (
+        fake_integration_receiver() as (integration_origin, integration_secret),
         TemporaryDirectory(prefix="hr_ats_t14_") as directory,
         psycopg.connect(
             **url.set(database="postgres").translate_connect_args(
@@ -115,6 +117,10 @@ def main() -> None:
             EMBEDDING_PROVIDER="fake",
             STORAGE_BACKEND="local",
             STORAGE_LOCAL_DIR=directory,
+            INTEGRATION_WEBHOOKS_ENABLED="true",
+            INTEGRATION_WEBHOOK_ORIGIN=integration_origin,
+            INTEGRATION_WEBHOOK_SECRET=integration_secret,
+            N8N_OVERDUE_ENABLED="false",
         )
         get_settings.cache_clear()
         # Import after selecting the isolated DB and eager Celery configuration.
@@ -146,6 +152,7 @@ def main() -> None:
                     ("privacy", UserRole.admin),
                     ("t33", UserRole.admin),
                     ("t33-outsider", UserRole.recruiter),
+                    ("t38", UserRole.admin),
                 ):
                     session.add(
                         User(

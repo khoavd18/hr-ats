@@ -1,4 +1,106 @@
-# 09 · Nhắc việc quá hạn qua n8n
+# 09 · Tích hợp n8n
+
+## Quyết định T34
+
+- VERIFIED: W5 đang dùng n8n Community Edition self-host local và một chat
+  Telegram riêng. HR dùng Gmail và Zalo. Đợt demo dùng Telegram cho các
+  thông báo và báo cáo W4.
+- UNKNOWN: Gmail cá nhân hay Google Workspace, nguồn CV thật và đích Zalo
+  khi triển khai. Danh sách sự kiện nghiệp vụ yêu cầu gồm `cv.scored`,
+  `application.stage_changed`, `interview.scheduled`, `interview.cancelled`,
+  `task.overdue` và `report.daily_ready`.
+- VERIFIED: hướng dẫn n8n cho phép dùng Community Edition self-host cho
+  workflow nội bộ. Việc host n8n như một dịch vụ hoặc cho khách ngoài tổ
+  chức tạo hay cấu hình workflow cần giấy phép thương mại. Cần xác nhận
+  với n8n trước khi đưa mô hình bán cho khách vào phạm vi triển khai.
+  [Hướng dẫn giấy phép n8n](https://support.n8n.io/article/can-i-use-your-license-for-my-use-case)
+- VERIFIED: SAML SSO thuộc Business/Enterprise và external secrets thuộc
+  Enterprise theo tài liệu n8n. Demo Community Edition dùng credential
+  được mã hóa của n8n. [SAML](https://docs.n8n.io/administer/manage-users-and-access/verify-user-identity/use-saml/)
+  [External secrets](https://docs.n8n.io/administer/manage-credentials/use-external-secret-stores/)
+
+## Hợp đồng outbox T35
+
+- Mỗi bản giao có một UUID v4 `event_id`, `event_type`, `version: 1` và
+  `data` theo schema cố định. `integration.test` có `data: {}`.
+  `task.overdue_summary` có `data: {"overdue_count": 1}` với số nguyên dương.
+  `task.overdue_summary` là tên của bản thử T34. T39 bổ sung schema sự kiện
+  nghiệp vụ có ID nội bộ, stage, mức AI và link hồ sơ theo nhu cầu của thông
+  báo. Link dùng tuyến ATS có đăng nhập và kiểm quyền hiện hành.
+- Celery ký UTF-8 của chuỗi
+  `ASCII(timestamp) + "." + ASCII(path) + "." + raw_body` bằng HMAC-SHA256.
+  Gửi timestamp Unix giây qua `X-HR-ATS-Timestamp` và chữ ký dạng
+  `v1=<lowercase hex>` qua `X-HR-ATS-Signature`. Receiver so sánh hằng
+  thời gian trước khi đọc JSON, chấp nhận lệch đồng hồ tối đa 300 giây,
+  rồi chống xử lý lại theo `event_id`. Khóa ký nằm trong cấu hình vận hành.
+- Lặp lại cùng bản giao sau 1, 5, 15 phút nếu thiếu ACK. Mỗi lần ký lại với
+  timestamp hiện tại, giữ nguyên ID và nội dung. HTTP 2xx với JSON
+  `{"received": true, "event_id": "..."}` xác nhận đã xử lý. Lỗi kết nối,
+  HTTP 429 hoặc 5xx tiếp tục thử lại mỗi 15 phút sau các lượt đầu để gửi bù
+  khi n8n hoạt động lại. Với lỗi hợp đồng khác, dừng sau bốn lượt và hiển
+  thị thất bại ở T38. Bản giao hết hạn dừng theo quy tắc của từng sự kiện.
+- Chỉ gửi tới origin n8n do vận hành đặt, với path production
+  `/webhook/hr-ats/…`. Dùng HTTPS khi triển khai, cho phép HTTP loopback
+  khi phát triển. Không theo redirect. T35 chạy opt-in. Workflow Header
+  Auth của W5 chỉ dùng khi luồng HMAC đang tắt.
+
+## T39 · Thông báo Telegram
+
+| Loại | Sự kiện | Metadata |
+|---|---|---|
+| W1 | `cv.scored` | UUID hồ sơ ứng tuyển và mức AI |
+| W2 | `application.stage_changed` | UUID hồ sơ ứng tuyển và stage đích |
+| W2 | `interview.scheduled`, `interview.cancelled` | UUID hồ sơ ứng tuyển và thời điểm lịch |
+| W5 | `task.overdue` | Số việc theo quyền của tài khoản đã chọn |
+
+Tên Job và recruiter chưa đưa vào payload. Link trực tiếp dùng
+`/applications/{id}` và ATS kiểm lại quyền trên hồ sơ sau đăng nhập.
+T39 ghi sự kiện W1/W2 cùng transaction nghiệp vụ. Thao tác hủy lịch giữ
+bản ghi để audit và giữ nguyên stage ứng viên. W5 chỉ chạy ở một trong
+hai chế độ gửi và bỏ bản giao đã qua nửa đêm Việt Nam.
+
+Nodes n8n kiểm HMAC bằng credential mã hóa và từ chối chữ ký sai hoặc
+timestamp cũ. Chỉ gửi nội dung theo template. Chi tiết import, Data
+Table và credential ở [automation/n8n](../../automation/n8n/README.md).
+
+## T40 · Báo cáo hằng ngày qua Telegram
+
+W4 dùng lịch Celery 18:00 giờ Việt Nam và dùng chung số liệu tổng hợp của
+báo cáo ATS. `report.daily_ready` gửi một lần mỗi ngày khi bật, gồm ngày,
+số CV mới, số lịch phỏng vấn và số nhận việc. Tin nhắn ghi rõ số liệu tham
+khảo theo định nghĩa hiện tại và gắn link **Báo cáo** trong ATS. Số lượt lịch
+phỏng vấn không xác nhận phỏng vấn đã diễn ra. Báo cáo định kỳ qua email
+vẫn theo lịch hiện tại.
+
+## Token và ranh giới dữ liệu
+
+T36 dùng principal `integration` riêng, token ngẫu nhiên băm khi lưu, có
+scope theo phương thức và đường dẫn, hết hạn hoặc thu hồi được, có giới
+hạn tần suất và audit tối thiểu. Token được gắn với tài khoản ATS đang hoạt
+động. Tạo việc và đọc báo cáo vẫn kiểm quyền nghiệp vụ của tài khoản đó.
+Token dịch vụ và khóa HMAC phục vụ hai chiều xác thực riêng.
+
+| Scope | Endpoint | Quyền |
+|---|---|---|
+| `tasks:create` | `POST /api/v1/integrations/tasks` | Tạo việc và trả ID của việc vừa tạo |
+| `reports:summary` | `GET /api/v1/integrations/reports/summary` | Đọc số liệu tổng hợp |
+| `cv:upload` | `POST /api/v1/integrations/cv-files` | Dành cho T42, trả 403 đến khi có duyệt và luồng consent |
+
+Người vận hành cấp và thu hồi token trên máy chủ bằng
+`uv run python -m app.scripts.integration_token` tại `src/backend/`.
+Lệnh `issue` nhận `--sponsor <user_uuid>`, một hoặc nhiều `--scope` và
+`--expires-in-days <1..365>`. Lưu đầu ra token một lần vào kho bí mật;
+ID thu hồi được ghi riêng qua stderr. Lệnh `revoke <token_id>` thu hồi
+ngay cho các request sau đó. Giới hạn mặc định 30 request/phút/token.
+
+n8n có thể gửi thông báo nội bộ và xuất số liệu tổng hợp đã duyệt. Payload
+chỉ dùng trường có trong schema của sự kiện. CV, tên ứng viên, email,
+điện thoại, ghi chú tự do và ID ứng viên trực tiếp không đi vào webhook
+hay nhật ký gửi. Link hồ sơ phải đi qua xác thực, phân quyền trong ATS.
+n8n không trực tiếp truy cập DB ATS, đổi stage, gửi email từ chối, gửi
+offer, xóa hồ sơ hoặc tự quyết định loại ứng viên. T41–T43 cần duyệt riêng.
+
+## W5 hiện tại · Nhắc việc quá hạn qua n8n
 
 Dự án cá nhân dùng n8n Community Edition local và một chat Telegram riêng.
 Celery tạo bản nhắc lúc 8:00 giờ Việt Nam khi tích hợp được bật. Mỗi ngày có

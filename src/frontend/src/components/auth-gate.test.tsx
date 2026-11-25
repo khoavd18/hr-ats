@@ -39,6 +39,24 @@ it("redirects unauthenticated users without rendering protected content", () => 
   expect(screen.queryByText("protected sentinel")).not.toBeInTheDocument();
 });
 
+it("preserves an ATS application link through login and rejects an external destination", () => {
+  state.path = "/applications/6f40b8a1-89f0-477e-b3d0-000000000001";
+  const { rerender } = render(<AuthGate>protected</AuthGate>);
+  expect(state.replace).toHaveBeenLastCalledWith(`/login?next=${encodeURIComponent(state.path)}`);
+
+  const destination = state.path;
+  state.path = "/login";
+  state.auth.user = { full_name: "Giả", role: "admin" };
+  window.history.replaceState({}, "", `/login?next=${encodeURIComponent(destination)}`);
+  rerender(<AuthGate>protected</AuthGate>);
+  expect(state.replace).toHaveBeenLastCalledWith(destination);
+
+  window.history.replaceState({}, "", "/login?next=%2F%2Fexample.invalid");
+  render(<AuthGate>protected</AuthGate>);
+  expect(state.replace).toHaveBeenLastCalledWith("/");
+  window.history.replaceState({}, "", "/");
+});
+
 it("shows retry on connection failure without rendering protected content", () => {
   state.auth.error = t("api.network");
   render(

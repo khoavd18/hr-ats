@@ -1,7 +1,7 @@
 """Human actions only; business records and pipeline history share a transaction."""
 
 from datetime import UTC, date, datetime, time, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from icalendar import Calendar, Event, Timezone
@@ -31,6 +31,8 @@ from app.schemas.recruitment import (
 from app.services import pipeline
 from app.services.activity import log_activity
 from app.services.applications import accessible_job, eligible_candidate
+from app.services.audit import record_audit
+from app.services.integration_events import queue_notification
 from app.services.ranking import visible_applications
 
 VIETNAM = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -117,6 +119,7 @@ def create_interview(
             candidate_id=application.candidate_id,
             payload={"interview_id": str(row.id)},
         )
+        notify_interview(session, row, "interview.scheduled", datetime.now(UTC), row.id)
         snapshot = InterviewRead.model_validate(row)
     session.commit()
     return snapshot
@@ -127,12 +130,49 @@ def patch_interview(
 ) -> InterviewRead:
     with session.begin_nested():
         row = _locked_record(session, actor, Interview, interview_id)
+        old_time = row.scheduled_at
         for key, value in body.model_dump(exclude_unset=True).items():
             setattr(row, key, value)
         session.flush()
+        if row.scheduled_at != old_time and row.result == "pending":
+            now = datetime.now(UTC)
+            notify_interview(session, row, "interview.scheduled", now, uuid4())
         snapshot = InterviewRead.model_validate(row)
     session.commit()
     return snapshot
+
+
+def notify_interview(
+    session: Session, row: Interview, event_type: str, now: datetime, key: UUID
+) -> None:
+    queue_notification(
+        session,
+        event_type,
+        key,
+        {
+            "application_id": str(row.application_id),
+            "scheduled_epoch": int(row.scheduled_at.timestamp()),
+        },
+        now,
+    )
+
+
+def cancel_interview(session: Session, actor: User, interview_id: UUID) -> None:
+    with session.begin_nested():
+        row = _locked_record(session, actor, Interview, interview_id)
+        if row.result != "pending":
+            raise AppError("INTERVIEW_ALREADY_COMPLETED", "Lịch đã có kết quả phỏng vấn.", 409)
+        now = datetime.now(UTC)
+        row.deleted_at = now
+        record_audit(
+            session,
+            actor_id=actor.id,
+            action="interview.cancelled",
+            entity="interview",
+            entity_id=row.id,
+        )
+        notify_interview(session, row, "interview.cancelled", now, row.id)
+    session.commit()
 
 
 def _offer_sent(session: Session, actor: User, application: Application, row: Offer):

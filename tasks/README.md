@@ -53,6 +53,15 @@ Trạng thái task trong `PROGRESS.md`: `todo` → `review` (agent làm xong) �
 | T32 | Triển khai và hướng dẫn sử dụng | T28, T30 | M5 |
 | T33 | Bộ E2E hồi quy | T32 | M5 |
 | T34 | Nhắc việc quá hạn cá nhân qua n8n local và Telegram | T25, T33 | Tích hợp cá nhân |
+| T35 | Outbox và webhook ký HMAC | T34 | Nền tích hợp |
+| T36 | Token dịch vụ giới hạn scope | T35 | Nền tích hợp |
+| T37 | Hạ tầng n8n với profile automation | T34 | Nền tích hợp |
+| T38 | Trang Tích hợp và nhật ký gửi | T35, T36, T37 | Nền tích hợp |
+| T39 | Workflow thông báo chat W1, W2, W5 | T38 | Workflow đầu tiên |
+| T40 | Workflow báo cáo W4 qua Sheets hoặc chat | T38 | Workflow đầu tiên |
+| T41 | Đồng bộ lịch W3 | T39, T40 và duyệt riêng | Tuỳ chọn |
+| T42 | Nhận CV từ form W6 | T39, T40, pháp chế và `-RequireApproval` | Tuỳ chọn |
+| T43 | Đăng tin tuyển dụng W7 | T39, T40 và duyệt riêng | Tuỳ chọn |
 
 **Mốc M1** là bản đầu tiên HR dùng được: tạo Job, kéo thả CV, xem xếp hạng có lý do, phản hồi AI, tìm trong kho CV, xuất Excel.
 

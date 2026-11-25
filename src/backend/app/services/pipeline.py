@@ -25,6 +25,7 @@ from app.schemas.pipeline import (
 )
 from app.services.activity import log_activity
 from app.services.applications import accessible_job, application_for_update, eligible_candidate
+from app.services.integration_events import queue_notification
 from app.services.ranking import visible_applications
 
 OPEN_STAGES = (
@@ -115,6 +116,13 @@ def _change(
         },
     )
     # Free-form HR notes stay in stage_events, never metadata or application logs.
+    queue_notification(
+        session,
+        "application.stage_changed",
+        event.id,
+        {"application_id": str(application.id), "stage": to_stage.value},
+        now,
+    )
     return ApplicationRead.model_validate(application)
 
 
