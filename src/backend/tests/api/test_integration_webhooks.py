@@ -198,6 +198,23 @@ def test_parallel_worker_skips_locked_delivery(empty_engine, monkeypatch):
         assert not integration_webhooks.deliver_next(second, settings, NOW)
 
 
+def test_temporary_outage_recovers_even_after_the_initial_retry_window(db_session, monkeypatch):
+    event_id = enqueue(db_session, create_endpoint(db_session).id)
+    settings = configured()
+    monkeypatch.setattr(integration_webhooks, "send_event", lambda *_: "retry")
+    for seconds in (0, 60, 360, 1260, 2160):
+        assert integration_webhooks.deliver_next(
+            db_session, settings, NOW + timedelta(seconds=seconds)
+        )
+    event = db_session.get_one(IntegrationEvent, event_id)
+    assert event.id == event_id
+    assert event.failed_at is None
+    assert event.next_attempt_at == NOW + timedelta(seconds=3060)
+    monkeypatch.setattr(integration_webhooks, "send_event", lambda *_: True)
+    assert integration_webhooks.deliver_next(db_session, settings, event.next_attempt_at)
+    assert db_session.get_one(IntegrationEvent, event_id).delivered_at is not None
+
+
 def test_celery_delivers_signed_event_to_loopback(db_session, monkeypatch):
     requests = []
 

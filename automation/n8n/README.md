@@ -26,3 +26,15 @@ Các lần retry ở ATS giữ nguyên ID. Workflow ghi ID sau khi Telegram xác
 nhận gửi và trước ACK. Nếu n8n dừng giữa lúc nhận xác nhận Telegram và
 lưu ID, lần gửi lại có thể tạo thêm một tin. Chỉ dùng bảng này cho các
 lượt gửi của ATS. Tránh gửi song song thủ công cùng một ID.
+
+## Kịch bản demo chung
+
+1. Dùng dữ liệu tuyển dụng giả và chat Telegram demo. Trong ATS, mở
+   **Cài đặt → Tích hợp**, bật các mục đã publish và bấm **Gửi thử**.
+2. Chấm hồ sơ giả (W1), chuyển stage rồi đặt và hủy một lịch giả (W2).
+   Mở link trong tin nhắn để kiểm ATS yêu cầu đăng nhập và quyền hồ sơ.
+3. Tạo một việc giả đã quá hạn cho tài khoản demo (W5). Vào ngày chưa có
+   thông báo cùng loại, chạy tác vụ xếp hàng W5 với worker đã bật, hoặc
+   đợi lịch 8:00 giờ Việt Nam.
+4. Chạy tác vụ báo cáo ngày (W4) hoặc đợi lịch 18:00. Telegram nhận bản
+   tổng hợp ngày. Đối chiếu trạng thái trong **Nhật ký gửi**.

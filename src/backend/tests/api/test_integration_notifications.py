@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from app.models import AuditLog, IntegrationEvent, OverdueWebhookEvent, Task, WebhookEndpoint
 from app.models.enums import ApplicationStage, ProcessingStatus
+from app.reports.scheduled import queue_reports
 from app.schemas.recruitment import InterviewCreate
 from app.services.integration_events import PATHS
 from app.services.pipeline import move
@@ -119,3 +120,20 @@ def test_overdue_signed_alert_cannot_duplicate_legacy_or_cross_midnight(db_sessi
     assert event.payload == {"overdue_count": 1}
     assert event.expires_at == now + timedelta(minutes=5)
     assert not deliver_next(db_session, configured(), event.expires_at)
+
+
+def test_daily_report_emits_one_aggregate_snapshot_for_vietnam_date(db_session, account):
+    enable(db_session, "daily-report")
+    now = datetime(2026, 11, 24, 22, 0, tzinfo=UTC)
+    mail = queue_reports(db_session, "daily", now, configured())
+    assert len(mail) == 1
+    assert queue_reports(db_session, "daily", now + timedelta(minutes=5), configured()) == mail
+    queue_reports(db_session, "weekly", now, configured())
+    event = db_session.scalars(select(IntegrationEvent)).one()
+    assert event.event_type == "report.daily_ready"
+    assert event.payload == {
+        "report_date": "2026-11-25",
+        "new_cvs": 0,
+        "interviews": 0,
+        "placements": 0,
+    }

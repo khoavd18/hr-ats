@@ -11,13 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.models import EmailMessage, User
+from app.models import EmailMessage, User, WebhookEndpoint
 from app.models.enums import EmailStatus
 from app.models.users import UserRole
 from app.reports import queries, service
 from app.reports.export import ACTIVITIES
 from app.schemas.reports import Metrics, ReportInput
 from app.services.export import STAGES
+from app.services.integration_events import PATHS, queue_notification
 
 ReportKind = Literal["daily", "weekly"]
 MANAGERS = (UserRole.admin, UserRole.lead)
@@ -139,6 +140,7 @@ class ReportMail:
     subject: str
     html: str
     params: ReportInput
+    metrics: Metrics
 
 
 def build_report(
@@ -241,7 +243,7 @@ def build_report(
             "</body></html>",
         ]
     )
-    return ReportMail(subject, "".join(parts), params)
+    return ReportMail(subject, "".join(parts), params, metrics)
 
 
 def queue_reports(
@@ -251,7 +253,8 @@ def queue_reports(
     params = report_input(kind, now)
     messages = []
     report = None
-    for actor in recipients(session):
+    actors = recipients(session)
+    for actor in actors:
         record_id = report_id(actor.id, kind, params.from_date)
         row = session.get(EmailMessage, record_id)
         if row is None:
@@ -276,5 +279,33 @@ def queue_reports(
             and row.message_id
         ):
             messages.append((str(row.id), row.message_id, row.scheduled_for.isoformat()))
+    if (
+        kind == "daily"
+        and actors
+        and session.scalar(
+            select(WebhookEndpoint.id).where(
+                WebhookEndpoint.path == PATHS["daily-report"], WebhookEndpoint.enabled.is_(True)
+            )
+        )
+        is not None
+    ):
+        metrics = (
+            report.metrics
+            if report
+            else service.summary(session, actors[0], params, now=now).metrics
+        )
+        report_day = params.from_date.isoformat()
+        queue_notification(
+            session,
+            "report.daily_ready",
+            uuid5(NAMESPACE_URL, f"hr-ats/report/daily-chat/{report_day}"),
+            {
+                "report_date": report_day,
+                "new_cvs": metrics.new_cvs,
+                "interviews": metrics.interviews.total,
+                "placements": metrics.placements,
+            },
+            now,
+        )
     session.commit()
     return messages

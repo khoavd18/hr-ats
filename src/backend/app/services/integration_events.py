@@ -1,6 +1,6 @@
 import hmac
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -28,6 +28,7 @@ EVENT_KINDS: dict[str, IntegrationKind] = {
     "interview.scheduled": "pipeline",
     "interview.cancelled": "pipeline",
     "task.overdue": "overdue",
+    "report.daily_ready": "daily-report",
 }
 
 
@@ -41,6 +42,15 @@ def is_reference(value: int | str | None) -> bool:
         and re.fullmatch(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", value)
         is not None
     )
+
+
+def is_report_date(value: int | str | None) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
 
 
 def validate_payload(event_type: str, payload: Payload) -> None:
@@ -70,6 +80,13 @@ def validate_payload(event_type: str, payload: Payload) -> None:
             and is_reference(application)
             and type(scheduled) is int
             and -62135596800 <= scheduled <= 253402300799
+        )
+    elif event_type == "report.daily_ready":
+        counts = {"new_cvs", "interviews", "placements"}
+        valid = (
+            set(payload) == counts | {"report_date"}
+            and is_report_date(payload.get("report_date"))
+            and all(is_count(payload.get(key)) for key in counts)
         )
     else:
         valid = False

@@ -165,7 +165,7 @@ khôi phục trước khi chuyển lưu lượng.
 ```bash
 automation up -d --wait n8n-db
 automation exec -T n8n-db pg_restore -U postgres --dbname=n8n \
-  --role=n8n --no-owner --no-privileges --exit-on-error /backups/n8n_<timestamp>_<id>.dump
+  --role=n8n --no-owner --no-privileges --exit-on-error "/backups/n8n_<timestamp>_<id>.dump"
 ```
 
 Để dừng tích hợp, tắt `INTEGRATION_WEBHOOKS_ENABLED` trên worker/Beat rồi

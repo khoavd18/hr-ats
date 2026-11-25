@@ -9,6 +9,7 @@ const routes = {
     "interview.cancelled",
   ],
   "/webhook/hr-ats/overdue": ["task.overdue"],
+  "/webhook/hr-ats/daily-report": ["report.daily_ready"],
 };
 const idPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const levels = { high: "Cao", medium: "Trung bình", low: "Thấp", insufficient: "Chưa đủ dữ liệu" };
@@ -35,6 +36,24 @@ function renderMessage(event, origin) {
   }
   if (type === "task.overdue" && Number.isSafeInteger(data.overdue_count) && data.overdue_count > 0) {
     return `Bạn có ${data.overdue_count} việc quá hạn.`;
+  }
+  if (type === "report.daily_ready") {
+    const { report_date: day, new_cvs: cvs, interviews, placements } = data;
+    if (
+      typeof day !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+      ![cvs, interviews, placements].every((count) => Number.isSafeInteger(count) && count >= 0)
+    ) {
+      return null;
+    }
+    const link = new URL("/reports", origin).href;
+    return [
+      `Báo cáo tuyển dụng ${day.split("-").reverse().join("/")} (số liệu tham khảo)`,
+      `CV mới: ${cvs}`,
+      `Lịch phỏng vấn: ${interviews}`,
+      `Nhận việc: ${placements}`,
+      link,
+    ].join("\n");
   }
   if (typeof data.application_id !== "string" || !idPattern.test(data.application_id)) {
     return null;

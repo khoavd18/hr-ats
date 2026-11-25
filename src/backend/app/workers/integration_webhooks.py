@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 from time import monotonic
+from typing import Literal
 
 import httpx
 from sqlalchemy import or_, select
@@ -19,7 +20,9 @@ MAX_ACK_BYTES = 1024
 HTTP_TIMEOUT = 5.0
 
 
-def send_event(settings: Settings, path: str, event: IntegrationEvent, now: datetime) -> bool:
+def send_event(
+    settings: Settings, path: str, event: IntegrationEvent, now: datetime
+) -> bool | Literal["retry"]:
     if not WEBHOOK_PATH.fullmatch(path):
         return False
     event_id = str(event.id)
@@ -53,6 +56,8 @@ def send_event(settings: Settings, path: str, event: IntegrationEvent, now: date
             follow_redirects=False,
             trust_env=False,
         ) as response:
+            if response.status_code == 429 or response.is_server_error:
+                return "retry"
             if not response.is_success:
                 return False
             ack = bytearray()
@@ -61,7 +66,9 @@ def send_event(settings: Settings, path: str, event: IntegrationEvent, now: date
                     return False
                 ack.extend(chunk)
         reply = json.loads(ack)
-    except (httpx.HTTPError, ValueError, RecursionError):
+    except httpx.TransportError:
+        return "retry"
+    except (httpx.InvalidURL, ValueError, RecursionError):
         return False
     return (
         isinstance(reply, dict)
@@ -88,12 +95,14 @@ def deliver_next(session: Session, settings: Settings, now: datetime) -> bool:
     if delivery is None:
         return False
     event, path = delivery
-    event.attempts += 1
-    if send_event(settings, path, event, now):
+    event.attempts = min(event.attempts + 1, len(RETRY_DELAYS) + 1)
+    outcome = send_event(settings, path, event, now)
+    if outcome is True:
         event.delivered_at = now
     else:
-        if event.attempts <= len(RETRY_DELAYS):
-            event.next_attempt_at = now + timedelta(seconds=RETRY_DELAYS[event.attempts - 1])
+        if outcome == "retry" or event.attempts <= len(RETRY_DELAYS):
+            delay = RETRY_DELAYS[min(event.attempts, len(RETRY_DELAYS)) - 1]
+            event.next_attempt_at = now + timedelta(seconds=delay)
         else:
             event.failed_at = now
         logger.warning("Integration webhook delivery failed for event %s", event.id)

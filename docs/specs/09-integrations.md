@@ -35,8 +35,10 @@
   rồi chống xử lý lại theo `event_id`. Khóa ký nằm trong cấu hình vận hành.
 - Lặp lại cùng bản giao sau 1, 5, 15 phút nếu thiếu ACK. Mỗi lần ký lại với
   timestamp hiện tại, giữ nguyên ID và nội dung. HTTP 2xx với JSON
-  `{"received": true, "event_id": "..."}` xác nhận đã xử lý. Hết bốn lượt
-  chuyển sang thất bại để quản trị xem ở T38.
+  `{"received": true, "event_id": "..."}` xác nhận đã xử lý. Lỗi kết nối,
+  HTTP 429 hoặc 5xx tiếp tục thử lại mỗi 15 phút sau các lượt đầu để gửi bù
+  khi n8n hoạt động lại. Với lỗi hợp đồng khác, dừng sau bốn lượt và hiển
+  thị thất bại ở T38. Bản giao hết hạn dừng theo quy tắc của từng sự kiện.
 - Chỉ gửi tới origin n8n do vận hành đặt, với path production
   `/webhook/hr-ats/…`. Dùng HTTPS khi triển khai, cho phép HTTP loopback
   khi phát triển. Không theo redirect. T35 chạy opt-in. Workflow Header
@@ -60,6 +62,15 @@ hai chế độ gửi và bỏ bản giao đã qua nửa đêm Việt Nam.
 Nodes n8n kiểm HMAC bằng credential mã hóa và từ chối chữ ký sai hoặc
 timestamp cũ. Chỉ gửi nội dung theo template. Chi tiết import, Data
 Table và credential ở [automation/n8n](../../automation/n8n/README.md).
+
+## T40 · Báo cáo hằng ngày qua Telegram
+
+W4 dùng lịch Celery 18:00 giờ Việt Nam và dùng chung số liệu tổng hợp của
+báo cáo ATS. `report.daily_ready` gửi một lần mỗi ngày khi bật, gồm ngày,
+số CV mới, số lịch phỏng vấn và số nhận việc. Tin nhắn ghi rõ số liệu tham
+khảo theo định nghĩa hiện tại và gắn link **Báo cáo** trong ATS. Số lượt lịch
+phỏng vấn không xác nhận phỏng vấn đã diễn ra. Báo cáo định kỳ qua email
+vẫn theo lịch hiện tại.
 
 ## Token và ranh giới dữ liệu
 
