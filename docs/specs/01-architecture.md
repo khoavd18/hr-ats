@@ -76,6 +76,10 @@ sự kiện để thực hiện workflow thông báo và báo cáo. Quyền truy
 n8n giới hạn theo token dịch vụ và danh sách endpoint đã duyệt. ATS giữ
 quyết định nghiệp vụ, phân quyền, lịch Celery và dữ liệu tuyển dụng.
 
+T37 thêm profile `automation` trong overlay Compose. PostgreSQL, credential
+và volume n8n riêng với ATS. Caddy phục vụ HTTPS và giới hạn editor n8n theo
+IP quản trị. Chi tiết tại [hướng dẫn triển khai](../deploy.md).
+
 ## Hàng đợi và job nền
 | Queue | Job |
 |---|---|

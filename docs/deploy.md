@@ -107,6 +107,71 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f api
 
 ---
 
+## T37 · Chạy n8n nội bộ
+
+Compose mặc định chỉ chạy ATS. Khi dùng n8n, đặt các giá trị sau ở
+`.env.prod` và chạy thêm overlay `docker-compose.automation.yml`.
+
+- `N8N_DOMAIN` là tên miền riêng trỏ tới Caddy, ví dụ
+  `automation.example.com`.
+- `N8N_ADMIN_NETWORKS` là danh sách IP hoặc CIDR của quản trị viên và VPN,
+  cách nhau bằng dấu cách. Caddy chỉ chuyển tiếp trang quản trị từ các
+  mạng này, dựa trên IP kết nối trực tiếp. Cài tài khoản owner từ mạng
+  được phép ngay sau khi khởi động.
+- `N8N_POSTGRES_ADMIN_PASSWORD`, `N8N_DB_PASSWORD` và
+  `N8N_ENCRYPTION_KEY` dùng ba giá trị ngẫu nhiên riêng. Giữ khóa mã hóa
+  trong nơi lưu bí mật, cùng kế hoạch khôi phục. Mất khóa khiến n8n không
+  đọc được credential trong bản backup.
+
+```bash
+automation() {
+  docker compose --env-file .env.prod -f docker-compose.prod.yml \
+    -f docker-compose.automation.yml --profile automation "$@"
+}
+automation config --quiet
+automation up -d --wait
+automation ps
+```
+
+Caddy cấp HTTPS cho tên miền n8n. Cổng n8n và PostgreSQL của n8n chỉ có
+trong các mạng Compose phù hợp. Caddy cho phép POST dưới
+`/webhook/hr-ats/` đến n8n. Chỉ publish workflow ATS đã kiểm xác thực.
+Khi bật luồng HMAC, đặt `INTEGRATION_WEBHOOK_ORIGIN` bằng origin HTTPS
+của n8n, điền `INTEGRATION_WEBHOOK_SECRET` và bật
+`INTEGRATION_WEBHOOKS_ENABLED`. Cấu hình HMAC nằm trong
+[spec tích hợp](specs/09-integrations.md).
+
+Overlay tắt lưu execution, public API, community packages và quyền đọc
+biến môi trường trong node. Các workflow và credential được lưu trong
+database n8n. Khi có tích hợp cần gọi ngược ATS, xét allowlist đích riêng
+cho flow đó. [Tùy chọn bảo mật n8n](https://docs.n8n.io/deploy/host-n8n/configure-n8n/basic-configuration/use-environment-variables/security/)
+
+### Backup và kiểm tra khôi phục n8n
+
+```bash
+automation exec -T n8n-db sh /backup-n8n.sh
+```
+
+Lệnh in đường dẫn file thành công. Bản backup nằm trong
+`src/backend/var/backups/n8n/`. Đặt lịch theo lịch backup của máy chủ và
+lưu bản sao mã hóa ở nơi vận hành quản lý. Giữ riêng encryption key và
+volume `n8n_state` để khôi phục cấu hình trên đĩa.
+
+Trên một stack khôi phục cô lập với đúng phiên bản n8n, khởi động riêng
+`n8n-db`. Đặt file backup vào thư mục tương ứng rồi restore vào database
+vừa tạo. Sau khi kiểm tra, cấu hình workflow tích hợp trong môi trường
+khôi phục trước khi chuyển lưu lượng.
+
+```bash
+automation up -d --wait n8n-db
+automation exec -T n8n-db pg_restore -U postgres --dbname=n8n \
+  --role=n8n --no-owner --no-privileges --exit-on-error /backups/n8n_<timestamp>_<id>.dump
+```
+
+Để dừng tích hợp, tắt `INTEGRATION_WEBHOOKS_ENABLED` trên worker/Beat rồi
+chạy `automation stop n8n n8n-db`. Sau đó chạy lại Caddy với Compose cơ
+bản nếu cần gỡ vhost n8n. Volume PostgreSQL và n8n được giữ cho lần bật lại.
+
 ## Backup database hằng ngày
 
 ### Cài đặt tự động (cron trên máy host)

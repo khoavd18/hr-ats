@@ -1,0 +1,31 @@
+import /etc/caddy/Caddyfile
+
+{$N8N_DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	@ats_webhook {
+		method POST
+		path /webhook/hr-ats/*
+	}
+	@n8n_admin remote_ip {$N8N_ADMIN_NETWORKS}
+
+	route {
+		handle @ats_webhook {
+			request_body {
+				max_size 16KB
+			}
+			reverse_proxy n8n:5678
+		}
+		handle @n8n_admin {
+			reverse_proxy n8n:5678
+		}
+		handle {
+			respond "Forbidden" 403
+		}
+	}
+}
