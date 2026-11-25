@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from celery.result import denied_join_result
 from pydantic import ValidationError
 from sqlalchemy import select
 
@@ -237,7 +238,7 @@ def test_registered_tasks_deliver_from_db_to_local_http_receiver(db_session, acc
         yield db_session
 
     monkeypatch.setattr(overdue_webhook, "worker_session", worker_session)
-    with ThreadingHTTPServer(("127.0.0.1", 0), Receiver) as server:
+    with ThreadingHTTPServer(("127.0.0.1", 0), Receiver) as server, denied_join_result():
         settings = Settings(
             _env_file=None,
             n8n_overdue_enabled=True,
@@ -249,16 +250,17 @@ def test_registered_tasks_deliver_from_db_to_local_http_receiver(db_session, acc
         thread = Thread(target=server.serve_forever)
         thread.start()
         try:
-            celery_app.tasks["queue_overdue_webhook"].apply().get()
+            # Eager calls finish inline and propagate task errors at the call site.
+            celery_app.tasks["queue_overdue_webhook"].apply(throw=True)
             account.is_active = False
             db_session.commit()
-            celery_app.tasks["deliver_overdue_webhook"].apply().get()
+            celery_app.tasks["deliver_overdue_webhook"].apply(throw=True)
             assert requests == []
 
             account.is_active = True
             db_session.commit()
-            celery_app.tasks["deliver_overdue_webhook"].apply().get()
-            celery_app.tasks["deliver_overdue_webhook"].apply().get()
+            celery_app.tasks["deliver_overdue_webhook"].apply(throw=True)
+            celery_app.tasks["deliver_overdue_webhook"].apply(throw=True)
         finally:
             server.shutdown()
             thread.join()
