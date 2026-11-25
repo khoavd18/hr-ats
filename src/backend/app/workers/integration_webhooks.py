@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from time import monotonic
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -79,6 +79,7 @@ def deliver_next(session: Session, settings: Settings, now: datetime) -> bool:
             IntegrationEvent.delivered_at.is_(None),
             IntegrationEvent.failed_at.is_(None),
             IntegrationEvent.next_attempt_at <= now,
+            or_(IntegrationEvent.expires_at.is_(None), IntegrationEvent.expires_at > now),
         )
         .order_by(IntegrationEvent.next_attempt_at, IntegrationEvent.id)
         .limit(1)

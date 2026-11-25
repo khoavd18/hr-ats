@@ -73,12 +73,13 @@ class IntegrationEvent(Base):
     endpoint_id: Mapped[UUID] = mapped_column(ForeignKey("webhook_endpoints.id"))
     event_type: Mapped[str] = mapped_column(String(64))
     dedupe_key: Mapped[UUID]
-    payload: Mapped[dict[str, int]] = mapped_column(JSONB)
+    payload: Mapped[dict[str, int | str]] = mapped_column(JSONB)
     attempts: Mapped[int] = mapped_column(server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class OverdueWebhookEvent(Base):

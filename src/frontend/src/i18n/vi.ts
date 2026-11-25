@@ -556,6 +556,7 @@ export const vi = {
   "integrations.status.paused": "Đang tạm dừng",
   "integrations.status.sent": "Đã gửi",
   "integrations.status.failed": "Gửi thất bại",
+  "integrations.status.expired": "Đã hết hạn",
   "mailbox.title": "Kết nối hộp mail",
   "mailbox.description":
     "Hệ thống đọc CV đính kèm mỗi 5 phút khi được bật. Liên hệ quản trị hệ thống để thay đổi cấu hình kết nối.",
@@ -588,6 +589,8 @@ export const vi = {
   "common.confirm": "Xác nhận",
   "recruitment.title": "Phỏng vấn và nhận việc",
   "recruitment.interviews": "Lịch phỏng vấn",
+  "recruitment.cancelInterview": "Hủy lịch",
+  "recruitment.confirmCancelInterview": "Hủy lịch phỏng vấn này?",
   "recruitment.schedule": "Đặt lịch phỏng vấn",
   "recruitment.timezone": "Ngày giờ theo giờ Việt Nam (UTC+7).",
   "recruitment.round": "Vòng phỏng vấn",

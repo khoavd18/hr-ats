@@ -41,6 +41,12 @@ def patch_interview(
     return recruitment.patch_interview(session, actor, interview_id, body)
 
 
+@router.post("/interviews/{interview_id}/cancel", status_code=204)
+def cancel_interview(interview_id: UUID, response: Response, session: DB, actor: CurrentUser):
+    response.headers["Cache-Control"] = "no-store"
+    recruitment.cancel_interview(session, actor, interview_id)
+
+
 @router.get("/interviews", response_model=InterviewList)
 def list_interviews(
     response: Response,

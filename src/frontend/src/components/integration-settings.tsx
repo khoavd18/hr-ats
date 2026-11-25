@@ -23,7 +23,7 @@ type Delivery = {
   kind: Kind;
   is_test: boolean;
   created_at: string;
-  status: "sent" | "failed" | "paused" | "retrying" | "pending";
+  status: "sent" | "failed" | "paused" | "retrying" | "pending" | "expired";
   error_code: "WEBHOOK_DELIVERY_FAILED" | null;
 };
 type IntegrationSettingsData = {

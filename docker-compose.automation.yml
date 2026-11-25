@@ -23,7 +23,8 @@ services:
 
   n8n:
     profiles: [automation]
-    image: n8nio/n8n:2.48.6
+    image: hr-ats-n8n:2.48.6
+    build: ./automation/n8n
     depends_on:
       n8n-db:
         condition: service_healthy
@@ -57,6 +58,7 @@ services:
       EXECUTIONS_DATA_PRUNE: "true"
     volumes:
       - n8n_state:/home/node/.n8n
+      - ./automation/n8n/workflows:/opt/hr-ats-workflows:ro
     networks: [automation-data, automation-edge]
     security_opt: [no-new-privileges:true]
     healthcheck:

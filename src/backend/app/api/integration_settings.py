@@ -21,7 +21,7 @@ from app.workers.integration_webhooks import deliver_integration_webhooks
 router = APIRouter(prefix="/settings/integrations", tags=["integrations"])
 logger = logging.getLogger(__name__)
 
-DeliveryStatus = Literal["sent", "failed", "paused", "retrying", "pending"]
+DeliveryStatus = Literal["sent", "failed", "paused", "retrying", "pending", "expired"]
 KINDS = {path: kind for kind, path in PATHS.items()}
 
 
@@ -60,6 +60,8 @@ def delivery_status(event: IntegrationEvent, enabled: bool) -> DeliveryStatus:
         return "sent"
     if event.failed_at is not None:
         return "failed"
+    if event.expires_at is not None and event.expires_at <= datetime.now(UTC):
+        return "expired"
     if not enabled:
         return "paused"
     return "retrying" if event.attempts else "pending"

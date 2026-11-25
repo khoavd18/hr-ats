@@ -67,12 +67,22 @@ def create_celery_app(settings: Settings) -> Celery:
                         "task": "queue_overdue_webhook",
                         "schedule": crontab(hour=8, minute=0),
                     },
+                }
+                if settings.n8n_overdue_enabled
+                or (
+                    settings.integration_webhooks_enabled
+                    and settings.n8n_overdue_user_id is not None
+                )
+                else {}
+            ),
+            **(
+                {
                     "deliver-overdue-webhook": {
                         "task": "deliver_overdue_webhook",
                         "schedule": 60.0,
                     },
                 }
-                if settings.n8n_overdue_enabled
+                if settings.n8n_overdue_enabled and not settings.integration_webhooks_enabled
                 else {}
             ),
             "daily-report": {

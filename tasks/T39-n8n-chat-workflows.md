@@ -9,4 +9,5 @@ Phụ thuộc T38. Đọc spec 08, 09.
 - W5 chuyển bộ đếm việc quá hạn hiện có từ lab Header Auth sang hợp đồng
   T35, giữ phạm vi **Việc của tôi** và hết hạn theo ngày Việt Nam.
 
-UNKNOWN: hành vi W1/W2 và kênh chat chốt cho demo, xem câu hỏi #117 và #118.
+W1 dùng sự kiện chấm xong. W2 dùng thay đổi stage, đặt, đổi giờ và hủy lịch
+phỏng vấn. Kênh demo là Telegram, xem câu hỏi #117 và #118.

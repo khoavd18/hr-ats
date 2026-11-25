@@ -130,6 +130,21 @@ function InterviewResult({
       <Button type="button" variant="outline" disabled={busy} onClick={() => download(row.id)}>
         {t("recruitment.downloadIcs")}
       </Button>
+      {row.result === "pending" && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          className="ml-2"
+          onClick={() => {
+            if (window.confirm(t("recruitment.confirmCancelInterview"))) {
+              void save(`/interviews/${row.id}/cancel`, {});
+            }
+          }}
+        >
+          {t("recruitment.cancelInterview")}
+        </Button>
+      )}
       <form
         aria-label={`${t("recruitment.resultForm")} ${row.round}`}
         onSubmit={async (event) => {
@@ -377,7 +392,7 @@ export function ProfileRecruitment({
     setError(null);
     try {
       await api(path, {
-        method: path.startsWith("/applications/") ? "POST" : "PATCH",
+        method: path.startsWith("/applications/") || path.endsWith("/cancel") ? "POST" : "PATCH",
         body: JSON.stringify(body),
       });
       if (!mounted.current) return false;

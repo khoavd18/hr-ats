@@ -40,7 +40,7 @@
 | T36 | review | 2026-11-25 | VERIFIED: Bearer tách khỏi session, token băm/hết hạn/thu hồi, rate limit và audit. Tạo việc và báo cáo tổng hợp đã kiểm. Scope CV trả 403 tới khi T42 được duyệt. 46 test tích hợp và schema đạt. |
 | T37 | review | 2026-11-25 | VERIFIED: profile automation chạy n8n và PostgreSQL riêng, Caddy trả 403 ngoài mạng quản trị, chuyển POST webhook tới n8n và khôi phục đủ 178 bảng. Chờ review và merge. |
 | T38 | review | 2026-11-25 | VERIFIED: Cài đặt → Tích hợp, API admin, nhật ký tối thiểu và E2E thật qua receiver giả. Ruff, mypy, lint và typecheck đạt. Chờ review và merge. |
-| T39 | todo | 2026-11-25 | W5 đã có bản thử. W1/W2 chờ định nghĩa nghiệp vụ. |
+| T39 | review | 2026-11-25 | VERIFIED: W1 chấm hồ sơ, W2 stage/lịch, W5 việc quá hạn. 75 test backend đạt, 3 workflow import được và chạy trên n8n cô lập với Telegram giả, kiểm chữ ký sai, hết hạn và replay. |
 | T40 | todo | 2026-11-25 | Chờ chốt nội dung, người nhận và đích W4. |
 | T41 | todo | 2026-11-25 | Tuỳ chọn, cần duyệt riêng. |
 | T42 | todo | 2026-11-25 | Tuỳ chọn, cần pháp chế và duyệt riêng. |

@@ -40,7 +40,26 @@
 - Chỉ gửi tới origin n8n do vận hành đặt, với path production
   `/webhook/hr-ats/…`. Dùng HTTPS khi triển khai, cho phép HTTP loopback
   khi phát triển. Không theo redirect. T35 chạy opt-in. Workflow Header
-  Auth của W5 dùng hợp đồng cũ đến khi T39 chuyển sang HMAC.
+  Auth của W5 chỉ dùng khi luồng HMAC đang tắt.
+
+## T39 · Thông báo Telegram
+
+| Loại | Sự kiện | Metadata |
+|---|---|---|
+| W1 | `cv.scored` | UUID hồ sơ ứng tuyển và mức AI |
+| W2 | `application.stage_changed` | UUID hồ sơ ứng tuyển và stage đích |
+| W2 | `interview.scheduled`, `interview.cancelled` | UUID hồ sơ ứng tuyển và thời điểm lịch |
+| W5 | `task.overdue` | Số việc theo quyền của tài khoản đã chọn |
+
+Tên Job và recruiter chưa đưa vào payload. Link trực tiếp dùng
+`/applications/{id}` và ATS kiểm lại quyền trên hồ sơ sau đăng nhập.
+T39 ghi sự kiện W1/W2 cùng transaction nghiệp vụ. Thao tác hủy lịch giữ
+bản ghi để audit và giữ nguyên stage ứng viên. W5 chỉ chạy ở một trong
+hai chế độ gửi và bỏ bản giao đã qua nửa đêm Việt Nam.
+
+Nodes n8n kiểm HMAC bằng credential mã hóa và từ chối chữ ký sai hoặc
+timestamp cũ. Chỉ gửi nội dung theo template. Chi tiết import, Data
+Table và credential ở [automation/n8n](../../automation/n8n/README.md).
 
 ## Token và ranh giới dữ liệu
 
