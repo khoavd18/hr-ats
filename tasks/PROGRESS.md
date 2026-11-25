@@ -40,6 +40,19 @@
 ## Nhật ký
 <!-- Agent thêm mục mới ở đầu: ## Txx · YYYY-MM-DD · done|blocked, rồi tóm tắt -->
 
+## T34 · 2026-11-25 · Hồi quy kiểm thử webhook n8n
+
+- VERIFIED: [CI trên `main`](https://github.com/khoavd18/hr-ats/actions/runs/44769531392)
+  lỗi ở bước đọc kết quả của test tích hợp webhook. Tái hiện cùng lỗi bằng
+  `denied_join_result()` khi chạy test trên PostgreSQL cục bộ.
+- VERIFIED: `tests/api/test_overdue_webhook.py` chạy tác vụ đã đăng ký bằng
+  `apply(throw=True)` trong điều kiện Celery chặn chờ kết quả. Ca lỗi đạt sau sửa
+  và vẫn đối chiếu payload, quyền tài khoản, trạng thái gửi và số lần gửi.
+- VERIFIED: 75 ca webhook, cơ sở dữ liệu, việc cần làm, lịch Celery và cấu hình
+  chạy đạt. Ruff check, Ruff format check và mypy cũng đạt.
+- NOT TESTED: CI của bản sửa và lần gửi qua workflow n8n tới chat Telegram.
+  Phép thử này dùng dữ liệu giả và receiver HTTP trên loopback.
+
 ## Tổ chức lại cấu trúc repo · 2026-11-20
 
 - VERIFIED: chuyển API, web và mã AI sang `src/backend/`, `src/frontend/` và
