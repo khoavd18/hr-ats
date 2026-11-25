@@ -30,11 +30,14 @@ from app.models import (
     Placement,
     StageEvent,
     Task,
+    WebhookEndpoint,
 )
 from app.models.enums import ApplicationStage, ProcessingStatus
 from app.models.users import UserRole
+from app.services.integration_tokens import SERVICE_SCOPES, issue_token
 from app.storage import LocalStorage
 from app.workers import email, tasks
+from app.workers.integration_webhooks import deliver_integration_webhooks
 from tests.api.test_pipeline import seed_records
 from tests.auth_helpers import csrf_headers
 from tests.cv_helpers import PDF
@@ -165,6 +168,16 @@ CASES = [
         {"application_id": "$application_id"},
     ),
     Case("mailbox", "GET", "/settings/mailbox", "manager"),
+    Case("integration-settings", "GET", "/settings/integrations", "admin"),
+    Case("integration-toggle", "PUT", "/settings/integrations/{kind}", "admin", {"enabled": True}),
+    Case("integration-test", "POST", "/settings/integrations/{kind}/test", "admin", status=202),
+    Case(
+        "service-task", "POST", "/integrations/tasks", "service", {"title": "Việc giả"}, status=201
+    ),
+    Case(
+        "service-summary", "GET", "/integrations/reports/summary", "service", params=REPORT_PERIOD
+    ),
+    Case("service-cv", "POST", "/integrations/cv-files", "service", status=403),
     Case("email-list", "GET", "/email-messages", params={"application_id": "$application_id"}),
     Case(
         "email-choices",
@@ -241,6 +254,7 @@ CASES = [
         status=201,
     ),
     Case("interview-edit", "PATCH", "/interviews/{interview_id}", body={"result": "pass"}),
+    Case("interview-cancel", "POST", "/interviews/{interview_id}/cancel", status=204),
     Case("interview-ics", "GET", "/interviews/{interview_id}/ics"),
     Case(
         "offer-create",
@@ -285,7 +299,17 @@ for report in ("summary", "funnel", "recruiters", "ai-agreement", "export.xlsx")
         ]
     )
 
-SCOPES = ["admin", "lead", "owner", "member", "outsider", "revoked", "inactive", "anonymous"]
+SCOPES = [
+    "admin",
+    "lead",
+    "owner",
+    "member",
+    "outsider",
+    "revoked",
+    "inactive",
+    "anonymous",
+    "integration",
+]
 
 
 def resolve(value, ids):
@@ -298,7 +322,11 @@ def resolve(value, ids):
 
 @pytest.fixture
 def matrix(app, client, db_session, account, tmp_path, monkeypatch, scope, case):
-    account.role = UserRole(scope) if scope in {"admin", "lead"} else UserRole.recruiter
+    account.role = {
+        "admin": UserRole.admin,
+        "lead": UserRole.lead,
+        "integration": UserRole.admin,
+    }.get(scope, UserRole.recruiter)
     db_session.flush()
     records = seed_records(db_session, account)
     records.job.owner_id = account.id if scope == "owner" else records.other.id
@@ -323,6 +351,10 @@ def matrix(app, client, db_session, account, tmp_path, monkeypatch, scope, case)
     storage = LocalStorage(tmp_path / "matrix")
     app.dependency_overrides[storage_dependency] = lambda: storage
     settings = get_settings().model_copy(update={"storage_local_dir": storage.root})
+    if case.name == "integration-test":
+        settings.integration_webhooks_enabled = True
+        db_session.add(WebhookEndpoint(id=uuid4(), path="/webhook/hr-ats/overdue", enabled=True))
+        monkeypatch.setattr(deliver_integration_webhooks, "delay", Mock())
     app.dependency_overrides[get_settings] = lambda: settings
     cv_file = CvFile(
         candidate_id=records.candidate.id,
@@ -384,7 +416,14 @@ def matrix(app, client, db_session, account, tmp_path, monkeypatch, scope, case)
     ):
         monkeypatch.setattr(task_object, "apply_async", published)
     csrf = security.new_csrf(settings)
-    if scope != "anonymous":
+    service_auth = {}
+    if scope == "integration":
+        _, token = issue_token(
+            db_session, account.id, list(SERVICE_SCOPES), datetime.now(UTC) + timedelta(days=1)
+        )
+        db_session.commit()
+        service_auth = {"Authorization": f"Bearer {token}"}
+    elif scope != "anonymous":
         client.cookies.set("csrf_token", csrf)
         client.cookies.set("access_token", security.encode_token(account, "access", csrf, settings))
     if scope == "inactive":
@@ -409,14 +448,15 @@ def matrix(app, client, db_session, account, tmp_path, monkeypatch, scope, case)
         "request_id": str(request.id),
         "consent_at": (datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
         "scheduled_at": interview.scheduled_at.isoformat(),
+        "kind": "overdue",
     }
-    return ids, records, published
+    return ids, records, published, service_auth
 
 
 @pytest.mark.parametrize("scope", SCOPES)
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
 def test_spec07_endpoint_matrix(client, db_session, account, matrix, scope, case):
-    ids, records, published = matrix
+    ids, records, published, service_auth = matrix
     allowed = case.policy == "all" or scope in {"admin", "lead"}
     if case.policy == "admin":
         allowed = scope == "admin"
@@ -425,6 +465,10 @@ def test_spec07_endpoint_matrix(client, db_session, account, matrix, scope, case
     expected = case.status if allowed else 403
     if scope in {"anonymous", "inactive"}:
         expected = 401
+    if case.policy == "service":
+        expected = case.status if scope == "integration" else 401
+    elif scope == "integration":
+        expected = 401
     models = (Activity, AuditLog, Application, Candidate, CvFile, EmailMessage, Task, DataRequest)
     before = [db_session.scalar(select(func.count()).select_from(model)) for model in models]
     old_name, old_title, old_owner = (
@@ -432,7 +476,10 @@ def test_spec07_endpoint_matrix(client, db_session, account, matrix, scope, case
         records.job.title,
         records.job.owner_id,
     )
-    kwargs = {"params": resolve(case.params, ids), "headers": csrf_headers(client)}
+    kwargs = {
+        "params": resolve(case.params, ids),
+        "headers": csrf_headers(client) | service_auth,
+    }
     if case.body is not None:
         kwargs["json"] = resolve(case.body, ids)
     if case.name.startswith("upload-"):
@@ -441,9 +488,16 @@ def test_spec07_endpoint_matrix(client, db_session, account, matrix, scope, case
     response = client.request(case.method, "/api/v1" + case.path.format_map(ids), **kwargs)
     assert response.status_code == expected, response.text
     if expected in {401, 403}:
-        assert response.json()["error"]["code"] == (
-            "UNAUTHORIZED" if expected == 401 else "FORBIDDEN"
-        )
+        code = "UNAUTHORIZED" if expected == 401 else "FORBIDDEN"
+        if expected == 401 and case.policy == "service":
+            code = "INVALID_SERVICE_TOKEN"
+        assert response.json()["error"]["code"] == code
+        if case.name == "service-cv" and scope == "integration":
+            before[models.index(AuditLog)] += 1
+            denied = db_session.scalar(
+                select(AuditLog).where(AuditLog.action == "integration.access")
+            )
+            assert denied.details == {"scope": "cv:upload", "authorized": False}
         assert "matrix@example.invalid" not in response.text
         assert [
             db_session.scalar(select(func.count()).select_from(model)) for model in models
