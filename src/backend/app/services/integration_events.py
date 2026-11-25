@@ -1,6 +1,7 @@
 import hmac
 import re
 from datetime import datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -12,6 +13,13 @@ from app.models.integrations import WEBHOOK_PATH_PATTERN, IntegrationEvent, Webh
 
 WEBHOOK_PATH = re.compile(WEBHOOK_PATH_PATTERN, re.ASCII)
 SIGNATURE_WINDOW_SECONDS = 300
+IntegrationKind = Literal["cv-scored", "pipeline", "overdue", "daily-report"]
+PATHS: dict[IntegrationKind, str] = {
+    "cv-scored": "/webhook/hr-ats/cv-scored",
+    "pipeline": "/webhook/hr-ats/pipeline",
+    "overdue": "/webhook/hr-ats/overdue",
+    "daily-report": "/webhook/hr-ats/daily-report",
+}
 
 
 def validate_payload(event_type: str, payload: dict[str, int]) -> None:

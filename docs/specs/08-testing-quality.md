@@ -10,6 +10,11 @@ Test dùng PostgreSQL cô lập, hai kết nối để kiểm khóa bản giao v
 loopback để kiểm Celery ký và gửi. Mock HTTP kiểm timeout, redirect, ACK sai
 và phản hồi quá lớn. Test schema payload dùng dữ liệu giả.
 
+T38 chạy `npx playwright test integrations.spec.ts` trên frontend và
+`uv run python -m tests.ranking_browser_server`. Fixture mở receiver
+HTTP loopback kiểm chữ ký và mô phỏng cả ACK lẫn lỗi 503. Kịch bản chạy
+trên DB tạm, đăng nhập admin, cấu hình, gửi thử, xem nhật ký và tắt lại.
+
 ## Lệnh chuẩn (agent dùng đúng các lệnh này)
 | Việc | Lệnh |
 |---|---|

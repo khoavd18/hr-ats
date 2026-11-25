@@ -6,6 +6,7 @@ import { HiringUnitsSettings } from "@/components/hiring-units-settings";
 import { EmailTemplatesSettings } from "@/components/email-templates-settings";
 import { PrivacySettings } from "@/components/privacy-settings";
 import { MailboxSettings } from "@/components/mailbox-settings";
+import { IntegrationSettings } from "@/components/integration-settings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n/vi";
 
@@ -20,6 +21,9 @@ export default function SettingsPage() {
         <TabsTrigger value="units">{t("units.title")}</TabsTrigger>
         <TabsTrigger value="email-templates">{t("emailTemplates.title")}</TabsTrigger>
         <TabsTrigger value="mailbox">{t("mailbox.title")}</TabsTrigger>
+        {user.role === "admin" && (
+          <TabsTrigger value="integrations">{t("integrations.title")}</TabsTrigger>
+        )}
       </TabsList>
       {user.role === "admin" && (
         <TabsContent value="users">
@@ -40,6 +44,11 @@ export default function SettingsPage() {
       <TabsContent value="mailbox">
         <MailboxSettings />
       </TabsContent>
+      {user.role === "admin" && (
+        <TabsContent value="integrations">
+          <IntegrationSettings />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }
