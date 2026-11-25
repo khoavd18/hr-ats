@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     n8n_overdue_webhook_url: str = Field(default="", repr=False)
     n8n_overdue_webhook_key: SecretStr = SecretStr("")
     n8n_overdue_user_id: UUID | None = None
+    integration_webhooks_enabled: bool = False
+    integration_webhook_origin: str = Field(default="", repr=False)
+    integration_webhook_secret: SecretStr = SecretStr("")
     hiring_unit_label: str = "Đơn vị tuyển"
     data_retention_months: int = Field(default=24, ge=1)
     frontend_origin: str = "http://localhost:3000"
@@ -112,6 +115,30 @@ class Settings(BaseSettings):
             raise ValueError("N8N_OVERDUE_WEBHOOK_KEY must be set to an ASCII token")
         if self.n8n_overdue_user_id is None:
             raise ValueError("N8N_OVERDUE_USER_ID must be set")
+        return self
+
+    @model_validator(mode="after")
+    def validate_integration_webhooks(self) -> Self:
+        if not self.integration_webhooks_enabled:
+            return self
+        origin = self.integration_webhook_origin
+        url = urlsplit(origin)
+        local_http = (
+            self.app_env != "prod"
+            and url.scheme == "http"
+            and url.hostname in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+        )
+        if (
+            (url.scheme != "https" and not local_http)
+            or not url.hostname
+            or url.port == 0
+            or url.username is not None
+            or any(character.isspace() or character == "\\" for character in origin)
+            or origin != f"{url.scheme}://{url.netloc}"
+        ):
+            raise ValueError("INTEGRATION_WEBHOOK_ORIGIN must be an HTTPS origin or local dev HTTP")
+        if len(self.integration_webhook_secret.get_secret_value().strip().encode()) < 32:
+            raise ValueError("INTEGRATION_WEBHOOK_SECRET must be at least 32 UTF-8 bytes")
         return self
 
     @field_validator("storage_local_dir")

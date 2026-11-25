@@ -1,4 +1,58 @@
-# 09 · Nhắc việc quá hạn qua n8n
+# 09 · Tích hợp n8n
+
+## Quyết định T34
+
+- VERIFIED: W5 đang dùng n8n Community Edition self-host local và một chat
+  Telegram riêng. ASSUMED: dùng Telegram cho demo các workflow chat, chờ
+  xác nhận trước khi cấu hình đích thực tế.
+- UNKNOWN: Google Workspace hay Microsoft 365, nguồn CV thực tế, định nghĩa
+  W1/W2 và ba endpoint được cấp scope. W4 có thể demo qua chat với số liệu
+  tổng hợp sau khi chốt nội dung và người nhận.
+- VERIFIED: hướng dẫn n8n cho phép dùng Community Edition self-host cho
+  workflow nội bộ. Việc host n8n như một dịch vụ hoặc cho khách ngoài tổ
+  chức tạo hay cấu hình workflow cần giấy phép thương mại. Cần xác nhận
+  với n8n trước khi đưa mô hình bán cho khách vào phạm vi triển khai.
+  [Hướng dẫn giấy phép n8n](https://support.n8n.io/article/can-i-use-your-license-for-my-use-case)
+- VERIFIED: SAML SSO thuộc Business/Enterprise và external secrets thuộc
+  Enterprise theo tài liệu n8n. Demo Community Edition dùng credential
+  được mã hóa của n8n. [SAML](https://docs.n8n.io/administer/manage-users-and-access/verify-user-identity/use-saml/)
+  [External secrets](https://docs.n8n.io/administer/manage-credentials/use-external-secret-stores/)
+
+## Hợp đồng outbox T35
+
+- Mỗi bản giao có một UUID v4 `event_id`, `event_type`, `version: 1` và
+  `data` theo schema cố định. `integration.test` có `data: {}`.
+  `task.overdue_summary` có `data: {"overdue_count": 1}` với số nguyên dương.
+  W1, W2 và W4 cần bổ sung schema khi xác nhận nội dung nghiệp vụ.
+- Celery ký UTF-8 của chuỗi
+  `ASCII(timestamp) + "." + ASCII(path) + "." + raw_body` bằng HMAC-SHA256.
+  Gửi timestamp Unix giây qua `X-HR-ATS-Timestamp` và chữ ký dạng
+  `v1=<lowercase hex>` qua `X-HR-ATS-Signature`. Receiver so sánh hằng
+  thời gian trước khi đọc JSON, chấp nhận lệch đồng hồ tối đa 300 giây,
+  rồi chống xử lý lại theo `event_id`. Khóa ký nằm trong cấu hình vận hành.
+- Lặp lại cùng bản giao sau 1, 5, 15 phút nếu thiếu ACK. Mỗi lần ký lại với
+  timestamp hiện tại, giữ nguyên ID và nội dung. HTTP 2xx với JSON
+  `{"received": true, "event_id": "..."}` xác nhận đã xử lý. Hết bốn lượt
+  chuyển sang thất bại để quản trị xem ở T38.
+- Chỉ gửi tới origin n8n do vận hành đặt, với path production
+  `/webhook/hr-ats/…`. Dùng HTTPS khi triển khai, cho phép HTTP loopback
+  khi phát triển. Không theo redirect. T35 chạy opt-in. Workflow Header
+  Auth của W5 dùng hợp đồng cũ đến khi T39 chuyển sang HMAC.
+
+## Token và ranh giới dữ liệu
+
+T36 dùng principal `integration` riêng, token ngẫu nhiên băm khi lưu, có
+scope theo phương thức và đường dẫn, hết hạn hoặc thu hồi được, có giới
+hạn tần suất và audit tối thiểu. Mặc định từ chối cho tới khi duyệt đúng
+ba endpoint. Token dịch vụ và khóa HMAC phục vụ hai chiều xác thực riêng.
+
+n8n có thể gửi thông báo nội bộ và xuất số liệu tổng hợp đã duyệt. Payload
+chỉ dùng trường có trong schema của sự kiện. CV, tên, email, điện thoại,
+ghi chú tự do và định danh ứng viên không đi vào webhook hay nhật ký gửi.
+n8n không trực tiếp truy cập DB ATS, đổi stage, gửi email từ chối, gửi
+offer, xóa hồ sơ hoặc tự quyết định loại ứng viên. T41–T43 cần duyệt riêng.
+
+## W5 hiện tại · Nhắc việc quá hạn qua n8n
 
 Dự án cá nhân dùng n8n Community Edition local và một chat Telegram riêng.
 Celery tạo bản nhắc lúc 8:00 giờ Việt Nam khi tích hợp được bật. Mỗi ngày có

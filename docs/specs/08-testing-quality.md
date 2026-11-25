@@ -5,6 +5,11 @@ T34 dùng PostgreSQL đã migrate, receiver HTTP loopback và dữ liệu giả.
 kiểm phạm vi task, chống tạo trùng, phản hồi webhook, retry và schema. Phép
 thử vào Telegram riêng dùng khóa local theo spec 09 và chạy thủ công.
 
+T35 thêm `uv run pytest tests/api/test_integration_webhooks.py tests/api/test_database.py`.
+Test dùng PostgreSQL cô lập, hai kết nối để kiểm khóa bản giao và HTTP
+loopback để kiểm Celery ký và gửi. Mock HTTP kiểm timeout, redirect, ACK sai
+và phản hồi quá lớn. Test schema payload dùng dữ liệu giả.
+
 ## Lệnh chuẩn (agent dùng đúng các lệnh này)
 | Việc | Lệnh |
 |---|---|
