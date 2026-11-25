@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     integration_webhooks_enabled: bool = False
     integration_webhook_origin: str = Field(default="", repr=False)
     integration_webhook_secret: SecretStr = SecretStr("")
+    integration_rate_limit_per_minute: int = Field(default=30, ge=1, le=10000)
     hiring_unit_label: str = "Đơn vị tuyển"
     data_retention_months: int = Field(default=24, ge=1)
     frontend_origin: str = "http://localhost:3000"

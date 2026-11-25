@@ -8,4 +8,5 @@ Phụ thuộc T35. Đọc spec 03, 08, 09 và ma trận quyền T30.
   không chứa token hoặc dữ liệu ứng viên.
 - Test ma trận quyền xác nhận token bị từ chối ở các endpoint còn lại.
 
-UNKNOWN: danh sách ba cặp method/path, xem câu hỏi #118.
+Hai scope hoạt động là `tasks:create` và `reports:summary`. Scope
+`cv:upload` trả 403 cho tới khi T42 được duyệt và có luồng consent.

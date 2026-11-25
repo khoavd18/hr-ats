@@ -17,6 +17,13 @@ Base `/api/v1`. JSON, xác thực bằng cookie HttpOnly chứa JWT (access 30 p
 
 ### Contract T30 · Bảo vệ HTTP
 
+T36 thêm ba endpoint dịch vụ dưới `/api/v1/integrations/`.
+`POST tasks` dùng scope `tasks:create`, nhận cấu trúc tạo việc và trả
+`201 {"task_id": "..."}`. `GET reports/summary` dùng scope
+`reports:summary`, nhận bộ lọc báo cáo hiện có. `POST cv-files` trả 403
+đến khi luồng T42 được duyệt. Xác thực Bearer, độc lập với session trình
+duyệt. Xem [spec tích hợp](09-integrations.md).
+
 Mọi phản hồi API có CSP, nosniff và no-referrer theo spec 07, gồm lỗi và preflight.
 `POST /auth/login` bị giới hạn theo client ASGI; `POST /cv-files` theo user, trước
 parse upload. Quá mức trả `429 RATE_LIMITED`, header `Retry-After` là số giây còn

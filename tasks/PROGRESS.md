@@ -37,7 +37,7 @@
 | T33 | done | 2026-11-19 | VERIFIED: đã review, CI xanh và merge. Toàn bộ Playwright 16/16 qua ba lượt sau review (58,0 s, 67,1 s, 57,9 s). Đã sửa deadlock tải CV/hoàn tác. Xem tasks/reviews/T33.md. |
 | T34 | done | 2026-11-20 | VERIFIED: Celery/Redis → PostgreSQL → n8n local → Telegram với dữ liệu giả. Review độc lập, CI backend 2029 ca đạt và frontend xanh. Đã merge vào main. |
 | T35 | review | 2026-11-25 | VERIFIED: migration, HMAC, retry, khóa worker, chống trùng và payload tối thiểu. 49 test tập trung đạt, Ruff và mypy sạch. Chờ review và merge. |
-| T36 | todo | 2026-11-25 | Chờ danh sách ba endpoint cần scope. |
+| T36 | review | 2026-11-25 | VERIFIED: Bearer tách khỏi session, token băm/hết hạn/thu hồi, rate limit và audit. Tạo việc và báo cáo tổng hợp đã kiểm. Scope CV trả 403 tới khi T42 được duyệt. 46 test tích hợp và schema đạt. |
 | T37 | review | 2026-11-25 | VERIFIED: profile automation chạy n8n và PostgreSQL riêng, Caddy trả 403 ngoài mạng quản trị, chuyển POST webhook tới n8n và khôi phục đủ 178 bảng. Chờ review và merge. |
 | T38 | todo | 2026-11-25 | Cấu hình, gửi thử và nhật ký giao webhook. |
 | T39 | todo | 2026-11-25 | W5 đã có bản thử. W1/W2 chờ định nghĩa nghiệp vụ. |

@@ -11,12 +11,31 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
 
 WEBHOOK_PATH_PATTERN = r"^/webhook/hr-ats/[a-z0-9-]+(/[a-z0-9-]+)*$"
+
+
+class IntegrationToken(Base):
+    __tablename__ = "integration_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            "cardinality(scopes) BETWEEN 1 AND 3 AND "
+            "scopes <@ ARRAY['tasks:create', 'reports:summary', 'cv:upload']::varchar[] "
+            "AND array_position(scopes, NULL::varchar) IS NULL",
+            name="ck_integration_token_scopes",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    sponsor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64))
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(String))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WebhookEndpoint(Base):

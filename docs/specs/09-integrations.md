@@ -3,11 +3,12 @@
 ## Quyết định T34
 
 - VERIFIED: W5 đang dùng n8n Community Edition self-host local và một chat
-  Telegram riêng. ASSUMED: dùng Telegram cho demo các workflow chat, chờ
-  xác nhận trước khi cấu hình đích thực tế.
-- UNKNOWN: Google Workspace hay Microsoft 365, nguồn CV thực tế, định nghĩa
-  W1/W2 và ba endpoint được cấp scope. W4 có thể demo qua chat với số liệu
-  tổng hợp sau khi chốt nội dung và người nhận.
+  Telegram riêng. HR dùng Gmail và Zalo. Đợt demo dùng Telegram cho các
+  thông báo và báo cáo W4.
+- UNKNOWN: Gmail cá nhân hay Google Workspace, nguồn CV thật và đích Zalo
+  khi triển khai. Danh sách sự kiện nghiệp vụ yêu cầu gồm `cv.scored`,
+  `application.stage_changed`, `interview.scheduled`, `interview.cancelled`,
+  `task.overdue` và `report.daily_ready`.
 - VERIFIED: hướng dẫn n8n cho phép dùng Community Edition self-host cho
   workflow nội bộ. Việc host n8n như một dịch vụ hoặc cho khách ngoài tổ
   chức tạo hay cấu hình workflow cần giấy phép thương mại. Cần xác nhận
@@ -23,7 +24,9 @@
 - Mỗi bản giao có một UUID v4 `event_id`, `event_type`, `version: 1` và
   `data` theo schema cố định. `integration.test` có `data: {}`.
   `task.overdue_summary` có `data: {"overdue_count": 1}` với số nguyên dương.
-  W1, W2 và W4 cần bổ sung schema khi xác nhận nội dung nghiệp vụ.
+  `task.overdue_summary` là tên của bản thử T34. T39 bổ sung schema sự kiện
+  nghiệp vụ có ID nội bộ, stage, mức AI và link hồ sơ theo nhu cầu của thông
+  báo. Link dùng tuyến ATS có đăng nhập và kiểm quyền hiện hành.
 - Celery ký UTF-8 của chuỗi
   `ASCII(timestamp) + "." + ASCII(path) + "." + raw_body` bằng HMAC-SHA256.
   Gửi timestamp Unix giây qua `X-HR-ATS-Timestamp` và chữ ký dạng
@@ -43,12 +46,27 @@
 
 T36 dùng principal `integration` riêng, token ngẫu nhiên băm khi lưu, có
 scope theo phương thức và đường dẫn, hết hạn hoặc thu hồi được, có giới
-hạn tần suất và audit tối thiểu. Mặc định từ chối cho tới khi duyệt đúng
-ba endpoint. Token dịch vụ và khóa HMAC phục vụ hai chiều xác thực riêng.
+hạn tần suất và audit tối thiểu. Token được gắn với tài khoản ATS đang hoạt
+động. Tạo việc và đọc báo cáo vẫn kiểm quyền nghiệp vụ của tài khoản đó.
+Token dịch vụ và khóa HMAC phục vụ hai chiều xác thực riêng.
+
+| Scope | Endpoint | Quyền |
+|---|---|---|
+| `tasks:create` | `POST /api/v1/integrations/tasks` | Tạo việc và trả ID của việc vừa tạo |
+| `reports:summary` | `GET /api/v1/integrations/reports/summary` | Đọc số liệu tổng hợp |
+| `cv:upload` | `POST /api/v1/integrations/cv-files` | Dành cho T42, trả 403 đến khi có duyệt và luồng consent |
+
+Người vận hành cấp và thu hồi token trên máy chủ bằng
+`uv run python -m app.scripts.integration_token` tại `src/backend/`.
+Lệnh `issue` nhận `--sponsor <user_uuid>`, một hoặc nhiều `--scope` và
+`--expires-in-days <1..365>`. Lưu đầu ra token một lần vào kho bí mật;
+ID thu hồi được ghi riêng qua stderr. Lệnh `revoke <token_id>` thu hồi
+ngay cho các request sau đó. Giới hạn mặc định 30 request/phút/token.
 
 n8n có thể gửi thông báo nội bộ và xuất số liệu tổng hợp đã duyệt. Payload
-chỉ dùng trường có trong schema của sự kiện. CV, tên, email, điện thoại,
-ghi chú tự do và định danh ứng viên không đi vào webhook hay nhật ký gửi.
+chỉ dùng trường có trong schema của sự kiện. CV, tên ứng viên, email,
+điện thoại, ghi chú tự do và ID ứng viên trực tiếp không đi vào webhook
+hay nhật ký gửi. Link hồ sơ phải đi qua xác thực, phân quyền trong ATS.
 n8n không trực tiếp truy cập DB ATS, đổi stage, gửi email từ chối, gửi
 offer, xóa hồ sơ hoặc tự quyết định loại ứng viên. T41–T43 cần duyệt riêng.
 

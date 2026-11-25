@@ -1,5 +1,11 @@
 # 07 · Bảo mật và dữ liệu cá nhân
 
+T36 giới hạn principal dịch vụ vào các scope được liệt kê trong spec 09.
+Token ngẫu nhiên 256 bit lưu bằng SHA-256, có hạn dùng và thu hồi được.
+Scope và quyền hiện hành của tài khoản bảo trợ đều được kiểm. API nghiệp vụ
+của trình duyệt vẫn yêu cầu session và CSRF hiện hành. Audit chỉ giữ ID
+token, scope và kết quả cấp quyền.
+
 CV là dữ liệu cá nhân, thuộc phạm vi Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 và Nghị định 356/2025/NĐ-CP. Phần pháp lý cần pháp chế xác nhận trước khi chạy thật; code phải sẵn các cơ chế dưới đây.
 
 ## Phân quyền
