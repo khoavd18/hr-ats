@@ -1,6 +1,7 @@
 # Skill và cấu hình riêng của công cụ phát triển
 /.agents/
 /.claude/
+/CLAUDE.md
 .probe
 
 # Cấu hình cá nhân và secret
@@ -16,6 +17,7 @@
 /src/ai/dist/
 /scripts/var/
 /var/
+/docs/assets/hr-ats-social-preview.png
 
 # Dependency và cache
 node_modules/

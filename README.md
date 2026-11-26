@@ -6,8 +6,6 @@ _Ảnh chụp giao diện với dữ liệu minh họa._
 
 Hệ thống tuyển dụng có AI lọc CV cho HR. Kế hoạch: `docs/product/plan.md`. Quy tắc cho AI agent: `AGENTS.md`.
 
-Agent skills là cài đặt cục bộ từ thư viện `D:\code\ai_skills` (v1.7.1, quản lý bằng `skills_manager.py`). Git bỏ qua `.agents/` và `.claude/`. Quy tắc dự án nằm trong `AGENTS.md` và `docs/`.
-
 ## Cấu trúc dự án
 
 | Thư mục | Nội dung và đầu ra cục bộ |

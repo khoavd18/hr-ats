@@ -20,7 +20,7 @@
 ## Cấu trúc repo
 ```
 hr-ats/
-├── AGENTS.md / CLAUDE.md          # quy tắc phát triển
+├── AGENTS.md                      # quy tắc phát triển
 ├── docker-compose.yml             # hạ tầng dev
 ├── docker-compose.prod.yml        # hạ tầng và app production
 ├── .env.example
