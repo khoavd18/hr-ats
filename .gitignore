@@ -1,6 +1,8 @@
 # Skill và cấu hình riêng của công cụ phát triển
+/.agent/
 /.agents/
 /.claude/
+/.codex/
 /CLAUDE.md
 .probe
 
