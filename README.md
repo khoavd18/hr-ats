@@ -18,20 +18,22 @@ Chạy lệnh của từng thành phần trong thư mục tương ứng. Công c
 
 Khi cập nhật từ bố cục cũ, chạy `uv sync --frozen` trong `src/backend/`. Nếu đã di chuyển cả `.venv`, thêm `--reinstall` để tạo lại các lệnh trong môi trường Python. Với storage local mặc định, dừng API và worker rồi chuyển `var/storage` cũ vào `src/backend/var/storage` nếu đích chưa có dữ liệu. Nếu đích đã có dữ liệu, kiểm tra hai thư mục trước khi gộp. Giá trị `STORAGE_LOCAL_DIR=var/storage` trong `.env` tự trỏ đến vị trí mới. Các đường dẫn tuỳ chỉnh tiếp tục dùng quy ước cũ.
 
-## Demo nhanh
+## Quick start
 
 ASSUMED: máy dev có Docker Desktop chạy Linux containers, Python 3.12 + `uv` 0.13 trở lên,
-Node.js 22.14 trở lên và các cổng localhost 5432/6379/1025/8025/8000/3000 còn trống.
+Node.js 22.14 trở lên và các cổng localhost 5432/6379/8000/3000 còn trống.
 Demo dùng toàn bộ dữ liệu giả, `FakeLLM`, `FakeEmbedder`, storage local, không cần
 API key, model tải về hay Tesseract. Không dùng tài khoản demo cho môi trường thật.
 
-Từ repo sạch, tại thư mục gốc (PowerShell):
+**Terminal 1 — clone, cài backend và khởi động API (PowerShell)**
 
 ```powershell
+git clone https://github.com/khoavd18/hr-ats.git
+Set-Location hr-ats
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
-docker compose up -d db redis mailpit
-cd src/backend
-uv sync
+docker compose up -d --wait db redis
+Set-Location src/backend
+uv sync --frozen
 uv run alembic upgrade head
 uv run python -m app.scripts.seed
 uv run uvicorn app.main:app --reload
@@ -48,21 +50,22 @@ mật khẩu, cấp lại quyền hay tạo bằng chứng đồng ý. Lỗi gi�
 lại sau khi sửa môi trường. Các bảng interview/offer/placement/task/email mẫu
 được bổ sung theo T21–T23/T25, chưa có trong M1 (câu hỏi #66).
 
-Terminal thứ hai, từ thư mục gốc, chạy worker để xử lý các CV tải thêm:
+**Terminal 2 — cài frontend và khởi động web từ thư mục `hr-ats`**
 
 ```powershell
-cd src/backend
+Set-Location src/frontend
+npm ci
+npm run dev
+```
+
+**Terminal 3 — xử lý CV mới từ thư mục `hr-ats`**
+
+```powershell
+Set-Location src/backend
 uv run celery -A app.workers.celery_app worker -Q ai,email,default -l info -P solo
 ```
 
-Linux/macOS bỏ `-P solo`. Terminal thứ ba, từ thư mục gốc:
-
-```powershell
-cd src/frontend
-npm ci
-npx playwright install chromium
-npm run dev
-```
+Linux/macOS bỏ `-P solo`.
 
 Mở <http://localhost:3000/login>, đăng nhập `dev-recruiter@example.invalid`,
 mật khẩu **`synthetic-dev-password`**. Seed cũng in tài khoản admin/lead/
@@ -82,6 +85,7 @@ Playwright (từ thư mục gốc):
 
 ```powershell
 cd src/frontend
+npx playwright install chromium
 npx playwright test m1-smoke.spec.ts
 ```
 
@@ -577,3 +581,7 @@ Xem [cách bật, chạy thử và tạm dừng](docs/specs/09-integrations.md).
 Seed dev, pytest và đánh giá AI tự sinh 60 CV giả DOCX/PDF, nhãn parse và năm Job mẫu vào `src/ai/var/sample_cvs/` ở lần đầu cần dùng. Git lưu mã sinh, font và checksum của bộ mẫu. CV thật đặt ngoài repo hoặc trong vùng storage backend đã được Git bỏ qua. Giữ API key và cấu hình cá nhân trong `.env`.
 
 Có thể sinh bộ mẫu thủ công tại `src/backend/` bằng `uv run python -m hr_ats_ai.eval.generate_synthetic_cvs`. Sau khi cài dependency đã khóa, lệnh chạy offline với font OFL có sẵn. Xem schema, kịch bản nhãn và cách kiểm tra tái lập trong [hướng dẫn dữ liệu mẫu AI](src/ai/README.md).
+
+## Giấy phép
+
+Mã nguồn HR-ATS dùng [giấy phép MIT](LICENSE). Font Noto Sans đi kèm tiếp tục theo [SIL Open Font License](src/ai/hr_ats_ai/eval/assets/OFL.txt).
